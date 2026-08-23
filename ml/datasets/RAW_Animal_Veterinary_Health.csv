@@ -1,0 +1,611 @@
+Animal_ID;Species;Breed;Age_Years;Weight_kg;Mating_Date;Estimated_Delivery_Date;Pregnancy_Status;Body_Temperature_F;Discharge_Type;Behavior_Change;Appetite_Change;Fetal_Heart_Sound;Vomiting;Brucella_Test_Result;Toxoplasma_Test_Result
+ANML001;Cat;Siamese;3,1;4,2;08/06/2025;12/08/2025;Yes;100,7;Bloody;Aggressive;Normal;Detected;Yes;Positive;Negative
+ANML002;Cat;Maine Coon;2,4;6,5;18/05/2025;22/07/2025;Yes;102,7;Purulent;Nesting;Normal;Detected;No;Not Done;Not Done
+ANML003;Cat;Maine Coon;2,7;7;23/05/2025;27/07/2025;Yes;101,1;Purulent;Restless;Increased;Detected;Yes;Positive;Positive
+ANML004;Cat;Maine Coon;3,9;7,5;12/05/2025;16/07/2025;Yes;102,7;None;Nesting;Normal;Detected;No;Not Done;Negative
+ANML005;Cat;Siamese;6;4,8;23/06/2025;27/08/2025;Yes;100,1;Purulent;Restless;Normal;Detected;Yes;Not Done;Positive
+ANML006;Cat;Siamese;7,8;5,2;08/06/2025;12/08/2025;Yes;102;Clear;Aggressive;Normal;Detected;Yes;Positive;Not Done
+ANML007;Cat;Persian;7,8;5;14/06/2025;18/08/2025;Yes;101,4;Clear;Restless;Decreased;Not Detected;No;Positive;Negative
+ANML008;Cat;Persian;2,3;3,5;26/06/2025;30/08/2025;Yes;100,2;Bloody;Aggressive;Decreased;Detected;Yes;Positive;Positive
+ANML009;Cat;Siamese;3;4,4;21/05/2025;25/07/2025;Yes;100;Bloody;Normal;Decreased;Detected;No;Negative;Positive
+ANML010;Cat;Maine Coon;6,8;8;26/06/2025;30/08/2025;Yes;100,6;Clear;Nesting;Normal;Detected;Yes;Positive;Not Done
+ANML011;Cat;Persian;6,6;4,8;11/06/2025;15/08/2025;Yes;102;Bloody;Nesting;Increased;Not Detected;No;Not Done;Not Done
+ANML017;Cow;Holstein;4,1;600;01/05/2025;05/02/2026;Yes;102,9;Bloody;Normal;Increased;Detected;No;Not Done;Negative
+ANML018;Cow;Holstein;4,7;650;08/05/2025;12/02/2026;Yes;102,1;Bloody;Lethargic;Normal;Detected;Yes;Positive;Positive
+ANML019;Cow;Jersey;6,4;450;26/06/2025;02/04/2026;Yes;103,3;Clear;Aggressive;Decreased;Not Detected;Yes;Not Done;Positive
+ANML020;Cow;Holstein;3,2;580,73;31/05/2025;07/03/2026;Yes;103,5;None;Restless;Increased;Detected;Yes;Negative;Positive
+ANML021;Cow;Gir;4,9;400,92;30/06/2025;06/04/2026;Yes;101,6;Purulent;Lethargic;Decreased;Not Detected;No;Positive;Positive
+ANML022;Cow;Jersey;1,9;200;08/06/2025;15/03/2026;Yes;100,2;None;Restless;Increased;Detected;Yes;Positive;Positive
+ANML023;Cow;Jersey;5,9;440,44;18/05/2025;22/02/2026;Yes;102,8;Purulent;Nesting;Normal;Not Detected;No;Positive;Not Done
+ANML024;Cow;Holstein;3,3;590;27/06/2025;03/04/2026;Yes;101,9;None;Nesting;Decreased;Not Detected;Yes;Not Done;Negative
+ANML028;Dog;Labrador;7,2;30;13/05/2025;15/07/2025;Yes;100,2;None;Aggressive;Normal;Detected;Yes;Negative;Not Done
+ANML029;Dog;Labrador;2,8;28,45;09/05/2025;11/07/2025;Yes;101,4;Purulent;Normal;Normal;Detected;No;Positive;Positive
+ANML030;Dog;German Shepherd;7,2;35;15/05/2025;17/07/2025;Yes;101,1;Bloody;Lethargic;Increased;Not Detected;No;Not Done;Positive
+ANML031;Dog;German Shepherd;5;34;19/05/2025;21/07/2025;Yes;103,3;Bloody;Nesting;Decreased;Detected;No;Negative;Negative
+ANML032;Dog;Beagle;5,1;13;23/05/2025;25/07/2025;Yes;102,5;Bloody;Nesting;Increased;Detected;No;Positive;Positive
+ANML033;Dog;Labrador;3,8;31,99;01/05/2025;03/07/2025;Yes;100,1;Bloody;Normal;Decreased;Detected;No;Negative;Positive
+ANML034;Dog;German Shepherd;7;36;23/06/2025;25/08/2025;Yes;100,1;Purulent;Restless;Increased;Detected;Yes;Negative;Positive
+ANML035;Dog;Beagle;7,9;14;12/05/2025;14/07/2025;Yes;103,5;Clear;Lethargic;Increased;Not Detected;No;Not Done;Not Done
+ANML036;Dog;Labrador;6,2;32;09/05/2025;11/07/2025;Yes;101,4;Clear;Nesting;Increased;Detected;Yes;Not Done;Not Done
+ANML037;Dog;Labrador;7,1;30;01/05/2025;03/07/2025;Yes;101,7;Purulent;Normal;Increased;Detected;Yes;Positive;Negative
+ANML038;Dog;German Shepherd;6,4;33,5;23/05/2025;25/07/2025;Yes;101,6;Bloody;Lethargic;Increased;Detected;Yes;Positive;Positive
+ANML039;Dog;German Shepherd;4,2;30;25/06/2025;27/08/2025;Yes;101,5;Clear;Restless;Increased;Detected;Yes;Negative;Negative
+ANML040;Dog;Labrador;2,1;26;08/05/2025;10/07/2025;Yes;103,3;Bloody;Normal;Increased;Detected;Yes;Positive;Negative
+ANML041;Dog;Labrador;6,1;32;13/06/2025;15/08/2025;Yes;103,4;Clear;Normal;Normal;Detected;No;Positive;Not Done
+ANML042;Dog;Beagle;6,1;12,5;23/06/2025;25/08/2025;Yes;103,4;Purulent;Nesting;Normal;Detected;Yes;Not Done;Positive
+ANML043;Dog;Beagle;6,2;13;05/05/2025;07/07/2025;Yes;102,2;Bloody;Normal;Increased;Detected;Yes;Positive;Positive
+ANML044;Dog;Labrador;7,7;34,4;10/05/2025;12/07/2025;Yes;101,4;None;Normal;Decreased;Detected;No;Negative;Not Done
+ANML045;Dog;Labrador;6,5;32,5;02/06/2025;04/08/2025;Yes;101,6;None;Nesting;Increased;Detected;Yes;Negative;Negative
+ANML047;Goat;Nubian;6;75;27/05/2025;24/10/2025;Yes;101,4;None;Nesting;Normal;Not Detected;Yes;Positive;Positive
+ANML048;Goat;Boer;5,1;110;06/05/2025;03/10/2025;Yes;102,2;Purulent;Restless;Normal;Detected;No;Negative;Negative
+ANML049;Goat;Boer;6,3;120;10/06/2025;07/11/2025;Yes;102,5;Bloody;Aggressive;Increased;Detected;No;Negative;Positive
+ANML050;Goat;Boer;1,4;40;15/05/2025;12/10/2025;Yes;101,8;Purulent;Aggressive;Increased;Detected;No;Not Done;Negative
+ANML051;Goat;Alpine;3,9;65,13;18/05/2025;15/10/2025;Yes;101,4;Bloody;Lethargic;Increased;Detected;No;Not Done;Not Done
+ANML052;Goat;Boer;2,3;60;15/05/2025;12/10/2025;Yes;100,2;None;Restless;Decreased;Detected;No;Negative;Positive
+ANML053;Goat;Boer;5,2;11512;02/05/2025;29/09/2025;Yes;100,2;Clear;Nesting;Decreased;Detected;Yes;Not Done;Not Done
+ANML054;Goat;Boer;7,8;118,34;26/05/2025;23/10/2025;Yes;101,2;Bloody;Normal;Increased;Detected;Yes;Positive;Negative
+ANML061;Cat;Siamese;1,3;5,1;09/06/2025;13/08/2025;Yes;101,8;Bloody;Aggressive;Normal;Detected;No;Not Done;Negative
+ANML062;Goat;Alpine;6;74,28;03/06/2025;31/10/2025;Yes;100,4;Purulent;Restless;Normal;Detected;Yes;Not Done;Negative
+ANML063;Dog;Beagle;7,2;12,5;21/05/2025;23/07/2025;Yes;101,5;None;Aggressive;Decreased;Not Detected;Yes;Positive;Negative
+ANML064;Goat;Nubian;7,1;77,5;22/06/2025;19/11/2025;Yes;102,2;Clear;Restless;Decreased;Detected;No;Negative;Not Done
+ANML065;Cow;Gir;8;398,9;28/06/2025;04/04/2026;Yes;102;Bloody;Aggressive;Normal;Not Detected;No;Negative;Negative
+ANML066;Goat;Boer;6;108,75;23/06/2025;20/11/2025;Yes;100,9;Clear;Restless;Decreased;Detected;No;Not Done;Negative
+ANML067;Cow;Jersey;7,1;500;31/05/2025;07/03/2026;Yes;100,7;Clear;Normal;Increased;Detected;No;Positive;Negative
+ANML068;Goat;Alpine;1,3;73,9;07/05/2025;04/10/2025;Yes;102,2;None;Lethargic;Increased;Detected;No;Negative;Negative
+ANML069;Dog;German Shepherd;5,8;40,1;05/05/2025;07/07/2025;Yes;102,4;Purulent;Aggressive;Normal;Not Detected;Yes;Not Done;Negative
+ANML070;Cat;Siamese;6,7;4,9;04/05/2025;08/07/2025;Yes;100,9;Bloody;Restless;Increased;Detected;No;Negative;Positive
+ANML071;Cow;Jersey;7,8;589;30/05/2025;06/03/2026;Yes;103,4;None;Nesting;Decreased;Detected;Yes;Negative;Not Done
+ANML072;Cat;Maine Coon;4,4;6,9;05/05/2025;09/07/2025;Yes;103,1;Clear;Restless;Normal;Not Detected;Yes;Not Done;Positive
+ANML073;Cat;Maine Coon;3,9;6,1;14/06/2025;18/08/2025;Yes;103,4;Clear;Aggressive;Decreased;Not Detected;Yes;Negative;Not Done
+ANML074;Dog;German Shepherd;3,6;31,3;18/06/2025;20/08/2025;Yes;103,2;Clear;Nesting;Decreased;Detected;No;Positive;Negative
+ANML075;Dog;Labrador;7;35,6;21/06/2025;23/08/2025;Yes;100,9;None;Nesting;Increased;Detected;Yes;Not Done;Not Done
+ANML076;Cat;Maine Coon;6,4;6,4;17/05/2025;21/07/2025;Yes;101,2;Bloody;Restless;Normal;Detected;Yes;Positive;Not Done
+ANML077;Cat;Maine Coon;6,7;6,2;18/06/2025;22/08/2025;Yes;103,5;Bloody;Lethargic;Normal;Detected;No;Negative;Negative
+ANML078;Dog;German Shepherd;6,4;35,6;08/05/2025;10/07/2025;Yes;100,1;Purulent;Nesting;Normal;Not Detected;No;Not Done;Negative
+ANML079;Cow;Holstein;2,5;425,9;27/06/2025;03/04/2026;Yes;101,5;None;Nesting;Normal;Detected;No;Not Done;Negative
+ANML080;Goat;Nubian;7,2;77,65;29/05/2025;26/10/2025;Yes;101,2;Purulent;Nesting;Normal;Not Detected;No;Negative;Negative
+ANML081;Cat;Siamese;7;5,6;14/06/2025;18/08/2025;Yes;101,5;Purulent;Aggressive;Normal;Not Detected;Yes;Not Done;Not Done
+ANML082;Cow;Holstein;1,7;145,5;29/06/2025;05/04/2026;Yes;101,6;Clear;Normal;Increased;Detected;No;Negative;Negative
+ANML083;Dog;Labrador;3,2;34,7;09/05/2025;11/07/2025;Yes;102,6;None;Normal;Normal;Detected;No;Positive;Negative
+ANML084;Cow;Jersey;6,9;567;02/05/2025;06/02/2026;Yes;102,7;Clear;Restless;Normal;Detected;Yes;Negative;Positive
+ANML085;Dog;Labrador;1,2;29,7;12/05/2025;14/07/2025;Yes;102,5;Bloody;Lethargic;Normal;Detected;No;Positive;Not Done
+ANML086;Cat;Persian;6,5;4,9;07/06/2025;11/08/2025;Yes;100,4;Clear;Nesting;Increased;Detected;Yes;Positive;Negative
+ANML087;Cat;Siamese;1,1;4,1;01/06/2025;05/08/2025;Yes;102,7;None;Restless;Normal;Detected;No;Positive;Not Done
+ANML088;Cow;Jersey;3,4;456;05/05/2025;09/02/2026;Yes;102;None;Lethargic;Decreased;Detected;Yes;Positive;Positive
+ANML089;Goat;Boer;1,2;109,28;30/06/2025;27/11/2025;Yes;103,1;Clear;Aggressive;Increased;Detected;No;Not Done;Positive
+ANML090;Cow;Jersey;2,7;218,6;24/06/2025;31/03/2026;Yes;101,8;Bloody;Restless;Increased;Detected;Yes;Negative;Not Done
+ANML091;Goat;Nubian;7;78,1;30/06/2025;27/11/2025;Yes;100,1;None;Restless;Normal;Detected;No;Not Done;Not Done
+ANML092;Cat;Persian;1,6;4,3;04/06/2025;08/08/2025;Yes;101,3;None;Nesting;Normal;Not Detected;Yes;Negative;Negative
+ANML093;Dog;Labrador;2,9;31,7;28/05/2025;30/07/2025;Yes;102,7;Bloody;Aggressive;Increased;Detected;Yes;Negative;Positive
+ANML094;Dog;German Shepherd;3,6;37,8;12/05/2025;14/07/2025;Yes;102,8;Bloody;Normal;Decreased;Not Detected;Yes;Positive;Positive
+ANML095;Cat;Persian;3,9;4,5;29/05/2025;02/08/2025;Yes;103,5;Purulent;Aggressive;Increased;Detected;No;Positive;Positive
+ANML096;Dog;Beagle;5,7;15,7;06/05/2025;08/07/2025;Yes;103,2;Purulent;Lethargic;Decreased;Not Detected;No;Positive;Negative
+ANML097;Dog;Labrador;2,1;32,7;12/05/2025;14/07/2025;Yes;101,6;None;Normal;Increased;Detected;No;Negative;Negative
+ANML098;Dog;German Shepherd;1,7;32;06/06/2025;08/08/2025;Yes;100,6;Purulent;Lethargic;Increased;Not Detected;Yes;Negative;Negative
+ANML099;Cat;Siamese;4,4;5,4;11/06/2025;15/08/2025;Yes;101,1;Clear;Restless;Normal;Detected;No;Positive;Not Done
+ANML100;Goat;Alpine;3,6;72,99;26/06/2025;23/11/2025;Yes;102,2;Bloody;Normal;Increased;Detected;Yes;Negative;Negative
+ANML101;Goat;Boer;7,6;109,37;03/06/2025;31/10/2025;Yes;101,6;Bloody;Aggressive;Normal;Not Detected;Yes;Positive;Not Done
+ANML102;Cow;Gir;5,1;498;06/06/2025;13/03/2026;Yes;100,2;Purulent;Nesting;Increased;Not Detected;Yes;Negative;Negative
+ANML103;Goat;Boer;3;108,78;15/06/2025;12/11/2025;Yes;100,2;None;Normal;Normal;Detected;No;Negative;Not Done
+ANML104;Cow;Holstein;6,1;484;28/05/2025;04/03/2026;Yes;102,6;Purulent;Aggressive;Increased;Not Detected;No;Positive;Negative
+ANML105;Cow;Gir;7,9;612;20/05/2025;24/02/2026;Yes;103,1;Purulent;Normal;Increased;Detected;Yes;Positive;Positive
+ANML106;Goat;Nubian;5,6;79,24;27/06/2025;24/11/2025;Yes;101,2;Bloody;Normal;Decreased;Detected;Yes;Not Done;Positive
+ANML107;Goat;Alpine;4,1;72,68;14/05/2025;11/10/2025;Yes;100,5;Clear;Aggressive;Decreased;Not Detected;No;Negative;Negative
+ANML108;Dog;Labrador;4,6;35;28/05/2025;30/07/2025;Yes;100,9;Bloody;Restless;Normal;Detected;Yes;Not Done;Negative
+ANML109;Cat;Maine Coon;4,7;6,99;28/06/2025;01/09/2025;Yes;102,2;None;Lethargic;Increased;Detected;Yes;Not Done;Negative
+ANML110;Goat;Boer;6,9;110,01;20/05/2025;17/10/2025;Yes;102;None;Restless;Normal;Detected;No;Not Done;Not Done
+ANML111;Cow;Holstein;6,3;613;28/05/2025;04/03/2026;Yes;100,3;Bloody;Lethargic;Increased;Detected;No;Negative;Negative
+ANML112;Goat;Alpine;7,4;73,35;15/05/2025;12/10/2025;Yes;102,8;Purulent;Aggressive;Normal;Not Detected;Yes;Negative;Negative
+ANML113;Cow;Jersey;6;629;19/05/2025;23/02/2026;Yes;100,5;Purulent;Lethargic;Decreased;Detected;No;Not Done;Positive
+ANML114;Cat;Maine Coon;2,2;6,1;04/05/2025;08/07/2025;Yes;103;Purulent;Normal;Decreased;Detected;Yes;Positive;Negative
+ANML115;Cow;Gir;2,8;322,2;14/06/2025;21/03/2026;Yes;102,8;None;Restless;Decreased;Detected;No;Negative;Negative
+ANML131;Rabbit;New Zealand White;0,8;3,1;21/04/2025;22/05/2025;Yes;100,6;None;Nesting;Normal;Not Detected;Yes;Positive;Positive
+ANML135;Horse;Thoroughbred;11,8;513,4;20/03/2025;23/02/2026;Yes;101,5;Purulent;Lethargic;Normal;Not Detected;No;Positive;Not Done
+ANML137;Pig;Yorkshire;8,4;355,9;09/03/2025;02/07/2025;Yes;100,9;None;Lethargic;Increased;Not Detected;Yes;Positive;Not Done
+ANML138;Rabbit;Dutch;2,9;2,3;20/06/2025;21/07/2025;Yes;100,6;Clear;Restless;Decreased;Not Detected;No;Not Done;Negative
+ANML142;Horse;Arabian;6,7;467,5;08/07/2025;13/06/2026;Yes;103,7;Bloody;Aggressive;Normal;Detected;No;Negative;Positive
+ANML146;Horse;Thoroughbred;1,3;243,9;27/06/2025;02/06/2026;Yes;100,9;Clear;Nesting;Decreased;Not Detected;Yes;Negative;Negative
+ANML149;Horse;Arabian;11,6;555,9;24/04/2025;30/03/2026;Yes;100,7;Purulent;Aggressive;Normal;Not Detected;Yes;Positive;Negative
+ANML151;Rabbit;Flemish Giant;1,2;6,9;07/03/2025;07/04/2025;Yes;102,3;Clear;Normal;Decreased;Detected;Yes;Positive;Not Done
+ANML153;Rabbit;Flemish Giant;4,1;7,5;28/03/2025;28/04/2025;Yes;102,7;Bloody;Aggressive;Increased;Detected;Yes;Negative;Not Done
+ANML154;Pig;Yorkshire;1,3;129,1;01/05/2025;24/08/2025;Yes;100,5;Bloody;Normal;Normal;Not Detected;No;Positive;Negative
+ANML156;Pig;Yorkshire;3,6;323,5;21/05/2025;13/09/2025;Yes;100,8;Bloody;Nesting;Increased;Not Detected;Yes;Positive;Not Done
+ANML157;Goat;Nubian;1;51,1;28/03/2025;25/08/2025;Yes;102,5;Bloody;Restless;Decreased;Not Detected;No;Not Done;Positive
+ANML162;Horse;Arabian;3,1;396,5;05/06/2025;11/05/2026;Yes;101,3;None;Lethargic;Increased;Not Detected;No;Positive;Positive
+ANML165;Rabbit;Dutch;7,7;2,5;26/03/2025;26/04/2025;Yes;102,9;Bloody;Nesting;Increased;Not Detected;No;Negative;Not Done
+ANML170;Rabbit;New Zealand White;10,8;5,5;22/03/2025;22/04/2025;Yes;103,1;Clear;Restless;Decreased;Not Detected;Yes;Not Done;Positive
+ANML172;Horse;Thoroughbred;5,7;551,4;04/05/2025;09/04/2026;Yes;103,1;Purulent;Restless;Increased;Not Detected;Yes;Not Done;Negative
+ANML178;Horse;Thoroughbred;3,7;470,8;10/06/2025;16/05/2026;Yes;101;None;Aggressive;Normal;Detected;No;Positive;Not Done
+ANML201;Cat;Persian;7,7;4,9;28/06/2025;29/08/2025;Yes;101,3;Bloody;Normal;Normal;Not Detected;Yes;Positive;Not Done
+ANML203;Cat;Maine Coon;2,9;6,4;07/05/2025;07/07/2025;Yes;102,7;Clear;Aggressive;Decreased;Detected;No;Negative;Not Done
+ANML204;Cow;Jersey;6;444,6;12/05/2025;28/01/2026;Yes;101,5;Clear;Aggressive;Increased;Not Detected;Yes;Negative;Positive
+ANML210;Cat;Maine Coon;2,1;7,2;29/06/2025;30/08/2025;Yes;102,6;None;Restless;Normal;Not Detected;Yes;Positive;Not Done
+ANML211;Goat;Boer;6,4;99,5;29/04/2025;30/05/2025;Yes;102,4;None;Aggressive;Decreased;Detected;No;Not Done;Positive
+ANML213;Cow;Jersey;4,2;458,7;14/05/2025;14/03/2026;Yes;102,8;Bloody;Normal;Normal;Not Detected;Yes;Not Done;Negative
+ANML215;Cat;Maine Coon;2,9;6,1;29/04/2025;30/06/2025;Yes;102,2;None;Aggressive;Increased;Not Detected;Yes;Not Done;Not Done
+ANML220;Goat;Boer;3,6;110,2;07/06/2025;08/11/2025;Yes;100,5;None;Restless;Increased;Detected;Yes;Not Done;Negative
+ANML221;Cat;Maine Coon;4,5;7,5;17/05/2025;17/07/2025;Yes;102,9;None;Aggressive;Increased;Not Detected;Yes;Negative;Negative
+ANML226;Goat;Nubian;6,1;83;19/05/2025;19/10/2025;Yes;103,2;None;Aggressive;Decreased;Detected;Yes;Not Done;Not Done
+ANML227;Cow;Jersey;6;427,7;02/07/2025;02/04/2026;Yes;101,4;Clear;Restless;Increased;Not Detected;No;Positive;Negative
+ANML228;Dog;German Shepherd;1,9;33,5;26/05/2025;26/07/2025;Yes;102,4;Clear;Normal;Decreased;Detected;No;Negative;Positive
+ANML229;Cat;Siamese;1;4;27/04/2025;28/06/2025;Yes;101,8;Bloody;Restless;Increased;Detected;Yes;Positive;Positive
+ANML230;Cow;Jersey;3,1;320,5;09/06/2025;10/03/2026;Yes;100,9;Bloody;Restless;Decreased;Not Detected;No;Positive;Negative
+ANML232;Dog;German Shepherd;4,4;29,4;23/06/2025;24/08/2025;Yes;100,9;Bloody;Nesting;Normal;Detected;No;Not Done;Not Done
+ANML234;Cat;Siamese;1,2;4,4;21/06/2025;22/08/2025;Yes;100,8;Clear;Restless;Decreased;Detected;No;Not Done;Negative
+ANML237;Cow;Jersey;2,9;290,7;08/06/2025;09/03/2026;Yes;100,7;Clear;Aggressive;Increased;Not Detected;Yes;Negative;Positive
+ANML238;Cow;Jersey;4,9;477,5;09/05/2025;09/02/2026;Yes;102,9;None;Restless;Decreased;Detected;No;Not Done;Negative
+ANML239;Goat;Nubian;6,2;72,4;20/05/2025;20/10/2025;Yes;103,4;None;Nesting;Normal;Detected;No;Positive;Positive
+ANML241;Cat;Maine Coon;4,4;7,5;17/05/2025;17/07/2025;Yes;101,7;None;Nesting;Decreased;Detected;Yes;Negative;Not Done
+ANML245;Dog;Beagle;3,4;12,7;13/05/2025;13/07/2025;Yes;103,3;None;Aggressive;Normal;Not Detected;Yes;Not Done;Negative
+ANML246;Cow;Jersey;6;431,8;21/06/2025;22/02/2026;Yes;101,4;None;Nesting;Increased;Not Detected;No;Negative;Not Done
+ANML248;Dog;Labrador Retriever;3,8;28,7;24/05/2025;24/07/2025;Yes;101,9;Clear;Normal;Decreased;Detected;No;Negative;Not Done
+ANML249;Cow;Jersey;7,9;451;04/05/2025;04/02/2026;Yes;102,1;Bloody;Normal;Normal;Detected;No;Positive;Negative
+ANML250;Cow;Jersey;3,4;318,7;16/06/2025;17/03/2026;Yes;100,6;None;Aggressive;Increased;Detected;Yes;Positive;Not Done
+ANML256;Goat;Boer;5,5;108,9;17/05/2025;17/10/2025;Yes;100,7;Clear;Nesting;Increased;Not Detected;No;Negative;Negative
+ANML257;Dog;German Shepherd;5,4;32,3;02/06/2025;03/08/2025;Yes;103,2;None;Restless;Decreased;Detected;No;Not Done;Positive
+ANML258;Dog;Beagle;1,8;11,6;08/06/2025;09/08/2025;Yes;102,4;Clear;Aggressive;Decreased;Detected;No;Not Done;Positive
+ANML260;Dog;German Shepherd;6,3;34,7;01/07/2025;01/09/2025;Yes;102,1;None;Restless;Decreased;Not Detected;No;Positive;Positive
+ANML264;Goat;Alpine;5;51;05/07/2025;05/12/2025;Yes;101,1;None;Restless;Decreased;Detected;No;Positive;Negative
+ANML268;Cat;Maine Coon;4,8;7;19/06/2025;20/08/2025;Yes;100,8;Clear;Restless;Increased;Not Detected;Yes;Positive;Negative
+ANML269;Dog;Beagle;5,7;12,8;31/05/2025;01/08/2025;Yes;100,7;Clear;Aggressive;Increased;Detected;Yes;Negative;Positive
+ANML270;Cat;Siamese;7,1;4,5;24/06/2025;25/08/2025;Yes;100,8;Clear;Aggressive;Normal;Detected;No;Positive;Not Done
+ANML271;Dog;Labrador Retriever;4,4;31,3;31/05/2025;01/08/2025;Yes;102,2;None;Aggressive;Normal;Not Detected;Yes;Positive;Not Done
+ANML272;Cat;Maine Coon;1,7;6;29/04/2025;30/06/2025;Yes;100,9;Clear;Normal;Decreased;Not Detected;No;Negative;Negative
+ANML273;Dog;German Shepherd;3,8;30,2;07/05/2025;07/07/2025;Yes;103,4;Clear;Normal;Increased;Detected;No;Not Done;Positive
+ANML274;Cat;Siamese;5,5;4,2;03/06/2025;04/08/2025;Yes;103;Clear;Nesting;Normal;Not Detected;No;Positive;Not Done
+ANML275;Cat;Maine Coon;3,2;8,4;22/05/2025;22/07/2025;Yes;103,4;Bloody;Aggressive;Normal;Not Detected;No;Not Done;Positive
+ANML277;Cow;Jersey;3,3;316,9;31/05/2025;01/03/2026;Yes;101,4;Bloody;Nesting;Normal;Not Detected;Yes;Positive;Positive
+ANML278;Goat;Alpine;7,2;58,7;29/05/2025;29/10/2025;Yes;100,8;None;Nesting;Increased;Not Detected;No;Not Done;Negative
+ANML280;Dog;Labrador Retriever;7,5;29,6;01/06/2025;02/08/2025;Yes;101,5;Bloody;Normal;Decreased;Detected;No;Negative;Not Done
+ANML282;Cow;Jersey;7,3;442,4;22/05/2025;22/02/2026;Yes;100,7;Bloody;Nesting;Normal;Detected;No;Not Done;Not Done
+ANML283;Cow;Jersey;2,2;211,7;16/06/2025;17/03/2026;Yes;103,1;Clear;Nesting;Decreased;Detected;Yes;Not Done;Negative
+ANML286;Cat;Siamese;3;3,1;14/06/2025;15/08/2025;Yes;101,4;Bloody;Nesting;Decreased;Not Detected;No;Negative;Not Done
+ANML288;Dog;Labrador Retriever;7;28,9;06/06/2025;07/08/2025;Yes;101,2;None;Restless;Normal;Not Detected;Yes;Not Done;Negative
+ANML291;Cat;Maine Coon;2,3;7,2;08/05/2025;08/07/2025;Yes;102,7;Bloody;Aggressive;Normal;Detected;Yes;Negative;Positive
+ANML292;Dog;Beagle;6,9;11,8;03/06/2025;04/08/2025;Yes;102,5;Bloody;Aggressive;Normal;Detected;Yes;Positive;Not Done
+ANML301;Dog;German Shepherd;3,8;29,9;11/05/2025;11/07/2025;Yes;103,1;Clear;Nesting;Normal;Not Detected;No;Negative;Positive
+ANML303;Goat;Nubian;3,8;76,6;14/05/2025;14/10/2025;Yes;103;Clear;Restless;Normal;Not Detected;No;Positive;Positive
+ANML305;Cat;Siamese;2,2;4,9;15/05/2025;15/07/2025;Yes;100,8;Bloody;Aggressive;Increased;Detected;No;Negative;Not Done
+ANML307;Goat;Alpine;4,2;57;10/05/2025;14/10/2025;Yes;102,5;Bloody;Normal;Decreased;Detected;Yes;Not Done;Not Done
+ANML308;Dog;Labrador Retriever;4,6;37,5;01/05/2025;01/07/2025;Yes;101,5;Clear;Normal;Decreased;Not Detected;No;Not Done;Positive
+ANML310;Dog;Labrador Retriever;7,3;34,1;17/05/2025;17/07/2025;Yes;100,7;Clear;Aggressive;Increased;Not Detected;No;Not Done;Positive
+ANML314;Dog;German Shepherd;2,9;29,9;15/06/2025;16/08/2025;Yes;102;Clear;Normal;Increased;Detected;No;Not Done;Positive
+ANML315;Cat;Maine Coon;4,3;7,1;30/06/2025;31/08/2025;Yes;102,1;None;Aggressive;Normal;Not Detected;Yes;Not Done;Positive
+ANML316;Goat;Nubian;5,9;80,6;22/06/2025;23/11/2025;Yes;103;None;Aggressive;Normal;Not Detected;No;Not Done;Positive
+ANML317;Dog;German Shepherd;5;30,6;14/05/2025;14/07/2025;Yes;101,4;Bloody;Restless;Increased;Not Detected;No;Positive;Positive
+ANML318;Goat;Alpine;3,9;61,6;15/05/2025;15/10/2025;Yes;101,5;Bloody;Aggressive;Normal;Detected;No;Negative;Positive
+ANML319;Goat;Nubian;6,4;75,9;10/06/2025;11/11/2025;Yes;101;Clear;Restless;Normal;Detected;No;Negative;Positive
+ANML320;Cat;Persian;2,2;5,6;11/06/2025;12/08/2025;Yes;102,2;Bloody;Restless;Normal;Detected;Yes;Not Done;Not Done
+ANML321;Cow;Jersey;2,9;296,1;27/06/2025;02/04/2026;Yes;100,9;Bloody;Aggressive;Normal;Detected;No;Negative;Negative
+ANML323;Cow;Jersey;4,1;487,2;06/07/2025;16/04/2026;Yes;101,6;Clear;Nesting;Normal;Detected;Yes;Negative;Not Done
+ANML326;Cat;Siamese;7,6;4,3;14/06/2025;15/08/2025;Yes;101,6;None;Nesting;Increased;Detected;Yes;Negative;Positive
+ANML329;Cow;Jersey;6,9;464,7;09/06/2025;15/03/2026;Yes;103,3;Clear;Aggressive;Normal;Not Detected;Yes;Negative;Not Done
+ANML330;Cat;Persian;6,4;5,3;29/06/2025;30/08/2025;Yes;101,8;None;Aggressive;Decreased;Not Detected;No;Not Done;Not Done
+ANML331;Cat;Siamese;3,6;4,7;05/05/2025;05/07/2025;Yes;103;None;Normal;Normal;Not Detected;No;Not Done;Positive
+ANML332;Dog;Beagle;7,8;11;21/05/2025;21/07/2025;Yes;103,4;Bloody;Aggressive;Increased;Not Detected;No;Negative;Negative
+ANML333;Cat;Persian;1;5,1;28/05/2025;28/07/2025;Yes;102,6;Bloody;Aggressive;Increased;Not Detected;Yes;Positive;Positive
+ANML335;Goat;Alpine;2,1;56,1;02/07/2025;02/12/2025;Yes;101,6;Clear;Restless;Increased;Not Detected;Yes;Positive;Positive
+ANML337;Cow;Jersey;3;215,4;03/06/2025;04/03/2026;Yes;100,8;Bloody;Aggressive;Decreased;Detected;No;Not Done;Not Done
+ANML338;Dog;German Shepherd;3,9;30,7;08/05/2025;08/07/2025;Yes;101;None;Aggressive;Increased;Detected;No;Not Done;Positive
+ANML341;Dog;Labrador Retriever;4,1;28,9;08/05/2025;08/07/2025;Yes;102,5;Clear;Normal;Increased;Not Detected;Yes;Not Done;Positive
+ANML343;Goat;Boer;6,7;124,6;18/06/2025;19/11/2025;Yes;103,1;Clear;Nesting;Decreased;Not Detected;No;Negative;Positive
+ANML349;Dog;German Shepherd;1,7;30,8;28/04/2025;29/06/2025;Yes;102,1;None;Restless;Decreased;Detected;Yes;Negative;Not Done
+ANML350;Goat;Boer;6,8;103,8;26/05/2025;26/10/2025;Yes;101,4;None;Nesting;Increased;Detected;Yes;Positive;Positive
+ANML352;Cat;Siamese;2,8;5,3;11/05/2025;11/07/2025;Yes;101,6;Clear;Restless;Decreased;Not Detected;Yes;Not Done;Negative
+ANML353;Goat;Boer;5,7;116,5;20/06/2025;21/11/2025;Yes;103,2;Clear;Aggressive;Increased;Detected;Yes;Negative;Not Done
+ANML354;Dog;German Shepherd;5,7;28,9;28/06/2025;29/08/2025;Yes;103,3;Bloody;Aggressive;Normal;Detected;Yes;Negative;Positive
+ANML357;Cat;Maine Coon;2,1;7,3;19/05/2025;19/07/2025;Yes;103;Bloody;Restless;Normal;Detected;Yes;Positive;Negative
+ANML358;Dog;German Shepherd;3,4;33,5;06/05/2025;06/07/2025;Yes;102,2;None;Aggressive;Increased;Detected;No;Positive;Not Done
+ANML365;Cow;Jersey;4,5;334,1;05/07/2025;05/08/2026;Yes;102,9;None;Normal;Increased;Detected;No;Positive;Not Done
+ANML368;Cat;Maine Coon;2,8;6,9;15/06/2025;16/08/2025;Yes;102;Bloody;Nesting;Normal;Detected;No;Negative;Not Done
+ANML369;Cow;Jersey;4,6;384,7;21/05/2025;22/02/2026;Yes;103;Bloody;Restless;Normal;Detected;No;Positive;Negative
+ANML370;Cow;Jersey;6,1;427,8;16/06/2025;17/03/2026;Yes;101,4;Bloody;Restless;Decreased;Not Detected;Yes;Positive;Negative
+ANML374;Cow;Jersey;5,2;458,2;18/06/2025;19/07/2025;Yes;100,9;Bloody;Aggressive;Increased;Not Detected;Yes;Negative;Not Done
+ANML375;Cat;Maine Coon;4,7;8;17/05/2025;17/07/2025;Yes;102,1;None;Nesting;Decreased;Not Detected;Yes;Negative;Not Done
+ANML379;Goat;Nubian;2,9;71,8;08/06/2025;09/11/2025;Yes;102,6;Clear;Aggressive;Normal;Not Detected;Yes;Not Done;Positive
+ANML382;Cow;Jersey;6,3;428,8;09/06/2025;15/03/2026;Yes;102,7;None;Aggressive;Normal;Detected;No;Negative;Not Done
+ANML383;Goat;Boer;7,1;105,5;05/06/2025;06/11/2025;Yes;102;Clear;Aggressive;Increased;Detected;Yes;Negative;Positive
+ANML384;Cat;Persian;2,9;6,3;28/05/2025;28/07/2025;Yes;101,6;None;Normal;Increased;Not Detected;Yes;Positive;Positive
+ANML385;Goat;Alpine;5;55,4;26/06/2025;27/11/2025;Yes;103;Clear;Nesting;Decreased;Not Detected;No;Negative;Negative
+ANML387;Dog;German Shepherd;4,1;32,2;22/05/2025;22/07/2025;Yes;100,7;Clear;Normal;Increased;Detected;No;Negative;Not Done
+ANML388;Dog;Labrador Retriever;4,2;33,3;08/06/2025;09/08/2025;Yes;101,4;Bloody;Normal;Normal;Not Detected;No;Not Done;Positive
+ANML391;Cat;Persian;6,4;4,9;09/05/2025;09/07/2025;Yes;101,2;None;Aggressive;Normal;Detected;Yes;Not Done;Not Done
+ANML393;Cat;Siamese;4,7;4,3;05/06/2025;06/08/2025;Yes;100,9;None;Aggressive;Increased;Detected;No;Positive;Negative
+ANML394;Dog;German Shepherd;7,6;30;03/06/2025;04/08/2025;Yes;100,6;Clear;Aggressive;Normal;Detected;Yes;Positive;Not Done
+ANML395;Dog;German Shepherd;7,7;28,3;16/06/2025;17/08/2025;Yes;102,6;None;Normal;Decreased;Detected;No;Negative;Positive
+ANML399;Goat;Nubian;1,6;69,2;03/07/2025;03/12/2025;Yes;101,3;Clear;Aggressive;Increased;Not Detected;No;Positive;Negative
+ANML411;Cat;Siamese;2,9;4,1;24/05/2025;28/07/2025;Yes;101,5;Bloody;Nesting;Decreased;Detected;Yes;Not Done;Negative
+ANML412;Cat;Persian;4;4,5;03/05/2025;07/07/2025;Yes;100,6;Bloody;Restless;Normal;Detected;Yes;Not Done;Negative
+ANML413;Cat;Siamese;2,6;4,7;02/06/2025;06/08/2025;Yes;101,1;None;Nesting;Normal;Not Detected;Yes;Not Done;Not Done
+ANML414;Cat;Maine Coon;6,1;7,1;24/05/2025;28/07/2025;Yes;101,3;None;Restless;Normal;Not Detected;No;Not Done;Negative
+ANML415;Cat;Persian;3,9;5,8;26/05/2025;30/07/2025;Yes;103,1;Bloody;Restless;Normal;Not Detected;Yes;Positive;Not Done
+ANML416;Cat;Maine Coon;4,2;6,2;05/07/2025;08/09/2025;Yes;103,5;Clear;Normal;Decreased;Detected;No;Not Done;Not Done
+ANML417;Cat;Persian;2,8;3,6;08/06/2025;12/08/2025;Yes;102,6;None;Aggressive;Normal;Not Detected;No;Positive;Not Done
+ANML418;Cat;Persian;3,7;5,6;17/05/2025;21/07/2025;Yes;101,7;Bloody;Restless;Increased;Detected;No;Negative;Negative
+ANML419;Cat;Persian;2,7;4,9;04/06/2025;08/08/2025;Yes;102,8;Clear;Restless;Decreased;Detected;Yes;Negative;Positive
+ANML420;Cat;Maine Coon;3,7;7,2;28/06/2025;01/09/2025;Yes;102,5;None;Aggressive;Increased;Not Detected;Yes;Not Done;Negative
+ANML421;Cat;Maine Coon;2,7;7;21/06/2025;25/08/2025;Yes;101,3;Clear;Normal;Normal;Not Detected;No;Negative;Positive
+ANML422;Cat;Siamese;3,3;4,9;13/06/2025;17/08/2025;Yes;101,2;None;Normal;Normal;Not Detected;Yes;Negative;Not Done
+ANML423;Cat;Persian;3,2;5,4;28/06/2025;01/09/2025;Yes;102,1;Bloody;Nesting;Increased;Detected;Yes;Not Done;Positive
+ANML424;Cat;Persian;2,3;5,1;04/05/2025;08/07/2025;Yes;102,7;Clear;Restless;Increased;Detected;Yes;Negative;Positive
+ANML425;Cat;Siamese;6,3;4,1;28/04/2025;02/07/2025;Yes;102,5;Clear;Restless;Decreased;Not Detected;Yes;Not Done;Not Done
+ANML426;Cat;Siamese;7,5;4;06/06/2025;10/08/2025;Yes;101,8;Bloody;Nesting;Increased;Not Detected;Yes;Positive;Negative
+ANML427;Cat;Persian;3,8;5,5;16/06/2025;20/08/2025;Yes;100,7;None;Nesting;Normal;Not Detected;Yes;Positive;Not Done
+ANML428;Cat;Maine Coon;3,3;6,7;19/05/2025;23/07/2025;Yes;100,6;Bloody;Aggressive;Normal;Not Detected;No;Positive;Positive
+ANML442;Cow;Jersey;2,4;268;27/06/2025;03/04/2026;Yes;101;Clear;Restless;Increased;Detected;No;Positive;Positive
+ANML443;Cow;Jersey;3,8;360,3;23/06/2025;30/03/2026;Yes;102,6;None;Nesting;Normal;Not Detected;No;Negative;Positive
+ANML444;Cow;Jersey;3,5;342,8;18/06/2025;25/03/2026;Yes;101,7;Bloody;Nesting;Normal;Not Detected;Yes;Not Done;Not Done
+ANML445;Cow;Jersey;4,7;364,9;30/05/2025;06/03/2026;Yes;102,6;Clear;Restless;Normal;Detected;No;Not Done;Negative
+ANML446;Cow;Jersey;2,7;240,9;14/05/2025;18/02/2026;Yes;100,7;None;Restless;Increased;Detected;No;Not Done;Not Done
+ANML447;Cow;Jersey;7;484,1;21/05/2025;25/02/2026;Yes;101,3;None;Nesting;Normal;Not Detected;No;Positive;Negative
+ANML448;Cow;Jersey;7,6;448,1;01/05/2025;05/02/2026;Yes;102;None;Restless;Decreased;Not Detected;No;Negative;Positive
+ANML449;Cow;Jersey;5;453,9;10/05/2025;14/02/2026;Yes;101,1;None;Aggressive;Decreased;Not Detected;Yes;Positive;Negative
+ANML450;Cow;Jersey;3,6;354,5;07/05/2025;11/02/2026;Yes;102,5;None;Normal;Normal;Not Detected;Yes;Negative;Negative
+ANML451;Cow;Jersey;3,8;394,2;01/06/2025;08/03/2026;Yes;101,6;None;Nesting;Normal;Detected;No;Positive;Negative
+ANML452;Cow;Jersey;5,9;458,4;16/06/2025;23/03/2026;Yes;101;Bloody;Normal;Increased;Not Detected;No;Positive;Not Done
+ANML453;Cow;Jersey;2,1;237,3;06/06/2025;13/03/2026;Yes;101,9;Clear;Nesting;Decreased;Detected;No;Negative;Negative
+ANML454;Cow;Jersey;4,2;446,3;13/06/2025;20/03/2026;Yes;103;None;Aggressive;Normal;Not Detected;No;Positive;Positive
+ANML455;Cow;Jersey;5,2;452,6;28/06/2025;04/04/2026;Yes;101,6;Clear;Normal;Increased;Not Detected;Yes;Not Done;Negative
+ANML456;Cow;Jersey;4;392,7;01/05/2025;05/02/2026;Yes;100,5;Bloody;Nesting;Decreased;Not Detected;Yes;Negative;Positive
+ANML462;Dog;Beagle;6,4;11,5;11/06/2025;13/08/2025;Yes;102,2;Clear;Nesting;Decreased;Not Detected;No;Not Done;Negative
+ANML463;Dog;Labrador Retriever;3,4;29,9;23/06/2025;25/08/2025;Yes;102,9;None;Nesting;Decreased;Not Detected;No;Not Done;Positive
+ANML464;Dog;Labrador Retriever;6,1;25,6;21/06/2025;23/08/2025;Yes;101,1;Bloody;Nesting;Normal;Detected;Yes;Negative;Positive
+ANML465;Dog;Beagle;6,4;11,7;08/06/2025;10/08/2025;Yes;103,1;Clear;Aggressive;Normal;Not Detected;No;Positive;Positive
+ANML466;Dog;Beagle;1,9;13,4;23/05/2025;25/07/2025;Yes;101,8;Bloody;Nesting;Normal;Not Detected;No;Positive;Not Done
+ANML467;Dog;Labrador Retriever;4,3;32,3;14/06/2025;16/08/2025;Yes;102,2;Bloody;Restless;Increased;Detected;Yes;Positive;Not Done
+ANML468;Dog;Beagle;4,2;13,4;15/06/2025;17/08/2025;Yes;100,8;Clear;Aggressive;Normal;Detected;Yes;Positive;Negative
+ANML469;Dog;Beagle;4,9;12,8;02/05/2025;04/07/2025;Yes;101,7;None;Aggressive;Normal;Not Detected;No;Positive;Not Done
+ANML470;Dog;Labrador Retriever;6,7;32,5;01/06/2025;03/08/2025;Yes;101,5;Bloody;Nesting;Increased;Not Detected;No;Negative;Not Done
+ANML471;Dog;Labrador Retriever;5,1;30,1;27/06/2025;29/08/2025;Yes;102,7;Bloody;Normal;Increased;Detected;No;Negative;Not Done
+ANML472;Dog;Beagle;3,7;14,9;11/05/2025;13/07/2025;Yes;103;Bloody;Nesting;Increased;Not Detected;Yes;Negative;Negative
+ANML473;Dog;Labrador Retriever;7,1;31,4;25/05/2025;27/07/2025;Yes;101,6;Bloody;Nesting;Decreased;Not Detected;No;Not Done;Positive
+ANML474;Dog;Beagle;4,8;13,7;27/05/2025;29/07/2025;Yes;102,2;None;Nesting;Increased;Not Detected;Yes;Negative;Not Done
+ANML475;Dog;German Shepherd;3;28,8;04/05/2025;06/07/2025;Yes;101,2;Bloody;Aggressive;Normal;Not Detected;Yes;Not Done;Positive
+ANML492;Goat;Boer;4,6;112,8;01/05/2025;28/09/2025;Yes;100,8;Bloody;Restless;Decreased;Detected;No;Not Done;Positive
+ANML493;Goat;Alpine;6,7;55;03/06/2025;31/10/2025;Yes;103,2;None;Restless;Decreased;Not Detected;No;Negative;Not Done
+ANML494;Goat;Alpine;3;47,8;31/05/2025;28/10/2025;Yes;100,8;None;Nesting;Normal;Detected;Yes;Not Done;Positive
+ANML495;Goat;Alpine;4;67,9;01/07/2025;28/11/2025;Yes;102,4;None;Restless;Decreased;Not Detected;No;Positive;Not Done
+ANML496;Goat;Nubian;7,2;70,7;02/05/2025;29/09/2025;Yes;102,6;None;Nesting;Increased;Detected;Yes;Not Done;Not Done
+ANML497;Goat;Alpine;3,1;61,4;28/05/2025;25/10/2025;Yes;100,8;None;Aggressive;Normal;Not Detected;Yes;Not Done;Positive
+ANML498;Goat;Nubian;2,4;78,5;18/06/2025;15/11/2025;Yes;100,9;Clear;Restless;Normal;Detected;Yes;Positive;Not Done
+ANML499;Goat;Nubian;0,8;40,5;23/06/2025;20/11/2025;Yes;101,4;Clear;Restless;Decreased;Detected;Yes;Not Done;Not Done
+ANML500;Goat;Boer;4,2;95,5;15/06/2025;12/11/2025;Yes;101,3;Clear;Nesting;Decreased;Not Detected;Yes;Not Done;Not Done
+ANML502;Cat;Siamese;6;3,4;19/06/2025;23/08/2025;Yes;103;Bloody;Normal;Decreased;Detected;Yes;Negative;Positive
+ANML507;Cat;Maine Coon;6,7;8;14/05/2025;18/07/2025;Yes;100,6;Clear;Aggressive;Normal;Detected;Yes;Positive;Positive
+ANML508;Cow;Jersey;2,6;247,5;23/05/2025;27/02/2026;Yes;100,7;None;Nesting;Increased;Detected;No;Negative;Not Done
+ANML511;Cat;Siamese;2,9;4,8;28/05/2025;01/08/2025;Yes;102,2;None;Aggressive;Normal;Detected;Yes;Not Done;Positive
+ANML513;Goat;Alpine;5,4;48,5;24/05/2025;21/10/2025;Yes;103,3;Bloody;Restless;Normal;Not Detected;Yes;Negative;Not Done
+ANML514;Cat;Persian;4,3;5;31/05/2025;04/08/2025;Yes;100,9;None;Aggressive;Normal;Detected;Yes;Not Done;Not Done
+ANML516;Cow;Jersey;4,5;405,3;27/05/2025;03/03/2026;Yes;102,7;Bloody;Normal;Increased;Detected;Yes;Positive;Not Done
+ANML518;Cow;Jersey;5,1;501,8;01/06/2025;08/03/2026;Yes;102,4;Bloody;Aggressive;Normal;Not Detected;Yes;Negative;Not Done
+ANML520;Dog;Beagle;7,4;13,2;27/06/2025;29/08/2025;Yes;102,5;Bloody;Restless;Normal;Detected;Yes;Not Done;Positive
+ANML521;Goat;Alpine;4,5;49,2;02/05/2025;29/09/2025;Yes;100,7;Bloody;Restless;Increased;Not Detected;Yes;Not Done;Positive
+ANML523;Dog;Beagle;1,5;11,6;31/05/2025;02/08/2025;Yes;100,8;None;Nesting;Increased;Not Detected;No;Negative;Not Done
+ANML527;Goat;Nubian;5,9;85;05/07/2025;02/12/2025;Yes;101,3;Bloody;Aggressive;Normal;Not Detected;Yes;Positive;Negative
+ANML528;Goat;Alpine;5,1;55,6;16/06/2025;13/11/2025;Yes;102,7;None;Aggressive;Increased;Detected;Yes;Not Done;Positive
+ANML530;Goat;Nubian;6,1;81,9;16/05/2025;13/10/2025;Yes;101,8;None;Restless;Normal;Not Detected;Yes;Not Done;Positive
+ANML531;Cat;Maine Coon;2,3;5,8;28/06/2025;01/09/2025;Yes;103,1;Bloody;Nesting;Increased;Detected;No;Negative;Negative
+ANML532;Goat;Alpine;4,9;55,2;24/05/2025;21/10/2025;Yes;101,4;None;Nesting;Decreased;Not Detected;No;Negative;Not Done
+ANML533;Cow;Jersey;6,9;447,3;11/06/2025;18/03/2026;Yes;101,1;None;Restless;Increased;Not Detected;No;Negative;Negative
+ANML534;Cat;Siamese;3,6;4,1;12/06/2025;16/08/2025;Yes;102,6;None;Restless;Decreased;Detected;Yes;Negative;Negative
+ANML535;Goat;Alpine;3,7;50,1;04/07/2025;01/12/2025;Yes;102,1;None;Nesting;Normal;Not Detected;No;Not Done;Positive
+ANML536;Dog;Beagle;3,1;14,3;15/06/2025;17/08/2025;Yes;102,1;Clear;Nesting;Decreased;Detected;Yes;Negative;Not Done
+ANML538;Cat;Persian;5,9;5,4;10/06/2025;14/08/2025;Yes;102,8;None;Nesting;Decreased;Not Detected;Yes;Positive;Positive
+ANML539;Dog;Labrador Retriever;2,9;38,5;11/05/2025;13/07/2025;Yes;101,2;Bloody;Nesting;Increased;Detected;No;Positive;Positive
+ANML540;Cow;Jersey;4,4;488,1;02/06/2025;09/03/2026;Yes;103,2;Bloody;Nesting;Increased;Detected;No;Positive;Not Done
+ANML545;Dog;German Shepherd;3,8;37,9;20/05/2025;22/07/2025;Yes;101,1;None;Normal;Normal;Not Detected;No;Not Done;Not Done
+ANML547;Cat;Persian;4,2;4,6;29/05/2025;02/08/2025;Yes;102,4;Bloody;Nesting;Increased;Detected;Yes;Not Done;Not Done
+ANML548;Dog;Labrador Retriever;2,5;34,4;02/07/2025;03/09/2025;Yes;101,7;None;Normal;Normal;Detected;Yes;Positive;Not Done
+ANML550;Goat;Alpine;3,7;56,8;02/07/2025;29/11/2025;Yes;102;Clear;Restless;Increased;Not Detected;Yes;Not Done;Negative
+ANML551;Cow;Jersey;6,2;486;23/05/2025;27/02/2026;Yes;103,1;Clear;Normal;Normal;Not Detected;No;Positive;Negative
+ANML552;Cat;Siamese;6,6;4,4;16/06/2025;20/08/2025;Yes;101,5;None;Aggressive;Normal;Not Detected;Yes;Negative;Not Done
+ANML553;Goat;Alpine;3,8;54,2;09/06/2025;06/11/2025;Yes;101,5;None;Restless;Increased;Not Detected;Yes;Negative;Negative
+ANML554;Dog;Beagle;6,2;12,5;22/06/2025;24/08/2025;Yes;100,9;None;Normal;Normal;Detected;Yes;Negative;Positive
+ANML559;Goat;Boer;4,7;92,5;03/05/2025;30/09/2025;Yes;100,7;Clear;Restless;Increased;Detected;Yes;Not Done;Negative
+ANML560;Goat;Alpine;1,9;58,1;01/07/2025;28/11/2025;Yes;102,9;Bloody;Normal;Normal;Detected;No;Negative;Not Done
+ANML562;Goat;Alpine;6,3;47,4;16/06/2025;13/11/2025;Yes;102,4;Clear;Nesting;Normal;Not Detected;No;Negative;Not Done
+ANML567;Cat;Siamese;7,2;4;04/05/2025;08/07/2025;Yes;101,6;Bloody;Nesting;Decreased;Detected;No;Positive;Not Done
+ANML570;Goat;Boer;5,6;111,3;24/05/2025;21/10/2025;Yes;102,4;Clear;Aggressive;Normal;Detected;Yes;Not Done;Positive
+ANML572;Goat;Alpine;3,5;58,8;07/05/2025;04/10/2025;Yes;102,5;Bloody;Nesting;Normal;Not Detected;Yes;Negative;Not Done
+ANML573;Goat;Nubian;6,5;78,8;21/05/2025;18/10/2025;Yes;103;Clear;Aggressive;Increased;Not Detected;Yes;Positive;Negative
+ANML574;Cow;Jersey;5,6;467,9;13/06/2025;20/03/2026;Yes;100,6;Clear;Nesting;Normal;Detected;Yes;Not Done;Negative
+ANML577;Cat;Persian;4,4;5;12/05/2025;16/07/2025;Yes;101,9;Clear;Normal;Decreased;Detected;Yes;Negative;Positive
+ANML578;Goat;Nubian;5,7;81,4;20/06/2025;17/11/2025;Yes;101,8;None;Nesting;Decreased;Detected;Yes;Negative;Negative
+ANML579;Cat;Siamese;3,8;4,8;06/07/2025;09/09/2025;Yes;102,5;Bloody;Nesting;Decreased;Not Detected;No;Not Done;Negative
+ANML580;Goat;Boer;5,7;105,2;18/05/2025;15/10/2025;Yes;101,2;Clear;Restless;Normal;Detected;Yes;Not Done;Positive
+ANML581;Cat;Siamese;5,6;4;06/06/2025;10/08/2025;Yes;101,7;Bloody;Normal;Decreased;Not Detected;Yes;Not Done;Negative
+ANML582;Cat;Maine Coon;1,6;7,9;28/05/2025;01/08/2025;Yes;101,8;None;Aggressive;Increased;Detected;Yes;Negative;Positive
+ANML583;Cat;Maine Coon;2;6,3;23/06/2025;27/08/2025;Yes;102,8;Clear;Restless;Normal;Not Detected;Yes;Positive;Negative
+ANML589;Goat;Boer;7,5;109,1;27/06/2025;24/11/2025;Yes;101,7;Clear;Aggressive;Decreased;Detected;No;Positive;Positive
+ANML590;Dog;Beagle;2,7;11,8;22/05/2025;24/07/2025;Yes;102;Bloody;Restless;Normal;Not Detected;No;Positive;Not Done
+ANML591;Goat;Boer;3,6;92,9;16/05/2025;13/10/2025;Yes;101;None;Nesting;Normal;Detected;Yes;Positive;Negative
+ANML592;Cow;Jersey;3,8;326,4;19/05/2025;23/02/2026;Yes;102;None;Aggressive;Decreased;Detected;Yes;Negative;Not Done
+ANML593;Cow;Jersey;2,9;241,2;01/07/2025;07/04/2026;Yes;101,4;None;Restless;Decreased;Detected;Yes;Negative;Not Done
+ANML594;Dog;Beagle;5,3;13,7;10/06/2025;12/08/2025;Yes;102,8;Bloody;Normal;Normal;Not Detected;No;Not Done;Positive
+ANML595;Goat;Nubian;2,2;86,7;20/06/2025;17/11/2025;Yes;100,7;None;Nesting;Normal;Not Detected;Yes;Negative;Negative
+ANML596;Dog;Beagle;3,6;13,3;25/05/2025;27/07/2025;Yes;101,3;Clear;Aggressive;Normal;Detected;No;Negative;Negative
+ANML597;Goat;Alpine;5,8;51,7;24/05/2025;21/10/2025;Yes;102,8;Bloody;Restless;Decreased;Detected;Yes;Negative;Negative
+ANML598;Goat;Boer;3,9;109,1;04/06/2025;01/11/2025;Yes;102,8;Clear;Nesting;Increased;Detected;Yes;Positive;Negative
+ANML599;Cow;Jersey;2,6;265,6;05/07/2025;11/04/2026;Yes;101,7;None;Restless;Decreased;Detected;No;Negative;Negative
+ANML600;Cat;Persian;6,1;5,5;03/06/2025;07/08/2025;Yes;101,7;Clear;Nesting;Normal;Not Detected;No;Not Done;Positive
+ANML601;Dog;German Shepherd;7,5;34,6;01/07/2025;02/09/2025;Yes;101,5;Clear;Restless;Increased;Not Detected;No;Not Done;Not Done
+ANML602;Cow;Jersey;6,9;442,4;12/06/2025;19/03/2026;Yes;101;Bloody;Nesting;Normal;Detected;No;Not Done;Negative
+ANML603;Cat;Maine Coon;1,6;7,2;02/06/2025;06/08/2025;Yes;102,9;Clear;Aggressive;Increased;Not Detected;Yes;Negative;Negative
+ANML604;Cow;Jersey;7,4;473,3;27/05/2025;03/03/2026;Yes;100,8;None;Restless;Normal;Not Detected;No;Positive;Not Done
+ANML605;Cat;Maine Coon;2,8;7,5;01/06/2025;05/08/2025;Yes;102,9;Bloody;Aggressive;Normal;Detected;Yes;Positive;Negative
+ANML606;Dog;Labrador Retriever;7,9;33,7;05/05/2025;07/07/2025;Yes;103,5;Clear;Aggressive;Increased;Detected;Yes;Not Done;Not Done
+ANML607;Cat;Siamese;5,2;4,2;11/06/2025;15/08/2025;Yes;102,1;Bloody;Aggressive;Normal;Detected;Yes;Not Done;Not Done
+ANML608;Cow;Jersey;7,9;467,1;30/05/2025;06/03/2026;Yes;100,6;None;Nesting;Normal;Detected;No;Negative;Positive
+ANML609;Cow;Jersey;1,5;173,3;02/07/2025;08/04/2026;Yes;101,7;Bloody;Normal;Increased;Not Detected;Yes;Positive;Not Done
+ANML610;Cat;Persian;4,1;5,6;20/05/2025;24/07/2025;Yes;103,2;Bloody;Aggressive;Increased;Detected;Yes;Not Done;Negative
+ANML012;Cat;Siamese;4,8;4,5;05/06/2025;;No;100;None;Normal;Increased;Not Detected;No;Not Done;Positive
+ANML013;Cat;Maine Coon;5,5;7,5;08/05/2025;;No;99,7;None;Restless;Increased;Not Detected;Yes;Not Done;Negative
+ANML014;Cat;Siamese;7,6;5;02/05/2025;;No;99,6;None;Lethargic;Normal;Not Detected;Yes;Not Done;Not Done
+ANML015;Cat;Persian;7,6;4,7;13/06/2025;;No;100,7;Purulent;Lethargic;Increased;Not Detected;Yes;Not Done;Not Done
+ANML016;Cat;Siamese;4,9;4,7;23/06/2025;;No;101,2;Bloody;Normal;Increased;Not Detected;No;Not Done;Not Done
+ANML025;Cow;Jersey;3,7;300,93;24/05/2025;;No;100,3;Bloody;Aggressive;Normal;Not Detected;No;Negative;Negative
+ANML026;Cow;Jersey;3,1;280;17/06/2025;;No;99,7;Purulent;Lethargic;Normal;Not Detected;No;Negative;Negative
+ANML027;Cow;Gir;4,3;385;02/06/2025;;No;99,1;Purulent;Normal;Normal;Not Detected;Yes;Negative;Positive
+ANML046;Dog;Beagle;5,1;13,5;16/06/2025;;No;100,2;None;Lethargic;Normal;Not Detected;No;Not Done;Not Done
+ANML055;Goat;Alpine;6,9;75;09/06/2025;;No;99,9;None;Lethargic;Increased;Not Detected;No;Not Done;Negative
+ANML056;Goat;Alpine;1;25;27/06/2025;;No;101,2;None;Nesting;Normal;Not Detected;Yes;Not Done;Negative
+ANML057;Goat;Alpine;3,5;60;16/06/2025;;No;100,9;Bloody;Aggressive;Increased;Not Detected;No;Not Done;Positive
+ANML058;Goat;Nubian;3,2;65;09/06/2025;;No;99,5;Purulent;Lethargic;Increased;Not Detected;Yes;Positive;Positive
+ANML059;Goat;Alpine;6,2;70;23/06/2025;;No;99,3;Bloody;Restless;Decreased;Not Detected;Yes;Positive;Not Done
+ANML060;Goat;Nubian;7;80;17/06/2025;;No;100,8;Clear;Aggressive;Decreased;Not Detected;Yes;Not Done;Not Done
+ANML116;Goat;Nubian;5,7;78,56;29/06/2025;;No;102;Clear;Normal;Increased;Not Detected;Yes;Positive;Negative
+ANML117;Cat;Maine Coon;7,4;6,5;18/05/2025;;No;100,5;Bloody;Nesting;Increased;Not Detected;Yes;Positive;Not Done
+ANML118;Dog;Beagle;5,8;15;19/06/2025;;No;99,2;Bloody;Aggressive;Increased;Not Detected;No;Not Done;Not Done
+ANML119;Cat;Maine Coon;4,3;6,35;14/05/2025;;No;101,9;Purulent;Restless;Decreased;Not Detected;Yes;Negative;Negative
+ANML120;Cow;Jersey;4,4;329,1;30/05/2025;;No;100;Purulent;Nesting;Decreased;Not Detected;Yes;Positive;Negative
+ANML121;Cat;Maine Coon;3,7;6,12;26/05/2025;;No;100;None;Aggressive;Decreased;Not Detected;Yes;Negative;Negative
+ANML122;Cat;Maine Coon;2,8;5,89;09/05/2025;;No;101,2;None;Lethargic;Increased;Not Detected;Yes;Positive;Not Done
+ANML123;Dog;Beagle;5,8;15,2;24/06/2025;;No;100,3;Clear;Aggressive;Decreased;Not Detected;Yes;Positive;Negative
+ANML124;Dog;Beagle;6,1;15,8;23/05/2025;;No;99,3;Clear;Lethargic;Decreased;Not Detected;No;Negative;Negative
+ANML125;Cow;Gir;7,8;659;23/06/2025;;No;99,9;Bloody;Nesting;Normal;Not Detected;Yes;Positive;Not Done
+ANML126;Cat;Siamese;3,4;4,3;03/06/2025;;No;100,7;Bloody;Restless;Normal;Not Detected;Yes;Negative;Positive
+ANML127;Cow;Gir;4,6;413,5;23/05/2025;;No;101,6;Purulent;Normal;Normal;Not Detected;Yes;Positive;Negative
+ANML128;Goat;Alpine;4,4;74,56;02/06/2025;;No;99,9;Purulent;Normal;Increased;Not Detected;No;Not Done;Not Done
+ANML129;Dog;Beagle;5,4;16,8;01/05/2025;;No;99,5;Clear;Normal;Normal;Not Detected;No;Not Done;Negative
+ANML130;Goat;Nubian;3,8;79,39;16/06/2025;;No;99;None;Normal;Normal;Not Detected;No;Not Done;Not Done
+ANML132;Cat;Siamese;6,3;5,4;14/04/2025;;No;102,9;Purulent;Restless;Increased;Not Detected;Yes;Positive;Not Done
+ANML133;Goat;Nubian;3,7;70,4;20/05/2025;;No;100,4;Purulent;Normal;Increased;Not Detected;No;Positive;Not Done
+ANML134;Goat;Alpine;1,9;62,5;15/03/2025;;No;102,2;Bloody;Nesting;Normal;Detected;Yes;Not Done;Positive
+ANML136;Cow;Gir;11,3;389,3;07/04/2025;;No;102,1;Clear;Restless;Increased;Not Detected;No;Not Done;Not Done
+ANML139;Cow;Jersey;12;384,3;29/06/2025;;No;100,4;None;Normal;Normal;Detected;No;Not Done;Positive
+ANML140;Goat;Nubian;7,4;71,6;28/04/2025;;No;103,9;None;Normal;Decreased;Not Detected;No;Positive;Negative
+ANML141;Goat;Boer;5,7;102,4;01/05/2025;;No;103,9;Clear;Nesting;Normal;Not Detected;Yes;Positive;Negative
+ANML143;Dog;Labrador;10,6;32,5;16/03/2025;;No;102,9;None;Nesting;Normal;Detected;No;Not Done;Positive
+ANML144;Cow;Gir;10,5;254,7;18/04/2025;;No;103,7;Clear;Lethargic;Increased;Not Detected;No;Not Done;Negative
+ANML145;Dog;Labrador;3,1;30,8;23/07/2025;;No;102,2;Clear;Normal;Normal;Detected;Yes;Positive;Positive
+ANML147;Cat;Siamese;1,6;5,5;11/06/2025;;No;101,6;None;Normal;Normal;Not Detected;No;Positive;Positive
+ANML148;Cat;Siamese;6,7;5,4;10/04/2025;;No;101,1;Clear;Normal;Increased;Detected;Yes;Not Done;Not Done
+ANML150;Dog;Beagle;3,5;12,8;19/06/2025;;No;101,1;Purulent;Restless;Normal;Not Detected;Yes;Positive;Not Done
+ANML152;Dog;German Shepherd;10,4;43,2;18/07/2025;;No;101;None;Nesting;Normal;Not Detected;No;Negative;Positive
+ANML155;Horse;Quarter Horse;8,6;397,6;08/07/2025;;No;100;Bloody;Normal;Normal;Not Detected;Yes;Positive;Not Done
+ANML158;Dog;Labrador;11,4;41,1;02/04/2025;;No;102,2;Bloody;Nesting;Decreased;Detected;No;Positive;Positive
+ANML159;Cow;Holstein;10,8;478;05/03/2025;;No;103,6;Clear;Restless;Decreased;Detected;No;Not Done;Negative
+ANML160;Pig;Landrace;2,3;258;05/04/2025;;No;103,9;Clear;Aggressive;Normal;Detected;No;Negative;Not Done
+ANML161;Horse;Quarter Horse;9,8;451,2;22/03/2025;;No;101,5;None;Aggressive;Normal;Detected;No;Negative;Negative
+ANML163;Cow;Jersey;7,2;590,2;04/03/2025;;No;100,4;Purulent;Lethargic;Decreased;Not Detected;No;Not Done;Not Done
+ANML164;Dog;Beagle;10,8;15,3;06/03/2025;;No;102,8;None;Nesting;Decreased;Detected;No;Negative;Positive
+ANML166;Cow;Gir;2;253,1;31/05/2025;;No;102,7;Clear;Nesting;Decreased;Not Detected;No;Not Done;Positive
+ANML167;Cow;Holstein;2,9;471,8;16/05/2025;;No;101,9;Purulent;Restless;Decreased;Not Detected;Yes;Not Done;Positive
+ANML168;Cow;Gir;8,1;472,1;18/03/2025;;No;103,3;Clear;Lethargic;Normal;Detected;Yes;Positive;Positive
+ANML169;Cat;Persian;7,5;4,4;19/06/2025;;No;101,7;Clear;Aggressive;Increased;Not Detected;Yes;Positive;Not Done
+ANML171;Horse;Arabian;5,7;451,1;08/07/2025;;No;104;Bloody;Aggressive;Decreased;Not Detected;No;Positive;Not Done
+ANML173;Cat;Persian;4,4;4,6;15/03/2025;;No;100,6;Clear;Aggressive;Decreased;Detected;Yes;Positive;Negative
+ANML174;Goat;Nubian;6,7;70,3;16/04/2025;;No;103,3;Purulent;Nesting;Decreased;Detected;No;Negative;Positive
+ANML175;Cow;Holstein;9,2;512,3;10/06/2025;;No;102,2;Clear;Aggressive;Normal;Not Detected;No;Negative;Positive
+ANML176;Goat;Nubian;8,2;79,2;06/04/2025;;No;103,4;Clear;Nesting;Decreased;Detected;No;Not Done;Not Done
+ANML177;Rabbit;New Zealand White;1,5;3,7;21/06/2025;;No;100,7;Bloody;Aggressive;Increased;Detected;No;Negative;Negative
+ANML179;Dog;German Shepherd;1;20,1;27/04/2025;;No;100,8;None;Nesting;Normal;Detected;Yes;Negative;Not Done
+ANML180;Dog;German Shepherd;11,4;39,8;29/04/2025;;No;103,1;Clear;Nesting;Decreased;Detected;Yes;Negative;Positive
+ANML181;Pig;Yorkshire;11,2;346,1;30/05/2025;;No;101,6;Clear;Normal;Decreased;Detected;Yes;Not Done;Negative
+ANML182;Horse;Quarter Horse;7,4;474;17/07/2025;;No;103,1;Bloody;Nesting;Increased;Not Detected;Yes;Not Done;Not Done
+ANML183;Cow;Jersey;10,3;593,7;22/03/2025;;No;101,7;Bloody;Aggressive;Decreased;Detected;No;Positive;Not Done
+ANML184;Pig;Landrace;3,6;485,2;10/07/2025;;No;103,1;Purulent;Aggressive;Decreased;Not Detected;No;Positive;Positive
+ANML185;Cow;Holstein;3,3;279,6;31/05/2025;;No;101,3;Purulent;Lethargic;Normal;Not Detected;Yes;Negative;Negative
+ANML186;Cow;Holstein;10,6;521,2;04/05/2025;;No;100,7;Clear;Normal;Normal;Not Detected;No;Not Done;Positive
+ANML187;Rabbit;Dutch;7,9;2,3;27/02/2025;;No;99,3;Clear;Aggressive;Decreased;Not Detected;No;Not Done;Not Done
+ANML188;Cow;Holstein;6,9;307,2;13/07/2025;;No;100;Purulent;Lethargic;Increased;Not Detected;Yes;Positive;Not Done
+ANML189;Cat;Persian;1,9;4,2;11/04/2025;;No;99,6;Purulent;Lethargic;Decreased;Not Detected;Yes;Positive;Negative
+ANML190;Cat;Persian;2,6;4;09/07/2025;;No;99,4;None;Normal;Decreased;Not Detected;Yes;Not Done;Negative
+ANML191;Dog;Labrador;7,1;29,4;15/06/2025;;No;100;None;Lethargic;Increased;Not Detected;Yes;Negative;Negative
+ANML192;Dog;German Shepherd;7,7;33,6;02/04/2025;;No;101,4;Bloody;Normal;Normal;Not Detected;No;Not Done;Not Done
+ANML193;Horse;Quarter Horse;3,1;314,3;18/06/2025;;No;101,7;Bloody;Nesting;Increased;Not Detected;Yes;Not Done;Not Done
+ANML194;Dog;Labrador;7,7;31,9;15/03/2025;;No;99,5;Clear;Nesting;Normal;Not Detected;Yes;Negative;Negative
+ANML195;Rabbit;Flemish Giant;5,9;7,9;07/05/2025;;No;101,1;Purulent;Normal;Decreased;Not Detected;No;Not Done;Not Done
+ANML196;Rabbit;New Zealand White;5,4;3,4;02/04/2025;;No;101,7;Clear;Normal;Normal;Not Detected;No;Not Done;Not Done
+ANML197;Horse;Quarter Horse;11,1;564,3;22/06/2025;;No;101,1;Purulent;Lethargic;Decreased;Not Detected;No;Positive;Not Done
+ANML198;Dog;Beagle;8,9;13,8;01/03/2025;;No;99,3;None;Lethargic;Decreased;Not Detected;Yes;Negative;Not Done
+ANML199;Rabbit;Dutch;11;9,6;22/07/2025;;No;100,3;Purulent;Normal;Increased;Not Detected;No;Negative;Negative
+ANML200;Rabbit;New Zealand White;10,4;3,9;29/06/2025;;No;99,9;Purulent;Nesting;Normal;Not Detected;Yes;Negative;Negative
+ANML202;Cow;Jersey;3,2;336,1;10/06/2025;;No;103;None;Normal;Increased;Not Detected;No;Positive;Not Done
+ANML205;Dog;Beagle;2,5;15,1;29/04/2025;;No;102,4;None;Restless;Increased;Not Detected;No;Not Done;Positive
+ANML206;Dog;Labrador Retriever;2,1;30,9;27/05/2025;;No;103;Bloody;Aggressive;Increased;Detected;No;Not Done;Not Done
+ANML207;Dog;Labrador Retriever;7,1;31,5;20/05/2025;;No;100,7;None;Aggressive;Decreased;Detected;No;Positive;Positive
+ANML208;Cow;Jersey;4;409,2;13/06/2025;;No;103,4;Bloody;Nesting;Decreased;Detected;No;Not Done;Not Done
+ANML209;Cat;Persian;3,1;3,7;27/04/2025;;No;101,9;Bloody;Nesting;Normal;Detected;No;Negative;Negative
+ANML212;Cow;Jersey;4,9;426,1;02/07/2025;;No;101;None;Aggressive;Decreased;Detected;No;Negative;Not Done
+ANML214;Cat;Persian;4,3;4,3;14/05/2025;;No;102,8;None;Normal;Decreased;Not Detected;No;Positive;Negative
+ANML216;Cow;Jersey;4;459,6;02/07/2025;;No;101,6;None;Restless;Decreased;Detected;No;Not Done;Negative
+ANML217;Dog;Labrador Retriever;7,4;31,3;24/06/2025;;No;101,6;Bloody;Normal;Decreased;Detected;Yes;Not Done;Negative
+ANML218;Dog;German Shepherd;1,4;26,6;06/06/2025;;No;101,4;None;Restless;Normal;Not Detected;No;Not Done;Negative
+ANML219;Goat;Alpine;0,6;26,4;13/05/2025;;No;103,1;Bloody;Normal;Normal;Detected;Yes;Negative;Not Done
+ANML222;Cat;Persian;6,3;5,7;08/06/2025;;No;102,9;None;Normal;Decreased;Not Detected;Yes;Positive;Negative
+ANML223;Dog;Beagle;1,3;12;28/04/2025;;No;101,1;Bloody;Nesting;Increased;Detected;No;Positive;Not Done
+ANML224;Cow;Jersey;3,1;346,1;09/05/2025;;No;101,4;None;Restless;Normal;Detected;No;Negative;Not Done
+ANML225;Cow;Jersey;4,3;459;15/05/2025;;No;102,6;Bloody;Nesting;Decreased;Not Detected;No;Negative;Negative
+ANML231;Cow;Jersey;4,1;442,7;23/06/2025;;No;102,7;Clear;Nesting;Normal;Detected;Yes;Negative;Not Done
+ANML233;Goat;Nubian;6;79,8;01/07/2025;;No;102,4;Clear;Normal;Decreased;Detected;No;Not Done;Negative
+ANML235;Cat;Siamese;2,2;4,5;24/06/2025;;No;103,4;Bloody;Normal;Increased;Not Detected;Yes;Positive;Negative
+ANML236;Dog;Beagle;1,7;13,1;15/05/2025;;No;102,6;None;Restless;Normal;Not Detected;Yes;Not Done;Positive
+ANML240;Cat;Maine Coon;1,2;6;21/06/2025;;No;102,1;None;Restless;Normal;Not Detected;No;Negative;Negative
+ANML242;Goat;Boer;6;109,7;30/04/2025;;No;102,8;Clear;Restless;Increased;Detected;Yes;Not Done;Positive
+ANML243;Cat;Maine Coon;5,2;6,1;28/04/2025;;No;101,2;Clear;Normal;Normal;Detected;Yes;Positive;Not Done
+ANML244;Cow;Jersey;1;86,6;02/07/2025;;No;101,8;Clear;Nesting;Normal;Not Detected;No;Not Done;Negative
+ANML247;Cow;Jersey;5,5;458,9;06/06/2025;;No;101,8;Clear;Normal;Increased;Not Detected;No;Not Done;Negative
+ANML251;Cow;Jersey;6,1;484,5;01/05/2025;;No;102,4;Clear;Normal;Decreased;Not Detected;Yes;Not Done;Not Done
+ANML252;Cow;Jersey;2,6;255,4;22/05/2025;;No;103,4;Clear;Restless;Normal;Detected;Yes;Negative;Not Done
+ANML253;Cat;Maine Coon;1,9;6,5;07/05/2025;;No;101,6;Bloody;Normal;Normal;Not Detected;Yes;Not Done;Positive
+ANML254;Cat;Persian;6,2;4,9;06/06/2025;;No;102,9;Bloody;Aggressive;Decreased;Not Detected;Yes;Positive;Negative
+ANML255;Cat;Persian;3,9;4,6;08/05/2025;;No;102,5;Bloody;Restless;Decreased;Not Detected;Yes;Negative;Not Done
+ANML259;Cat;Maine Coon;2,9;7,1;13/05/2025;;No;103,3;None;Aggressive;Decreased;Not Detected;Yes;Negative;Not Done
+ANML261;Goat;Nubian;2,4;80,1;12/06/2025;;No;102,2;Clear;Restless;Increased;Not Detected;Yes;Not Done;Positive
+ANML262;Goat;Boer;3,7;104,4;18/06/2025;;No;103,5;Bloody;Normal;Decreased;Not Detected;No;Not Done;Negative
+ANML263;Goat;Alpine;4,2;58,2;12/05/2025;;No;101,9;Bloody;Aggressive;Normal;Not Detected;No;Positive;Not Done
+ANML265;Cat;Siamese;2,9;4,9;23/05/2025;;No;101,2;Bloody;Restless;Normal;Not Detected;No;Not Done;Negative
+ANML266;Goat;Nubian;7,6;81,5;27/06/2025;;No;102,4;Clear;Aggressive;Increased;Not Detected;No;Negative;Negative
+ANML267;Cat;Maine Coon;3;6,1;30/05/2025;;No;102,1;Clear;Aggressive;Normal;Detected;Yes;Not Done;Not Done
+ANML276;Cow;Jersey;2,7;242,5;29/06/2025;;No;103,2;Clear;Aggressive;Normal;Detected;No;Negative;Negative
+ANML279;Dog;German Shepherd;5,9;28,4;03/05/2025;;No;101;None;Restless;Increased;Not Detected;No;Negative;Not Done
+ANML281;Cat;Siamese;2,2;4,2;21/05/2025;;No;100,8;Bloody;Restless;Increased;Detected;Yes;Not Done;Negative
+ANML284;Goat;Nubian;4,5;76,7;05/07/2025;;No;100,9;None;Aggressive;Normal;Detected;Yes;Negative;Not Done
+ANML285;Dog;Beagle;4,7;11,4;12/06/2025;;No;100,6;Clear;Nesting;Normal;Detected;No;Not Done;Positive
+ANML287;Goat;Alpine;3,6;67,1;04/05/2025;;No;101,6;Clear;Nesting;Increased;Not Detected;No;Not Done;Not Done
+ANML289;Goat;Nubian;2;78,9;10/05/2025;;No;102,6;None;Aggressive;Normal;Not Detected;No;Positive;Not Done
+ANML290;Dog;German Shepherd;7,7;28,9;05/07/2025;;No;101,5;Bloody;Nesting;Increased;Not Detected;Yes;Not Done;Negative
+ANML293;Cat;Maine Coon;1,1;6,6;24/05/2025;;No;102,8;None;Nesting;Increased;Not Detected;Yes;Negative;Not Done
+ANML294;Cat;Persian;6,8;4,2;26/06/2025;;No;103,3;Bloody;Aggressive;Normal;Not Detected;No;Negative;Negative
+ANML295;Cat;Maine Coon;4;6,7;27/05/2025;;No;103,4;Bloody;Restless;Decreased;Not Detected;No;Not Done;Not Done
+ANML296;Cat;Maine Coon;0,7;5,8;17/06/2025;;No;101,9;Bloody;Aggressive;Decreased;Detected;Yes;Positive;Positive
+ANML297;Cow;Jersey;2,7;218,3;27/04/2025;;No;102,8;Clear;Nesting;Normal;Detected;No;Positive;Positive
+ANML298;Cat;Siamese;4,7;4,7;23/06/2025;;No;102,2;Bloody;Aggressive;Normal;Detected;Yes;Not Done;Negative
+ANML299;Goat;Boer;3,1;113,2;18/06/2025;;No;100,8;Clear;Normal;Increased;Not Detected;Yes;Not Done;Positive
+ANML300;Goat;Alpine;1,6;51,7;06/06/2025;;No;101,2;None;Restless;Increased;Detected;No;Not Done;Not Done
+ANML302;Cat;Siamese;3;3,9;06/06/2025;;No;100,6;Bloody;Nesting;Increased;Detected;Yes;Negative;Not Done
+ANML304;Cow;Jersey;5;410,9;15/05/2025;;No;103,3;Bloody;Nesting;Decreased;Detected;No;Negative;Not Done
+ANML306;Dog;Beagle;5,6;12,1;20/06/2025;;No;102,6;None;Normal;Decreased;Detected;No;Positive;Negative
+ANML309;Goat;Boer;6,2;96;17/05/2025;;No;101,5;None;Normal;Normal;Not Detected;Yes;Positive;Not Done
+ANML311;Dog;German Shepherd;4,7;31,6;29/04/2025;;No;101,7;None;Normal;Decreased;Detected;No;Negative;Negative
+ANML312;Goat;Boer;8;108,9;17/06/2025;;No;102,4;Clear;Normal;Increased;Not Detected;No;Not Done;Not Done
+ANML313;Cat;Maine Coon;1,2;7,3;24/06/2025;;No;102,6;Clear;Normal;Decreased;Detected;Yes;Not Done;Positive
+ANML322;Cat;Siamese;7,6;3,9;03/06/2025;;No;102,8;Clear;Normal;Normal;Detected;No;Negative;Positive
+ANML324;Cow;Jersey;0,8;58,8;25/06/2025;;No;102,8;Clear;Restless;Increased;Not Detected;Yes;Not Done;Negative
+ANML325;Dog;Labrador Retriever;5,6;27,4;09/05/2025;;No;103,3;None;Aggressive;Decreased;Not Detected;No;Not Done;Negative
+ANML327;Cat;Persian;1,6;4,9;05/07/2025;;No;101,6;Clear;Normal;Decreased;Detected;No;Not Done;Positive
+ANML328;Cat;Persian;0,9;5,3;14/05/2025;;No;103,4;Clear;Aggressive;Normal;Not Detected;Yes;Positive;Not Done
+ANML334;Dog;Beagle;0,5;13,4;03/06/2025;;No;102,6;Bloody;Nesting;Normal;Detected;No;Positive;Not Done
+ANML336;Cow;Jersey;6,8;466,8;05/05/2025;;No;103,5;None;Normal;Normal;Not Detected;Yes;Negative;Positive
+ANML339;Dog;Beagle;7,1;13,1;09/06/2025;;No;101,5;None;Aggressive;Decreased;Not Detected;Yes;Not Done;Not Done
+ANML340;Cat;Persian;2;4,5;18/06/2025;;No;101,4;Bloody;Aggressive;Decreased;Not Detected;Yes;Positive;Not Done
+ANML342;Goat;Nubian;6,3;84;17/05/2025;;No;101,4;Bloody;Nesting;Increased;Not Detected;Yes;Negative;Positive
+ANML344;Dog;Beagle;3,9;13,1;29/06/2025;;No;101,7;Bloody;Aggressive;Normal;Not Detected;No;Positive;Negative
+ANML345;Cow;Jersey;2;186,1;24/05/2025;;No;101,5;None;Normal;Increased;Not Detected;Yes;Not Done;Negative
+ANML346;Dog;German Shepherd;2,3;30,6;30/05/2025;;No;103,4;Bloody;Nesting;Decreased;Detected;Yes;Negative;Negative
+ANML347;Dog;Labrador Retriever;3,6;28,1;23/06/2025;;No;102,9;Bloody;Normal;Decreased;Detected;No;Not Done;Positive
+ANML348;Goat;Alpine;1,6;62,4;01/05/2025;;No;102,8;None;Restless;Normal;Detected;No;Not Done;Positive
+ANML351;Cat;Persian;7,9;5,5;07/06/2025;;No;103,3;Clear;Nesting;Decreased;Not Detected;No;Not Done;Positive
+ANML355;Cat;Maine Coon;1,4;5,9;23/06/2025;;No;101,4;Clear;Restless;Decreased;Not Detected;Yes;Negative;Negative
+ANML356;Goat;Boer;4,2;108,2;04/05/2025;;No;101,7;None;Nesting;Normal;Not Detected;No;Not Done;Negative
+ANML359;Cow;Jersey;0,9;134,2;06/06/2025;;No;103,2;Clear;Aggressive;Normal;Detected;Yes;Not Done;Negative
+ANML360;Goat;Boer;2,3;108,8;08/05/2025;;No;102;None;Restless;Increased;Detected;Yes;Positive;Positive
+ANML361;Cow;Jersey;4;424,5;19/06/2025;;No;103;Bloody;Aggressive;Increased;Not Detected;No;Negative;Negative
+ANML362;Goat;Boer;6,7;99,7;24/06/2025;;No;101;None;Normal;Decreased;Not Detected;No;Negative;Negative
+ANML363;Goat;Boer;7,5;107,1;13/05/2025;;No;102,9;Clear;Nesting;Increased;Detected;No;Not Done;Not Done
+ANML364;Cat;Persian;5,7;5,1;12/06/2025;;No;102,2;None;Normal;Decreased;Not Detected;No;Negative;Not Done
+ANML366;Dog;German Shepherd;1,5;31,9;27/05/2025;;No;101,4;Clear;Nesting;Decreased;Detected;Yes;Negative;Not Done
+ANML367;Goat;Alpine;0,8;44,8;17/05/2025;;No;102,9;Bloody;Aggressive;Increased;Not Detected;No;Positive;Not Done
+ANML371;Cat;Persian;6,8;4,4;11/05/2025;;No;103,1;Clear;Normal;Decreased;Not Detected;Yes;Positive;Negative
+ANML372;Cow;Jersey;3,4;320;30/04/2025;;No;102;None;Aggressive;Normal;Detected;Yes;Not Done;Positive
+ANML373;Goat;Boer;4,2;105,2;01/05/2025;;No;100,8;Clear;Normal;Decreased;Detected;Yes;Negative;Not Done
+ANML376;Dog;Beagle;4,4;13,9;18/06/2025;;No;100,8;Bloody;Restless;Increased;Not Detected;Yes;Negative;Not Done
+ANML377;Dog;Labrador Retriever;3,5;33,4;29/06/2025;;No;101,5;Bloody;Nesting;Decreased;Detected;Yes;Negative;Positive
+ANML378;Cow;Jersey;2;194,3;16/05/2025;;No;101,3;Clear;Restless;Normal;Detected;No;Negative;Positive
+ANML380;Cow;Jersey;1,8;165,2;10/06/2025;;No;102,8;Clear;Aggressive;Increased;Not Detected;No;Not Done;Not Done
+ANML381;Goat;Alpine;7,6;50,3;23/05/2025;;No;101;None;Nesting;Increased;Detected;No;Positive;Positive
+ANML386;Goat;Boer;7,6;113,7;28/04/2025;;No;101,2;None;Normal;Increased;Not Detected;Yes;Negative;Not Done
+ANML389;Cat;Maine Coon;4,5;7,3;18/05/2025;;No;103;Bloody;Aggressive;Increased;Not Detected;No;Negative;Negative
+ANML390;Cow;Jersey;6,8;444;01/06/2025;;No;101,6;Clear;Normal;Decreased;Not Detected;No;Not Done;Not Done
+ANML392;Cat;Maine Coon;7,1;6;28/06/2025;;No;101,2;Bloody;Aggressive;Decreased;Detected;Yes;Negative;Negative
+ANML396;Cat;Persian;1;3,6;08/06/2025;;No;102,6;None;Aggressive;Increased;Not Detected;Yes;Negative;Not Done
+ANML397;Goat;Alpine;4,5;55,3;25/06/2025;;No;101,8;None;Aggressive;Increased;Not Detected;Yes;Negative;Positive
+ANML398;Cat;Persian;1,6;5,1;11/06/2025;;No;103,2;Bloody;Restless;Decreased;Not Detected;No;Negative;Not Done
+ANML400;Dog;Labrador Retriever;5,3;30,8;08/05/2025;;No;102,7;Clear;Aggressive;Decreased;Not Detected;No;Positive;Not Done
+ANML401;Cat;Siamese;2,5;3,7;06/06/2025;;No;101,4;Clear;Normal;Increased;Detected;No;Positive;Not Done
+ANML402;Cat;Persian;5,8;4,2;15/06/2025;;No;101;Bloody;Nesting;Normal;Detected;Yes;Not Done;Negative
+ANML403;Cat;Maine Coon;5,6;7,2;04/07/2025;;No;102,6;Clear;Aggressive;Increased;Detected;No;Not Done;Negative
+ANML404;Cat;Maine Coon;6,7;6,3;04/07/2025;;No;102,4;None;Normal;Normal;Not Detected;No;Negative;Negative
+ANML405;Cat;Siamese;1,4;4,6;29/04/2025;;No;102,6;Clear;Restless;Increased;Detected;No;Not Done;Negative
+ANML406;Cat;Persian;1,5;5,5;10/06/2025;;No;102,6;Bloody;Nesting;Normal;Detected;No;Negative;Negative
+ANML407;Cat;Persian;7,7;4,1;23/05/2025;;No;101,3;None;Aggressive;Normal;Detected;No;Negative;Not Done
+ANML408;Cat;Siamese;3,1;3,9;06/06/2025;;No;100,7;Bloody;Restless;Increased;Detected;Yes;Negative;Not Done
+ANML409;Cat;Siamese;6,2;4,3;19/06/2025;;No;102;Bloody;Normal;Increased;Detected;Yes;Not Done;Not Done
+ANML410;Cat;Maine Coon;1,3;8;07/05/2025;;No;102;Clear;Aggressive;Decreased;Not Detected;No;Not Done;Positive
+ANML429;Cow;Jersey;6;450,6;07/06/2025;;No;101,9;Bloody;Normal;Increased;Detected;No;Positive;Negative
+ANML430;Cow;Jersey;2,7;325,8;08/05/2025;;No;101;Clear;Restless;Increased;Not Detected;Yes;Negative;Not Done
+ANML431;Cow;Jersey;6,3;439,2;05/05/2025;;No;101;Clear;Aggressive;Decreased;Detected;Yes;Negative;Not Done
+ANML432;Cow;Jersey;3,1;294,1;05/07/2025;;No;102,1;Bloody;Aggressive;Normal;Not Detected;No;Not Done;Negative
+ANML433;Cow;Jersey;3,2;309,8;24/06/2025;;No;102,5;Clear;Restless;Normal;Detected;No;Not Done;Negative
+ANML434;Cow;Jersey;2,1;232,1;13/06/2025;;No;101,2;Clear;Nesting;Normal;Not Detected;No;Positive;Negative
+ANML435;Cow;Jersey;2;193,4;07/06/2025;;No;101,2;Clear;Aggressive;Decreased;Detected;No;Positive;Negative
+ANML436;Cow;Jersey;6,3;441,7;23/05/2025;;No;103,5;Bloody;Nesting;Decreased;Detected;No;Not Done;Positive
+ANML437;Cow;Jersey;0,9;134,8;28/04/2025;;No;101,9;None;Nesting;Increased;Not Detected;Yes;Positive;Negative
+ANML438;Cow;Jersey;4;422,4;22/06/2025;;No;101,4;Bloody;Normal;Decreased;Detected;No;Positive;Not Done
+ANML439;Cow;Jersey;3,6;347,4;16/05/2025;;No;101,3;Bloody;Normal;Increased;Not Detected;Yes;Negative;Negative
+ANML440;Cow;Jersey;1,6;103,7;09/05/2025;;No;100,7;None;Aggressive;Increased;Detected;No;Not Done;Positive
+ANML441;Cow;Jersey;1,4;99,7;04/06/2025;;No;100,6;Bloody;Restless;Normal;Detected;Yes;Not Done;Positive
+ANML457;Dog;German Shepherd;7;29,9;22/06/2025;;No;103,5;Clear;Normal;Increased;Not Detected;Yes;Not Done;Negative
+ANML458;Dog;German Shepherd;1,1;30,9;04/06/2025;;No;101,8;Clear;Restless;Decreased;Not Detected;No;Negative;Negative
+ANML459;Dog;Beagle;5,9;13,4;21/06/2025;;No;102,6;Bloody;Restless;Increased;Detected;No;Not Done;Positive
+ANML460;Dog;German Shepherd;4,2;31,1;29/06/2025;;No;102,3;Clear;Aggressive;Decreased;Detected;Yes;Positive;Not Done
+ANML461;Dog;German Shepherd;5,3;30,6;07/06/2025;;No;102,9;Bloody;Nesting;Decreased;Detected;No;Negative;Negative
+ANML476;Goat;Boer;4,5;115;05/05/2025;;No;100,9;None;Restless;Normal;Detected;Yes;Not Done;Negative
+ANML477;Goat;Boer;1;53,1;04/05/2025;;No;103,1;Clear;Nesting;Increased;Not Detected;No;Negative;Negative
+ANML478;Goat;Boer;3,6;117,6;16/06/2025;;No;103,2;Clear;Aggressive;Normal;Not Detected;Yes;Not Done;Not Done
+ANML479;Goat;Nubian;5,5;81,9;19/06/2025;;No;101,6;Bloody;Aggressive;Normal;Detected;No;Not Done;Not Done
+ANML480;Goat;Boer;1,9;102,9;18/06/2025;;No;103,1;Clear;Restless;Decreased;Detected;Yes;Negative;Positive
+ANML481;Goat;Nubian;6;82;22/05/2025;;No;101,8;Bloody;Restless;Decreased;Not Detected;No;Negative;Positive
+ANML482;Goat;Boer;4,9;93,5;18/05/2025;;No;103,5;None;Normal;Decreased;Detected;No;Not Done;Negative
+ANML483;Goat;Alpine;2,9;59,9;19/05/2025;;No;102,7;Bloody;Nesting;Increased;Not Detected;Yes;Not Done;Positive
+ANML484;Goat;Nubian;6,4;77,9;26/05/2025;;No;101,7;None;Nesting;Normal;Not Detected;Yes;Negative;Positive
+ANML485;Goat;Boer;3,9;113,3;26/06/2025;;No;102,9;Clear;Nesting;Increased;Detected;No;Positive;Negative
+ANML486;Goat;Nubian;6,3;83;03/06/2025;;No;101,6;None;Normal;Decreased;Not Detected;Yes;Not Done;Negative
+ANML487;Goat;Boer;3,7;102,8;11/05/2025;;No;100,7;Clear;Restless;Decreased;Detected;Yes;Negative;Not Done
+ANML488;Goat;Alpine;5,2;52,3;17/06/2025;;No;100,7;Bloody;Normal;Normal;Detected;Yes;Positive;Not Done
+ANML489;Goat;Boer;7,9;110,3;20/05/2025;;No;102,5;Clear;Normal;Increased;Detected;No;Positive;Not Done
+ANML490;Goat;Nubian;7,4;82,4;23/05/2025;;No;101,7;None;Restless;Decreased;Detected;Yes;Not Done;Negative
+ANML491;Goat;Nubian;6,1;78,4;24/06/2025;;No;103,4;Clear;Aggressive;Normal;Detected;No;Negative;Negative
+ANML501;Cat;Persian;4,8;4,9;05/07/2025;;No;102,6;None;Normal;Decreased;Not Detected;Yes;Positive;Not Done
+ANML503;Goat;Alpine;1;50,3;08/06/2025;;No;100,9;Bloody;Nesting;Normal;Not Detected;Yes;Positive;Positive
+ANML504;Cow;Jersey;5,2;441,5;04/06/2025;;No;101,2;None;Nesting;Increased;Detected;Yes;Positive;Positive
+ANML505;Cat;Persian;0,7;5,3;17/06/2025;;No;102,9;Bloody;Aggressive;Increased;Not Detected;No;Not Done;Negative
+ANML506;Goat;Alpine;4;69,4;13/05/2025;;No;101,7;Clear;Aggressive;Increased;Detected;Yes;Positive;Not Done
+ANML509;Cat;Persian;6,3;4,8;21/06/2025;;No;101,9;Bloody;Aggressive;Decreased;Detected;No;Positive;Negative
+ANML510;Cow;Jersey;3;275,5;24/06/2025;;No;101,8;Clear;Normal;Decreased;Not Detected;Yes;Negative;Positive
+ANML512;Goat;Boer;5,6;100,2;20/06/2025;;No;100,7;None;Nesting;Increased;Not Detected;Yes;Not Done;Negative
+ANML515;Cat;Siamese;7,4;4,1;14/06/2025;;No;103,3;Clear;Normal;Increased;Detected;Yes;Not Done;Positive
+ANML517;Cow;Jersey;5,1;498,7;20/06/2025;;No;102,5;None;Restless;Increased;Detected;Yes;Negative;Negative
+ANML519;Goat;Nubian;7,7;84,7;01/05/2025;;No;102,9;Clear;Normal;Normal;Detected;Yes;Positive;Positive
+ANML522;Cow;Jersey;7,2;428,2;31/05/2025;;No;100,8;Bloody;Normal;Normal;Not Detected;Yes;Negative;Positive
+ANML524;Dog;Beagle;6,7;10,6;06/06/2025;;No;102,9;Bloody;Nesting;Decreased;Detected;Yes;Negative;Not Done
+ANML525;Cow;Jersey;6,7;460,3;14/05/2025;;No;102,6;Bloody;Aggressive;Normal;Detected;No;Positive;Negative
+ANML526;Cow;Jersey;5,5;471,5;02/05/2025;;No;101,6;Clear;Aggressive;Normal;Not Detected;No;Positive;Negative
+ANML529;Goat;Nubian;0,5;24,4;19/06/2025;;No;101,2;Clear;Nesting;Normal;Detected;No;Not Done;Negative
+ANML537;Cat;Persian;4;4,3;04/05/2025;;No;102;None;Normal;Decreased;Not Detected;Yes;Not Done;Negative
+ANML541;Goat;Alpine;0,8;32,4;30/06/2025;;No;102,3;Bloody;Aggressive;Increased;Detected;Yes;Negative;Positive
+ANML542;Cat;Persian;2,5;5;08/06/2025;;No;102,1;None;Normal;Normal;Not Detected;Yes;Negative;Negative
+ANML543;Cow;Jersey;1,3;140,1;11/05/2025;;No;102,4;None;Normal;Increased;Detected;Yes;Negative;Not Done
+ANML544;Cow;Jersey;6;452,4;13/05/2025;;No;100,8;None;Nesting;Decreased;Not Detected;No;Not Done;Negative
+ANML546;Dog;Labrador Retriever;0,9;26,6;01/05/2025;;No;101,3;Bloody;Aggressive;Decreased;Not Detected;Yes;Positive;Not Done
+ANML549;Cat;Maine Coon;4;5,8;30/06/2025;;No;102,4;Clear;Nesting;Increased;Detected;No;Not Done;Negative
+ANML555;Dog;Beagle;5,1;12,8;30/06/2025;;No;102,3;Bloody;Normal;Decreased;Not Detected;No;Negative;Not Done
+ANML556;Goat;Alpine;3,4;55,3;02/07/2025;;No;101,7;Bloody;Nesting;Decreased;Detected;Yes;Positive;Positive
+ANML557;Cow;Jersey;5,2;447,9;08/05/2025;;No;101,3;Bloody;Nesting;Increased;Detected;Yes;Positive;Positive
+ANML558;Cat;Persian;4,7;5,2;17/06/2025;;No;102;Bloody;Nesting;Decreased;Detected;Yes;Positive;Positive
+ANML561;Goat;Alpine;7,2;64,6;05/05/2025;;No;103,3;Clear;Normal;Normal;Not Detected;No;Positive;Not Done
+ANML563;Cow;Jersey;3,6;402,2;12/05/2025;;No;102,2;Clear;Normal;Decreased;Detected;Yes;Positive;Positive
+ANML564;Goat;Alpine;0,8;35,4;25/05/2025;;No;103,2;None;Nesting;Decreased;Detected;No;Negative;Positive
+ANML565;Cat;Persian;5,7;5;02/05/2025;;No;101,4;None;Aggressive;Decreased;Detected;Yes;Positive;Not Done
+ANML566;Dog;Beagle;1,2;11,3;22/06/2025;;No;101,1;Clear;Normal;Normal;Detected;Yes;Not Done;Negative
+ANML568;Goat;Alpine;1,6;51,4;08/05/2025;;No;103;Clear;Restless;Decreased;Not Detected;No;Negative;Negative
+ANML569;Dog;German Shepherd;2,7;26,2;17/06/2025;;No;102;Bloody;Normal;Increased;Detected;Yes;Negative;Not Done
+ANML571;Dog;Beagle;4,4;12,9;14/05/2025;;No;101,2;None;Normal;Increased;Detected;No;Negative;Negative
+ANML575;Dog;Beagle;7,4;10;11/05/2025;;No;102,6;Bloody;Aggressive;Normal;Not Detected;Yes;Negative;Not Done
+ANML576;Cat;Maine Coon;6,2;6,7;31/05/2025;;No;101,8;Bloody;Restless;Increased;Detected;No;Not Done;Positive
+ANML584;Goat;Alpine;2,5;51,1;17/05/2025;;No;102;Clear;Normal;Decreased;Detected;Yes;Positive;Not Done
+ANML585;Dog;German Shepherd;2,5;30,2;14/06/2025;;No;101,4;Clear;Nesting;Normal;Detected;No;Negative;Positive
+ANML586;Cow;Jersey;4,4;451,6;19/05/2025;;No;102,1;None;Restless;Normal;Detected;Yes;Not Done;Negative
+ANML587;Cat;Persian;3,8;4,6;31/05/2025;;No;102,1;None;Restless;Decreased;Detected;No;Negative;Not Done
+ANML588;Dog;Beagle;4,8;12,7;09/06/2025;;No;101,9;None;Restless;Normal;Detected;No;Negative;Not Done
