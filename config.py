@@ -42,7 +42,7 @@ ORACLE_PASSWORD: str = os.getenv("ORACLE_PASSWORD", "")
 # ── GROQ (Free Tier) ─────────────────────────────────────────────────
 
 GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
-GROQ_MODEL: str = "llama-3.3-70b-versatile"
+GROQ_MODEL: str = "openai/gpt-oss-120b"
 GROQ_TEMPERATURE: float = 0.10
 
 # ── Limiar de Ambiguidade ─────────────────────────────────────────────────────
