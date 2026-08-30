@@ -17,22 +17,33 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, computed_field, field_validator
 
 
 class DiagnosticoOutput(BaseModel):
     """
     Saída estruturada do Motor de Inteligência Clínica Veterinária ArkIve.
 
+    O raciocínio clínico da IA é estruturado em 4 campos (insight_perfil,
+    insight_correlacao, insight_predisposicao, insight_limitacoes) em vez de
+    um único texto corrido. Isso facilita a exibição em seções separadas por
+    consumidores futuros (ex: front-end com abas/accordion), sem exigir
+    parsing de texto livre.
+
+    Para persistência, os 4 campos são concatenados automaticamente no campo
+    calculado `ds_insight_ia`, que é o que efetivamente é gravado na coluna
+    ─ mantém compatibilidade com o CLOB único do Oracle, sem migração de schema.
+
     Mapeamento para TB_ARKIVE_DIAGNOSTICO (gravação pelo serviço Java):
     ┌──────────────────────┬─────────────────────────────────────────────────┐
     │ Campo Python         │ Coluna Oracle / Tipo / Restrição                │
     ├──────────────────────┼─────────────────────────────────────────────────┤
-    │ ds_diagnostico       │ DS_DIAGNOSTICO  VARCHAR2(500)                   │
+    │ ds_diagnostico       │ DS_DIAGNOSTICO  CLOB (NOT NULL)                 │
     │ tp_severidade        │ TP_SEVERIDADE   VARCHAR2(20)                    │
     │                      │   CHECK IN ('LEVE', 'MODERADA', 'GRAVE')        │
-    │ ds_insight_ia        │ DS_INSIGHT_IA   CLOB                            │
-    │ pc_confianca         │ PC_CONFIANCA    NUMBER(3) CHECK (0..100)        │
+    │ ds_insight_ia        │ DS_INSIGHT_IA   CLOB (calculado a partir dos    │
+    │ (computed_field)     │   4 campos insight_* abaixo)                    │
+    │ pc_confianca         │ PC_CONFIANCA    NUMBER(5,2) CHECK (0..100)      │
     │ fontes_pesquisadas   │ (não persistido — informativo ao chamador)      │
     └──────────────────────┴─────────────────────────────────────────────────┘
     """
@@ -56,15 +67,39 @@ class DiagnosticoOutput(BaseModel):
         )
     )
 
-    ds_insight_ia: str = Field(
-        min_length=50,
+    insight_perfil: str = Field(
+        min_length=20,
         description=(
-            "Raciocínio clínico detalhado da IA em português. Deve incluir: "
-            "(1) correlação entre os sintomas relatados e a hipótese diagnóstica; "
-            "(2) cruzamento com dados de bem-estar (apetite, atividade, comportamento); "
-            "(3) consideração das predisposições genéticas da raça/espécie; "
-            "(4) limitações e fatores que reduzem a confiança diagnóstica; "
-            "(5) integração de fontes web consultadas, se aplicável."
+            "Parágrafo 1: perfil do paciente e apresentação clínica principal "
+            "(espécie, raça, sexo, status reprodutivo e sintomas centrais)."
+        ),
+    )
+
+    insight_correlacao: str = Field(
+        min_length=20,
+        description=(
+            "Parágrafo 2: correlação entre os sintomas relatados, os dados de "
+            "bem-estar (apetite, atividade, comportamento) e a hipótese "
+            "diagnóstica sugerida."
+        ),
+    )
+
+    insight_predisposicao: str = Field(
+        min_length=20,
+        description=(
+            "Parágrafo 3: papel das predisposições genéticas da raça/espécie "
+            "no raciocínio clínico. Se não houver predisposições mapeadas, "
+            "declare isso explicitamente."
+        ),
+    )
+
+    insight_limitacoes: str = Field(
+        min_length=20,
+        description=(
+            "Parágrafo 4: limitações do diagnóstico, exames complementares "
+            "sugeridos e, se aplicável, menção a evidências da literatura "
+            "veterinária consultada (sem colar URLs — elas ficam em "
+            "fontes_pesquisadas)."
         ),
     )
 
@@ -93,11 +128,34 @@ class DiagnosticoOutput(BaseModel):
         """Remove espaços extras e normaliza o título do diagnóstico."""
         return v.strip() if isinstance(v, str) else v
 
-    @field_validator("ds_insight_ia", mode="before")
+    @field_validator(
+        "insight_perfil",
+        "insight_correlacao",
+        "insight_predisposicao",
+        "insight_limitacoes",
+        mode="before",
+    )
     @classmethod
-    def strip_insight(cls, v: str) -> str:
-        """Remove espaços extras do campo de raciocínio clínico."""
+    def strip_insight_sections(cls, v: str) -> str:
+        """Remove espaços extras de cada seção do raciocínio clínico."""
         return v.strip() if isinstance(v, str) else v
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def ds_insight_ia(self) -> str:
+        """
+        Concatena as 4 seções estruturadas em um único texto corrido,
+        no formato historicamente persistido em TB_ARKIVE_DIAGNOSTICO.DS_INSIGHT_IA.
+        Mantém compatibilidade com o serviço Java sem exigir migração de schema.
+        """
+        return "\n\n".join(
+            [
+                self.insight_perfil,
+                self.insight_correlacao,
+                self.insight_predisposicao,
+                self.insight_limitacoes,
+            ]
+        )
 
 
 class AmbiguityAssessment(BaseModel):

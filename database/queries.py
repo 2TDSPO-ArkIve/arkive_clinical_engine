@@ -18,6 +18,8 @@ from typing import Any
 
 import oracledb
 
+from config import DIAGNOSTIC_HISTORY_LIMIT
+
 logger = logging.getLogger(__name__)
 
 # SQL 1: Dados Clínicos Agregados da Consulta
@@ -104,6 +106,38 @@ WHERE  d.ID_DOENCA IN (
 ORDER BY d.NM_DOENCA
 """
 
+# SQL 3: Histórico de Diagnósticos Anteriores do Mesmo Animal
+#
+# Busca os diagnósticos mais recentes já registrados para o animal em OUTRAS
+# consultas (exclui a consulta atual), para dar continuidade do cuidado ao
+# raciocínio da IA. LEFT JOIN com TB_ARKIVE_DOENCA para trazer o nome da
+# doença catalogada quando o diagnóstico foi vinculado a uma (ID_DOENCA).
+#
+# Limitado a :limit registros mais recentes (configurável via
+# DIAGNOSTIC_HISTORY_LIMIT em config.py) para não estourar a janela de
+# contexto do LLM com um histórico muito longo.
+
+DIAGNOSTIC_HISTORY_QUERY: str = """
+SELECT
+    c2.DT_HORA,
+    dg.DS_DIAGNOSTICO,
+    dg.TP_SEVERIDADE,
+    dg.PC_CONFIANCA,
+    dg.ST_CONFIRMADO,
+    dg.ST_VALIDACAO_VET,
+    doe.NM_DOENCA
+
+FROM       TB_ARKIVE_DIAGNOSTICO dg
+JOIN       TB_ARKIVE_CONSULTA    c2  ON c2.ID_CONSULTA = dg.ID_CONSULTA
+LEFT JOIN  TB_ARKIVE_DOENCA      doe ON doe.ID_DOENCA  = dg.ID_DOENCA
+
+WHERE  c2.ID_ANIMAL   = :id_animal
+  AND  c2.ID_CONSULTA != :id_consulta
+
+ORDER BY c2.DT_HORA DESC
+FETCH FIRST :limit ROWS ONLY
+"""
+
 # Contexto Clínico Completo
 
 
@@ -149,6 +183,9 @@ class ClinicalContext:
     # Predisposições Genéticas
     predisposicoes: list[dict[str, str]] = field(default_factory=list)
 
+    # Histórico de Diagnósticos Anteriores (outras consultas do mesmo animal)
+    diagnosticos_anteriores: list[dict[str, Any]] = field(default_factory=list)
+
     # Propriedades derivadas
 
     @property
@@ -186,6 +223,28 @@ class ClinicalContext:
         idade_str = f"{self.nr_idade:.1f} anos" if self.nr_idade else "Não informada"
         dt_str = self.dt_hora.strftime("%d/%m/%Y %H:%M") if self.dt_hora else "Não informada"
 
+        if self.diagnosticos_anteriores:
+            _CONFIRMADO = {"S": "confirmado", "N": "não confirmado"}
+            hist_lines = []
+            for diag in self.diagnosticos_anteriores:
+                dt_diag = diag.get("dt_hora")
+                dt_diag_str = (
+                    dt_diag.strftime("%d/%m/%Y") if hasattr(dt_diag, "strftime") else "Data não informada"
+                )
+                nm_doenca = diag.get("nm_doenca")
+                titulo = nm_doenca or diag.get("ds_diagnostico") or "Diagnóstico sem título"
+                severidade = diag.get("tp_severidade") or "Não informada"
+                confianca = diag.get("pc_confianca")
+                confianca_str = f"{confianca:.0f}%" if confianca is not None else "N/A"
+                status_conf = _CONFIRMADO.get(diag.get("st_confirmado"), "status desconhecido")
+                hist_lines.append(
+                    f"  • [{dt_diag_str}] {titulo} — Severidade: {severidade} "
+                    f"| Confiança à época: {confianca_str} | {status_conf}"
+                )
+            historico_block = "\n".join(hist_lines)
+        else:
+            historico_block = "  Nenhum diagnóstico anterior registrado para este animal."
+
         return (
             "=== DADOS DO PACIENTE ===\n"
             f"Nome:           {self.nm_animal}\n"
@@ -208,6 +267,8 @@ class ClinicalContext:
             + (f"\n  Observações: {self.ds_obs_bem_estar}" if self.ds_obs_bem_estar else "")
             + "\n\n=== PREDISPOSIÇÕES GENÉTICAS DA RAÇA/ESPÉCIE ===\n"
             + predisposicoes_block
+            + "\n\n=== HISTÓRICO DE DIAGNÓSTICOS ANTERIORES (outras consultas) ===\n"
+            + historico_block
         )
 
 
@@ -292,6 +353,31 @@ def fetch_clinical_data(conn: oracledb.Connection, id_consulta: int) -> Clinical
         )
     else:
         logger.warning("ID_ESPECIE é NULL — pulando query de predisposições.")
+
+    # Query 3: Histórico de Diagnósticos Anteriores do Mesmo Animal
+    if ctx.id_animal:
+        logger.info(
+            "Executando DIAGNOSTIC_HISTORY_QUERY | ID_ANIMAL=%s | limit=%d",
+            ctx.id_animal,
+            DIAGNOSTIC_HISTORY_LIMIT,
+        )
+        with conn.cursor() as cur:
+            cur.execute(
+                DIAGNOSTIC_HISTORY_QUERY,
+                {
+                    "id_animal": ctx.id_animal,
+                    "id_consulta": id_consulta,
+                    "limit": DIAGNOSTIC_HISTORY_LIMIT,
+                },
+            )
+            hist_columns = [col[0].lower() for col in cur.description]
+            for hist_row in cur.fetchall():
+                ctx.diagnosticos_anteriores.append(dict(zip(hist_columns, hist_row)))
+
+        logger.info(
+            "%d diagnóstico(s) anterior(es) encontrado(s) para o animal.",
+            len(ctx.diagnosticos_anteriores),
+        )
 
     return ctx
 
