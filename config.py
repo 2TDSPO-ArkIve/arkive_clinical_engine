@@ -42,13 +42,28 @@ ORACLE_PASSWORD: str = os.getenv("ORACLE_PASSWORD", "")
 # ── GROQ (Free Tier) ─────────────────────────────────────────────────
 
 GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
-GROQ_MODEL: str = "openai/gpt-oss-120b"
+
+# Modelo principal e fallbacks em ordem de preferência
+GROQ_MODEL: str = os.getenv("GROQ_MODEL", "qwen/qwen3.6-27b")
+
+GROQ_MODEL_FALLBACKS: list[str] = [
+    "openai/gpt-oss-120b",
+    "qwen/qwen3.6-27b",
+    "openai/gpt-oss-20b",
+]
 GROQ_TEMPERATURE: float = 0.10
 
-# ── Limiar de Ambiguidade ─────────────────────────────────────────────────────
+# ── Limiares de Busca Web ─────────────────────────────────────────────────────
 
-#: Se a IA avaliar confiança local < este valor, a busca web é acionada.
+#: Limiar do score de qualidade dos dados clínicos (completude dos campos).
+#: Se score < este valor, a busca web é acionada.
 AMBIGUITY_THRESHOLD: int = int(os.getenv("AMBIGUITY_THRESHOLD", "60"))
+
+#: Limiar da confiança diagnóstica calculada deterministicamente em Python.
+#: Se pc_confianca < este valor, a busca web é acionada independente do
+#: score de qualidade. Permite acionar busca em casos com dados completos
+#: mas hipótese diagnóstica incerta (ex: sintomas inespecíficos).
+CONFIDENCE_THRESHOLD: int = int(os.getenv("CONFIDENCE_THRESHOLD", "70"))
 
 # ── Validação Fail-Fast ───────────────────────────────────────────────────────
 
