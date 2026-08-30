@@ -18,13 +18,13 @@
 
 ## Repositório
  
-[![GitHub](https://img.shields.io/badge/GitHub-Acessar%20Repositório-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/2TDSPO-1-2/arkive_clinical_engine)
+[![GitHub](https://img.shields.io/badge/GitHub-Acessar%20Repositório-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/2TDSPO-ArkIve/arkive_clinical_engine)
 
 ---
 
 ## Demonstração em Vídeo
 
-> Assista à apresentação do projeto, explicação da arquitetura e testes:
+> Assista à apresentação do projeto, explicação da arquitetura e testes (Sprint 1-2):
 
 [![Assistir no YouTube](https://img.shields.io/badge/YouTube-Assistir%20Apresentação-red?style=for-the-badge&logo=youtube)](https://www.youtube.com/watch?v=zWqLgywXfv4)
 
@@ -66,7 +66,7 @@ O sistema opera em **modo estritamente read-only** no banco, nunca escrevendo ou
 | Camada | Tecnologia | Papel no sistema |
 |--------|-----------|-----------------|
 | Linguagem | Python 3.11+ | Orquestra todas as etapas |
-| LLM / IA Generativa | [Groq API](https://console.groq.com) · `llama-3.3-70b-versatile` | Gera o raciocínio clínico e o diagnóstico |
+| LLM / IA Generativa | [Groq API](https://console.groq.com) · `qwen/qwen3.6-27b` (padrão), com fallback automático para `openai/gpt-oss-120b` e `openai/gpt-oss-20b` | Gera o raciocínio clínico e o diagnóstico |
 | Integração LLM | `langchain-groq` + `langchain-core` · `ChatGroq.with_structured_output()` | Conecta ao Groq e garante saída JSON validada pelo Pydantic; sem chains ou pipelines LCEL |
 | Banco de Dados | Oracle via `oracledb` (modo Thin) | Fonte de dados clínicos — somente leitura |
 | Validação de Schema | Pydantic v2 | Valida e tipifica a saída da IA |
@@ -84,7 +84,7 @@ Etapa 2 ──► Python puro (sem LLM): _evaluate_ambiguity_locally() pontua a 
              Se score < AMBIGUITY_THRESHOLD → busca web ativada. Decisão 100% determinística, sem custo de API.
 Etapa 3 ──► Python puro (sem LLM): _calculate_confidence() calcula pc_confianca com rubrica fixa baseada nos dados reais do Oracle.
 Etapa 4 ──► DuckDuckGo (condicional): Busca literatura veterinária se score < threshold. Prioriza NCBI/PubMed e Merck Veterinary Manual.
-Etapa 5 ──► Groq API (1 chamada): LLaMA 3.3 70B recebe resumo clínico + pc_confianca pronto e gera DiagnosticoOutput validado pelo Pydantic v2.
+Etapa 5 ──► Groq API (1 chamada): modelo ativo (qwen/qwen3.6-27b, com fallback automático para openai/gpt-oss-120b e openai/gpt-oss-20b) recebe resumo clínico + pc_confianca pronto e gera DiagnosticoOutput validado pelo Pydantic v2.
 Saída: JSON ──► {ds_diagnostico, tp_severidade, ds_insight_ia, pc_confianca, fontes_pesquisadas}
 
 A resposta é consumida pela API Java para persistência em TB_ARKIVE_DIAGNOSTICO.
@@ -98,6 +98,7 @@ arkive_clinical_engine/
 ├── requirements.txt          # Dependências com versões fixas
 ├── config.py                 # Configuração centralizada + validação fail-fast
 ├── main.py                   # Ponto de entrada CLI
+├── api.py                    # API HTTP (FastAPI) — expõe o motor via endpoint REST
 ├── agents/
 │   └── clinical_agent.py     # Motor principal (LangChain + Groq + heurística)
 ├── database/
@@ -165,7 +166,10 @@ GROQ_API_KEY=gsk_sua_chave_aqui
 # Configurações opcionais
 LOG_LEVEL=INFO
 AMBIGUITY_THRESHOLD=60
+CONFIDENCE_THRESHOLD=70
 ```
+
+> **Nota:** `GROQ_TEMPERATURE` (usado nas chamadas ao modelo) é fixado em `0.10` diretamente em `config.py` e **não** é configurável via `.env`.
 
 ### 5. Executar
 
@@ -192,6 +196,46 @@ python main.py 1
 ```
 
 Logs de execução são exibidos no terminal. Em caso de erro, o JSON de saída conterá o campo `"error"` com a causa.
+
+---
+
+## Executando via API (FastAPI)
+
+Além da CLI, o motor pode ser exposto como um serviço HTTP através do `api.py`.
+
+### Subir o servidor
+
+```bash
+uvicorn api:app --reload
+```
+
+Por padrão, a API sobe em `http://127.0.0.1:8000`.
+
+### Endpoint disponível
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| `GET` | `/diagnostico/{id_consulta}` | Executa o pipeline completo de análise clínica para o `ID_CONSULTA` informado e retorna o `DiagnosticoOutput` em JSON |
+
+**Exemplo:**
+
+```bash
+curl http://127.0.0.1:8000/diagnostico/1
+```
+
+**Códigos de resposta:**
+
+| Status | Situação |
+|--------|----------|
+| `200` | Diagnóstico gerado com sucesso |
+| `400` | `id_consulta` inválido (não positivo) |
+| `404` | Consulta não encontrada no Oracle |
+| `502` | Falha no motor de IA (Groq) |
+| `500` | Erro inesperado |
+
+> **CORS:** a API está configurada com `allow_origins=["*"]`, permitindo chamadas de qualquer origem (útil para testes com front-ends web/HTML/JS). Ajuste essa configuração antes de um deploy em produção.
+
+> **Atenção:** se as variáveis de ambiente obrigatórias (`ORACLE_USER`, `ORACLE_PASSWORD`, `GROQ_API_KEY`) estiverem ausentes, a mensagem de erro é apenas impressa no console durante a inicialização — a aplicação só falhará de fato na primeira requisição, quando o `ClinicalIntelligenceEngine` tentar inicializar.
 
 ---
 
@@ -281,6 +325,8 @@ langchain-groq>=0.2.0,<1.0.0
 ddgs>=0.1.0
 pydantic>=2.7.0,<3.0.0
 python-dotenv>=1.0.0,<2.0.0
+fastapi>=0.110.0
+uvicorn>=0.27.0
 ```
 
 ---
