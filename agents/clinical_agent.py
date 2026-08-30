@@ -37,70 +37,39 @@ from config import (
     GROQ_MODEL_FALLBACKS,
     GROQ_TEMPERATURE,
 )
+from config import (
+    AMBIGUITY_THRESHOLD,
+    CONFIDENCE_THRESHOLD,
+    GROQ_API_KEY,
+    GROQ_MODEL_FALLBACKS,
+    GROQ_TEMPERATURE,
+    WEB_SEARCH_CACHE_MAX_SIZE,
+    WEB_SEARCH_CACHE_TTL_SECONDS,
+)
+from cache.ttl_cache import TTLCache, normalize_cache_key
 from database.connection import get_connection
 from database.queries import ClinicalContext, fetch_clinical_data
+from prompts.diagnostic_v2 import DIAGNOSTIC_SYSTEM_PROMPT as _DIAGNOSTIC_SYSTEM_PROMPT
 from schemas.diagnostic import DiagnosticoOutput
 
 logger = logging.getLogger(__name__)
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  System Prompt
-# ─────────────────────────────────────────────────────────────────────────────
-
-_DIAGNOSTIC_SYSTEM_PROMPT = (
-    "Você é o Motor de Inteligência Clínica Veterinária do sistema ArkIve, "
-    "desenvolvido para auxiliar médicos veterinários brasileiros na formulação "
-    "de hipóteses diagnósticas fundamentadas. O sistema atende qualquer espécie "
-    "animal — doméstica, silvestre, zoológica ou de produção.\n\n"
-
-    "PAPEL E RESPONSABILIDADE:\n"
-    "Analise os dados clínicos fornecidos e gere uma suspeita diagnóstica "
-    "estruturada, priorizando a segurança do paciente e a precisão clínica. "
-    "Você está produzindo uma HIPÓTESE DIAGNÓSTICA para orientar o veterinário "
-    "— não um diagnóstico definitivo.\n\n"
-
-    "INSTRUÇÕES CRÍTICAS ANTI-ALUCINAÇÃO:\n"
-    "1. Baseie-se EXCLUSIVAMENTE nos dados clínicos fornecidos e em evidências "
-    "médico-veterinárias estabelecidas (ou nas fontes web incluídas no contexto).\n"
-    "2. NUNCA invente sintomas, resultados laboratoriais ou informações ausentes.\n"
-    "3. Predisposições genéticas são FATORES DE RISCO, não diagnósticos definitivos.\n"
-    "4. Se fontes web foram consultadas, integre as evidências de forma crítica "
-    "no raciocínio clínico. Não liste URLs dentro do ds_insight_ia — as fontes "
-    "já serão registradas separadamente no campo fontes_pesquisadas.\n\n"
-
-    "ESTRUTURA OBRIGATÓRIA DO ds_insight_ia:\n"
-    "Escreva em português técnico e objetivo, seguindo exatamente esta ordem, "
-    "sem títulos ou marcadores — apenas parágrafos fluidos:\n"
-    "  1º parágrafo: perfil do paciente e apresentação clínica principal.\n"
-    "  2º parágrafo: correlação entre sintomas, bem-estar e hipótese diagnóstica.\n"
-    "  3º parágrafo: papel das predisposições genéticas no raciocínio clínico.\n"
-    "  4º parágrafo: limitações do diagnóstico e exames complementares sugeridos. "
-    "Se fontes web enriqueceram o diagnóstico, mencione apenas que evidências "
-    "da literatura veterinária corroboram a hipótese — sem colar URLs.\n\n"
-
-    "RACIOCÍNIO CLÍNICO ESPERADO:\n"
-    "- Correlacione sintomas com espécie, raça, sexo e status reprodutivo.\n"
-    "- Considere dados de bem-estar como indicadores sistêmicos relevantes.\n"
-    "- Priorize predisposições genéticas mapeadas como diferenciais prioritários.\n\n"
-
-    "GARANTIAS DE TIPO OBRIGATÓRIAS — VIOLAÇÕES CAUSAM FALHA NO SISTEMA:\n"
-    "• `ds_diagnostico`     → string de texto, entre 5 e 500 caracteres.\n"
-    "• `tp_severidade`      → exatamente uma destas strings: 'LEVE', 'MODERADA' "
-    "ou 'GRAVE'. Nunca use outros valores.\n"
-    "• `ds_insight_ia`      → string de texto, mínimo 50 caracteres. "
-    "PROIBIDO incluir URLs, links ou endereços web neste campo. "
-    "Se fontes web foram consultadas, mencione apenas que a literatura "
-    "veterinária corrobora a hipótese — as URLs ficam exclusivamente "
-    "em fontes_pesquisadas.\n"
-    "• `pc_confianca`       → inteiro puro fornecido pelo sistema no campo "
-    "'>>> VALOR OBRIGATÓRIO: pc_confianca <<<'. Use EXATAMENTE este número. "
-    "NUNCA recalcule, NUNCA ajuste, NUNCA envie como string ou float.\n"
-    "• `fontes_pesquisadas` → lista de strings com URLs. Lista vazia [] se "
-    "busca web não foi realizada. NUNCA null ou omitido.\n\n"
-
-    "Responda EXCLUSIVAMENTE no formato JSON estruturado conforme o schema "
-    "fornecido. Não inclua texto adicional fora do JSON."
+# Cache de buscas web compartilhado entre chamadas do mesmo processo — evita
+# repetir a mesma busca no DuckDuckGo para casos clínicos com a mesma query
+# (mesma espécie/raça/sintomas) dentro do TTL configurado.
+_web_search_cache = TTLCache(
+    max_size=WEB_SEARCH_CACHE_MAX_SIZE, ttl_seconds=WEB_SEARCH_CACHE_TTL_SECONDS
 )
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Retry / Backoff
+# ─────────────────────────────────────────────────────────────────────────────
+
+#: Tentativas de retry por modelo antes de considerá-lo indisponível
+#: (falhas transitórias: rate limit, timeout, erro 5xx do Groq).
+_GROQ_MAX_RETRIES: int = 3
+#: Backoff exponencial em segundos: tentativa 1 = 1s, 2 = 2s, 3 = 4s ...
+_GROQ_BACKOFF_BASE_SECONDS: float = 1.0
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Dataclass auxiliar
@@ -245,7 +214,26 @@ class ClinicalIntelligenceEngine:
         return ctx
 
     def _perform_web_search(self, query: str) -> tuple[str, list[str]]:
-        """Busca no DuckDuckGo. Retorna (texto_contexto, lista_de_urls)."""
+        """
+        Busca no DuckDuckGo, com cache TTL+LRU em memória. Retorna
+        (texto_contexto, lista_de_urls).
+
+        Cache hit: retorna o resultado anterior sem chamar o DuckDuckGo.
+        Cache miss: busca normalmente e, se bem-sucedida, grava no cache.
+        Falhas/resultados vazios NÃO são cacheados, para não perpetuar um
+        erro transitório (rate limit, timeout) em buscas futuras.
+        """
+        cache_key = normalize_cache_key(query)
+        cached = _web_search_cache.get(cache_key)
+        if cached is not None:
+            web_context, urls = cached
+            logger.info(
+                "Cache HIT para busca web (%d fonte(s) reaproveitada(s)).", len(urls)
+            )
+            return web_context, urls
+
+        logger.debug("Cache MISS para busca web — consultando DuckDuckGo.")
+
         try:
             from ddgs import DDGS
         except ImportError:
@@ -271,8 +259,11 @@ class ClinicalIntelligenceEngine:
             web_context = "\n\n" + ("─" * 60) + "\n\n".join(snippets)
         except Exception as exc:
             logger.warning("Busca web falhou: %s. Prosseguindo sem contexto externo.", exc)
-            web_context = ""
-            urls = []
+            return "", []
+
+        if urls:
+            _web_search_cache.set(cache_key, (web_context, urls))
+            logger.debug("Resultado da busca web armazenado em cache.")
 
         return web_context, urls
 
@@ -324,14 +315,39 @@ class ClinicalIntelligenceEngine:
 
         diagnostic: DiagnosticoOutput | None = None
 
-        # Estratégia 1: function calling (with_structured_output)
-        try:
-            diagnostic = self._diagnostic_chain.invoke(messages)
-            logger.info("Structured output via function calling bem-sucedido.")
-        except Exception as exc:
-            logger.warning(
-                "Function calling falhou (%s) — acionando fallback de JSON parsing.", exc
-            )
+        # Estratégia 1: function calling (with_structured_output), com retry
+        # e backoff exponencial para absorver falhas transitórias (rate limit,
+        # timeout, erros 5xx do Groq) antes de desistir do modelo atual.
+        last_exc: Exception | None = None
+        for attempt in range(1, _GROQ_MAX_RETRIES + 1):
+            try:
+                diagnostic = self._diagnostic_chain.invoke(messages)
+                logger.info(
+                    "Structured output via function calling bem-sucedido (tentativa %d/%d).",
+                    attempt,
+                    _GROQ_MAX_RETRIES,
+                )
+                break
+            except Exception as exc:
+                last_exc = exc
+                if attempt < _GROQ_MAX_RETRIES:
+                    wait_seconds = _GROQ_BACKOFF_BASE_SECONDS * (2 ** (attempt - 1))
+                    logger.warning(
+                        "Function calling falhou (tentativa %d/%d): %s — "
+                        "nova tentativa em %.1fs.",
+                        attempt,
+                        _GROQ_MAX_RETRIES,
+                        exc,
+                        wait_seconds,
+                    )
+                    time.sleep(wait_seconds)
+                else:
+                    logger.warning(
+                        "Function calling falhou após %d tentativas (%s) — "
+                        "acionando fallback de JSON parsing.",
+                        _GROQ_MAX_RETRIES,
+                        exc,
+                    )
 
         # Estratégia 2: fallback de JSON puro
         if diagnostic is None:
@@ -359,7 +375,10 @@ class ClinicalIntelligenceEngine:
             "{\n"
             '  "ds_diagnostico": "string entre 5 e 500 caracteres",\n'
             '  "tp_severidade": "LEVE" ou "MODERADA" ou "GRAVE",\n'
-            '  "ds_insight_ia": "string com mínimo 50 caracteres, sem URLs",\n'
+            '  "insight_perfil": "string com mínimo 20 caracteres, sem URLs",\n'
+            '  "insight_correlacao": "string com mínimo 20 caracteres, sem URLs",\n'
+            '  "insight_predisposicao": "string com mínimo 20 caracteres, sem URLs",\n'
+            '  "insight_limitacoes": "string com mínimo 20 caracteres, sem URLs",\n'
             '  "pc_confianca": integer entre 0 e 100,\n'
             '  "fontes_pesquisadas": []\n'
             "}"

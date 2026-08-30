@@ -65,6 +65,25 @@ AMBIGUITY_THRESHOLD: int = int(os.getenv("AMBIGUITY_THRESHOLD", "60"))
 #: mas hipótese diagnóstica incerta (ex: sintomas inespecíficos).
 CONFIDENCE_THRESHOLD: int = int(os.getenv("CONFIDENCE_THRESHOLD", "70"))
 
+# ── Cache de Busca Web (DuckDuckGo) ───────────────────────────────────────────
+
+#: Tempo de vida (segundos) de uma busca em cache antes de expirar.
+#: Padrão: 1 hora. Buscas com a mesma query (espécie/raça/sintomas) dentro
+#: dessa janela reaproveitam o resultado, sem nova chamada ao DuckDuckGo.
+WEB_SEARCH_CACHE_TTL_SECONDS: float = float(
+    os.getenv("WEB_SEARCH_CACHE_TTL_SECONDS", "3600")
+)
+
+#: Número máximo de queries distintas mantidas em cache simultaneamente.
+#: Acima disso, a entrada menos recentemente usada (LRU) é descartada.
+WEB_SEARCH_CACHE_MAX_SIZE: int = int(os.getenv("WEB_SEARCH_CACHE_MAX_SIZE", "200"))
+
+# ── Histórico Clínico ─────────────────────────────────────────────────────────
+
+#: Número máximo de diagnósticos anteriores do mesmo animal incluídos no
+#: resumo clínico enviado ao LLM (continuidade do cuidado).
+DIAGNOSTIC_HISTORY_LIMIT: int = int(os.getenv("DIAGNOSTIC_HISTORY_LIMIT", "5"))
+
 # ── Validação Fail-Fast ───────────────────────────────────────────────────────
 
 def validate_config() -> None:
