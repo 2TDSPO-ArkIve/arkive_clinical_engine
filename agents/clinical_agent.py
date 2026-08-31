@@ -36,20 +36,14 @@ from config import (
     GROQ_API_KEY,
     GROQ_MODEL_FALLBACKS,
     GROQ_TEMPERATURE,
-)
-from config import (
-    AMBIGUITY_THRESHOLD,
-    CONFIDENCE_THRESHOLD,
-    GROQ_API_KEY,
-    GROQ_MODEL_FALLBACKS,
-    GROQ_TEMPERATURE,
+    WEB_ENRICHMENT_CONFIDENCE_BONUS,
     WEB_SEARCH_CACHE_MAX_SIZE,
     WEB_SEARCH_CACHE_TTL_SECONDS,
 )
 from cache.ttl_cache import TTLCache, normalize_cache_key
 from database.connection import get_connection
 from database.queries import ClinicalContext, fetch_clinical_data
-from prompts.diagnostic_v2 import DIAGNOSTIC_SYSTEM_PROMPT as _DIAGNOSTIC_SYSTEM_PROMPT
+from prompts.diagnostic_v3 import DIAGNOSTIC_SYSTEM_PROMPT as _DIAGNOSTIC_SYSTEM_PROMPT
 from schemas.diagnostic import DiagnosticoOutput
 
 logger = logging.getLogger(__name__)
@@ -165,25 +159,69 @@ class ClinicalIntelligenceEngine:
             ambiguity.reason,
         )
 
-        # Etapa 4: Busca web condicional
+        # Etapa 4: Busca web condicional (geral, por ambiguidade)
         web_context: str = ""
         sources: list[str] = []
 
         if ambiguity.needs_web_search:
-            logger.info("Acionando busca web | Query: '%s'", ambiguity.search_query)
+            logger.info("Acionando busca web geral | Query: '%s'", ambiguity.search_query)
             web_context, sources = self._perform_web_search(ambiguity.search_query)
-            logger.info("%d fonte(s) recuperada(s) do DuckDuckGo.", len(sources))
+            logger.info("%d fonte(s) recuperada(s) do DuckDuckGo (busca geral).", len(sources))
         else:
-            logger.info("Dados locais suficientes — busca web não acionada.")
+            logger.info("Dados locais suficientes — busca web geral não acionada.")
+
+        # Etapa 4b: Busca web DEDICADA a predisposição genética.
+        # Independente do resultado da heurística de ambiguidade geral: o
+        # catálogo local (TB_ARKIVE_PREDISPOSICAO) ainda está em fase de
+        # povoamento e tem cobertura esparsa, então "sem predisposição
+        # mapeada" hoje é, na maioria das vezes, uma lacuna de cadastro, não
+        # uma ausência real do fator de risco. Compensamos isso buscando a
+        # literatura diretamente sempre que o catálogo local vier vazio.
+        predisposition_context: str = ""
+        if not ctx.predisposicoes:
+            pred_query = _build_predisposition_search_query(ctx)
+            logger.info(
+                "Catálogo local sem predisposições mapeadas — acionando busca "
+                "dedicada | Query: '%s'",
+                pred_query,
+            )
+            predisposition_context, pred_sources = self._perform_web_search(pred_query)
+            if predisposition_context:
+                novas_urls = [u for u in pred_sources if u not in sources]
+                sources.extend(novas_urls)
+                logger.info(
+                    "%d fonte(s) nova(s) recuperada(s) do DuckDuckGo (busca dedicada "
+                    "de predisposição).",
+                    len(novas_urls),
+                )
+
+        # Recalcula a confiança incorporando o enriquecimento por busca web:
+        # se QUALQUER busca (geral ou dedicada) retornou fontes, a hipótese
+        # final se apoia em mais evidência do que os dados locais isolados
+        # sustentavam — refletimos isso com um bônus determinístico, capado
+        # em 100. Sem fontes, a confiança final é idêntica à calculada
+        # originalmente (nenhuma mudança de comportamento).
+        web_enriquecido = bool(sources)
+        confianca_final = _apply_web_enrichment_bonus(confianca_calculada, web_enriquecido)
+        if confianca_final != confianca_calculada:
+            logger.info(
+                "Confiança ajustada por enriquecimento via busca web: %d%% → %d%% "
+                "(+%d, %d fonte(s) no total).",
+                confianca_calculada,
+                confianca_final,
+                confianca_final - confianca_calculada,
+                len(sources),
+            )
 
         # Etapa 5: Chamada ao Groq
         logger.info("Enviando requisição ao Groq (chamada 1/1)...")
         diagnostic: DiagnosticoOutput = self._generate_diagnostic(
             clinical_summary=clinical_summary,
             web_context=web_context,
+            predisposition_context=predisposition_context,
             sources=sources,
             ctx=ctx,
-            confianca_calculada=confianca_calculada,
+            confianca_calculada=confianca_final,
         )
 
         logger.info(
@@ -271,6 +309,7 @@ class ClinicalIntelligenceEngine:
         self,
         clinical_summary: str,
         web_context: str,
+        predisposition_context: str,
         sources: list[str],
         ctx: ClinicalContext,
         confianca_calculada: int,
@@ -287,8 +326,9 @@ class ClinicalIntelligenceEngine:
             clinical_summary,
             f"\n\n>>> VALOR OBRIGATÓRIO: pc_confianca = {confianca_calculada} <<<\n"
             "Este valor foi calculado deterministicamente pelo sistema com base "
-            "nos dados clínicos reais. Use EXATAMENTE este número no campo "
-            "pc_confianca — não recalcule, não ajuste, não arredonde.\n",
+            "nos dados clínicos reais (e já incorpora um ajuste caso a busca web "
+            "tenha enriquecido o diagnóstico). Use EXATAMENTE este número no "
+            "campo pc_confianca — não recalcule, não ajuste, não arredonde.\n",
         ]
 
         if web_context:
@@ -300,6 +340,19 @@ class ClinicalIntelligenceEngine:
                 "\nIMPORTANTE: integre as evidências ao raciocínio clínico no "
                 "ds_insight_ia. Não cole URLs no insight — elas já estão em "
                 "fontes_pesquisadas.",
+            ])
+
+        if predisposition_context:
+            parts.extend([
+                "\n\n" + "═" * 60,
+                "\n🧬 BUSCA DEDICADA — PREDISPOSIÇÃO GENÉTICA (catálogo local "
+                "sem cobertura para esta espécie/raça):\n",
+                predisposition_context,
+                "\n" + "═" * 60,
+                "\nIMPORTANTE: este bloco foi buscado especificamente para "
+                "compensar a lacuna do catálogo local de predisposições. Use-o "
+                "para preencher insight_predisposicao. Não cole URLs no "
+                "insight — elas já estão em fontes_pesquisadas.",
             ])
 
         if sources:
@@ -414,6 +467,22 @@ class ClinicalIntelligenceEngine:
 # ─────────────────────────────────────────────────────────────────────────────
 #  Funções auxiliares (fora da classe)
 # ─────────────────────────────────────────────────────────────────────────────
+
+
+def _apply_web_enrichment_bonus(confianca_base: int, sources_found: bool) -> int:
+    """
+    Ajusta o pc_confianca para refletir o enriquecimento por busca web.
+
+    Se ao menos uma fonte externa (busca geral e/ou dedicada de
+    predisposição) foi consultada, soma WEB_ENRICHMENT_CONFIDENCE_BONUS
+    pontos percentuais ao valor calculado apenas com dados locais — o
+    diagnóstico final se apoiou em mais evidência do que os dados do
+    Oracle isoladamente sustentavam. Sem fontes, retorna o valor original
+    sem alteração. Resultado sempre capado em 100.
+    """
+    if not sources_found:
+        return confianca_base
+    return min(100, confianca_base + WEB_ENRICHMENT_CONFIDENCE_BONUS)
 
 
 def _calculate_confidence(ctx: ClinicalContext, sintomas: str) -> int:
@@ -563,6 +632,28 @@ def _build_search_query(ctx: ClinicalContext, sintomas: str, motivo: str) -> str
     parts.append(
         "veterinary clinical diagnosis "
         "site:ncbi.nlm.nih.gov OR site:merckvetmanual.com"
+    )
+
+    return " ".join(parts)[:200]
+
+
+def _build_predisposition_search_query(ctx: ClinicalContext) -> str:
+    """
+    Monta query dedicada a predisposições genéticas da espécie/raça,
+    usada quando TB_ARKIVE_PREDISPOSICAO não tem cobertura local para o
+    caso (catálogo em fase de povoamento). Independente da heurística
+    geral de ambiguidade — dispara sempre que ctx.predisposicoes vem vazio.
+    """
+    parts: list[str] = []
+
+    if ctx.nm_especie:
+        parts.append(ctx.nm_especie.lower())
+    if ctx.nm_raca:
+        parts.append(ctx.nm_raca.lower())
+
+    parts.append(
+        "genetic predisposition common hereditary diseases "
+        "site:merckvetmanual.com OR site:ncbi.nlm.nih.gov"
     )
 
     return " ".join(parts)[:200]

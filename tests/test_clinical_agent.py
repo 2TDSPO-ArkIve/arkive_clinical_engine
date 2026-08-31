@@ -17,10 +17,14 @@ Rodar com:
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
 import pytest
 
 from agents.clinical_agent import (
     ClinicalIntelligenceEngine,
+    _apply_web_enrichment_bonus,
+    _build_predisposition_search_query,
     _build_search_query,
     _calculate_confidence,
     _evaluate_ambiguity_locally,
@@ -192,6 +196,57 @@ class TestBuildSearchQuery:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# _apply_web_enrichment_bonus
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class TestApplyWebEnrichmentBonus:
+    def test_sem_fontes_mantem_confianca_original(self):
+        assert _apply_web_enrichment_bonus(55, sources_found=False) == 55
+
+    def test_com_fontes_aplica_bonus(self):
+        resultado = _apply_web_enrichment_bonus(55, sources_found=True)
+        assert resultado > 55
+
+    def test_bonus_nunca_ultrapassa_100(self):
+        resultado = _apply_web_enrichment_bonus(95, sources_found=True)
+        assert resultado <= 100
+
+    def test_bonus_com_confianca_zero(self):
+        resultado = _apply_web_enrichment_bonus(0, sources_found=True)
+        assert 0 < resultado <= 100
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# _build_predisposition_search_query
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class TestBuildPredispositionSearchQuery:
+    def test_inclui_especie_e_raca(self):
+        ctx = _make_ctx(nm_especie="Felina", nm_raca="Persa")
+        query = _build_predisposition_search_query(ctx)
+        assert "felina" in query.lower()
+        assert "persa" in query.lower()
+
+    def test_prioriza_fontes_confiaveis(self):
+        ctx = _make_ctx()
+        query = _build_predisposition_search_query(ctx)
+        assert "merckvetmanual.com" in query
+        assert "ncbi.nlm.nih.gov" in query
+
+    def test_query_nunca_excede_200_caracteres(self):
+        ctx = _make_ctx(nm_especie="Canina", nm_raca="Cão Pastor de Shetland de Nome Longo")
+        query = _build_predisposition_search_query(ctx)
+        assert len(query) <= 200
+
+    def test_funciona_sem_raca_informada(self):
+        ctx = _make_ctx(nm_especie="Silvestre", nm_raca="")
+        query = _build_predisposition_search_query(ctx)
+        assert "silvestre" in query.lower()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # _perform_web_search — cache de buscas
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -271,6 +326,104 @@ class TestPerformWebSearchCache:
         assert web_context == ""
         assert urls == []
         assert len(_web_search_cache) == 0  # nada foi cacheado após falha
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# analyze() — integração: busca dedicada de predisposição + bônus de confiança
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class TestAnalyzeIntegrationPredisposicaoEBonus:
+    """
+    Testa, via mocks, que analyze():
+    1) aciona a busca dedicada de predisposição mesmo quando a ambiguidade
+       geral NÃO indicaria busca web (dados locais completos, exceto
+       predisposição);
+    2) aplica o bônus de confiança quando qualquer busca retorna fontes.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _clear_cache(self):
+        _web_search_cache.clear()
+        yield
+        _web_search_cache.clear()
+
+    def _make_engine_stub(self, diagnostic_stub) -> ClinicalIntelligenceEngine:
+        engine = ClinicalIntelligenceEngine.__new__(ClinicalIntelligenceEngine)
+        engine._diagnostic_chain = MagicMock(invoke=MagicMock(return_value=diagnostic_stub))
+        engine._llm = MagicMock()
+        engine._modelo_ativo = "modelo-teste"
+        return engine
+
+    def test_busca_dedicada_dispara_mesmo_com_dados_locais_completos(self, monkeypatch):
+        import sys
+        import types
+
+        from schemas.diagnostic import DiagnosticoOutput
+
+        # Dados locais completos o suficiente para NÃO acionar busca geral,
+        # mas SEM predisposições mapeadas — deve acionar a busca dedicada.
+        ctx = _make_ctx(
+            ds_sintomas="Vômito recorrente há 3 dias, letargia e perda de apetite intensa",
+            ds_motivo="Consulta de rotina com queixa gastrointestinal",
+            predisposicoes=[],
+            ds_apetite="Reduzido",
+            ds_atividade="Baixa",
+            ds_comportamento="Apático",
+        )
+
+        call_log: list[str] = []
+
+        class _FakeDDGS:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def text(self, query, max_results, safesearch):
+                call_log.append(query)
+                return [
+                    {
+                        "title": "Predisposições genéticas",
+                        "body": "Corpo",
+                        "href": "https://merckvetmanual.com/pred",
+                    }
+                ]
+
+        fake_module = types.ModuleType("ddgs")
+        fake_module.DDGS = _FakeDDGS
+        monkeypatch.setitem(sys.modules, "ddgs", fake_module)
+        monkeypatch.setattr("time.sleep", lambda *_a, **_k: None)
+        monkeypatch.setattr(
+            "agents.clinical_agent.ClinicalIntelligenceEngine._fetch_oracle_data",
+            lambda self, id_consulta: ctx,
+        )
+
+        diagnostic_stub = DiagnosticoOutput(
+            ds_diagnostico="Suspeita de Gastroenterite",
+            tp_severidade="MODERADA",
+            insight_perfil="Paciente com quadro gastrointestinal agudo e sinais sistêmicos.",
+            insight_correlacao="Sintomas correlacionam com apetite reduzido e atividade baixa.",
+            insight_predisposicao="Predisposição obtida via busca dedicada ao catálogo esparso.",
+            insight_limitacoes="Recomenda-se hemograma completo para confirmação diagnóstica.",
+            pc_confianca=0,  # será sobrescrito pelo engine
+            fontes_pesquisadas=[],
+        )
+        engine = self._make_engine_stub(diagnostic_stub)
+
+        result = engine.analyze(id_consulta=1)
+
+        # A busca dedicada de predisposição foi acionada (query contém o
+        # termo da espécie e prioriza Merck/NCBI).
+        assert any("merckvetmanual.com" in q for q in call_log)
+        assert "https://merckvetmanual.com/pred" in result["fontes_pesquisadas"]
+
+        # Confiança final deve ter recebido o bônus de enriquecimento, já
+        # que uma fonte foi encontrada.
+        base_confianca = _calculate_confidence(ctx, ctx.ds_sintomas)
+        assert result["pc_confianca"] > base_confianca
+        assert result["pc_confianca"] <= 100
 
 
 if __name__ == "__main__":

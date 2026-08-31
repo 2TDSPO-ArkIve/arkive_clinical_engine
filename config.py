@@ -65,6 +65,14 @@ AMBIGUITY_THRESHOLD: int = int(os.getenv("AMBIGUITY_THRESHOLD", "60"))
 #: mas hipótese diagnóstica incerta (ex: sintomas inespecíficos).
 CONFIDENCE_THRESHOLD: int = int(os.getenv("CONFIDENCE_THRESHOLD", "70"))
 
+#: Bônus (pontos percentuais) somado ao pc_confianca quando a busca web
+#: retornou ao menos uma fonte (NCBI/Merck/etc). Reflete que o diagnóstico
+#: final incorporou mais evidência do que os dados locais isoladamente
+#: sustentavam. Resultado sempre capado em 100.
+WEB_ENRICHMENT_CONFIDENCE_BONUS: int = int(
+    os.getenv("WEB_ENRICHMENT_CONFIDENCE_BONUS", "12")
+)
+
 # ── Cache de Busca Web (DuckDuckGo) ───────────────────────────────────────────
 
 #: Tempo de vida (segundos) de uma busca em cache antes de expirar.
