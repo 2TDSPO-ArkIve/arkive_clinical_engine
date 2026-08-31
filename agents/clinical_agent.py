@@ -513,11 +513,17 @@ def _calculate_confidence(ctx: ClinicalContext, sintomas: str) -> int:
 
     if ctx.predisposicoes:
         sintomas_lower = sintomas.lower()
+
+        def _termos_doenca(doenca: dict[str, str]) -> set[str]:
+            # Usa tanto o nome da doença quanto DS_SINTOMAS (palavras-chave
+            # cadastradas no catálogo, pensadas justamente para correlação
+            # automática) para decidir se a predisposição está diretamente
+            # relacionada aos sintomas relatados na consulta atual.
+            texto = f"{doenca.get('nm_doenca', '')} {doenca.get('ds_sintomas', '')}"
+            return set(re.findall(r"\b\w{4,}\b", texto.lower()))
+
         diretamente_relacionada = any(
-            any(
-                termo in sintomas_lower
-                for termo in re.findall(r"\b\w{4,}\b", doenca.get("nm_doenca", "").lower())
-            )
+            any(termo in sintomas_lower for termo in _termos_doenca(doenca))
             for doenca in ctx.predisposicoes
         )
         score += 20 if diretamente_relacionada else 10

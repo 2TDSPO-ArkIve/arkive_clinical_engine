@@ -84,6 +84,48 @@ class TestHistoricoDiagnosticosNoSumario:
         resumo = ctx.to_clinical_summary()
         assert "Suspeita de Otite Externa" in resumo
 
+    def test_exibe_status_de_validacao_pelo_veterinario(self):
+        """
+        Regressão: ST_VALIDACAO_VET era extraído do Oracle mas nunca
+        aparecia no resumo textual enviado ao LLM, apesar do system prompt
+        instruir 'ceticismo redobrado' para diagnósticos não validados.
+        """
+        ctx = _make_ctx(
+            diagnosticos_anteriores=[
+                {
+                    "dt_hora": datetime(2025, 1, 10),
+                    "ds_diagnostico": "Suspeita de Gastroenterite",
+                    "nm_doenca": None,
+                    "tp_severidade": "MODERADA",
+                    "pc_confianca": 60,
+                    "st_confirmado": "S",
+                    "st_validacao_vet": "S",
+                },
+                {
+                    "dt_hora": datetime(2024, 11, 2),
+                    "ds_diagnostico": "Suspeita de Hipotireoidismo",
+                    "nm_doenca": None,
+                    "tp_severidade": "LEVE",
+                    "pc_confianca": 45,
+                    "st_confirmado": "N",
+                    "st_validacao_vet": "N",
+                },
+                {
+                    "dt_hora": datetime(2024, 9, 1),
+                    "ds_diagnostico": "Suspeita de Dermatite",
+                    "nm_doenca": None,
+                    "tp_severidade": "LEVE",
+                    "pc_confianca": 40,
+                    "st_confirmado": "N",
+                    "st_validacao_vet": None,
+                },
+            ]
+        )
+        resumo = ctx.to_clinical_summary()
+        assert "validado pelo veterinário" in resumo
+        assert "não validado pelo veterinário" in resumo
+        assert "não avaliado pelo veterinário" in resumo
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

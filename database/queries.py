@@ -90,10 +90,12 @@ WHERE c.ID_CONSULTA = :id_consulta
 PREDISPOSITION_QUERY: str = """
 SELECT
     d.NM_DOENCA,
-    d.DS_DOENCA
+    d.DS_DOENCA,
+    d.DS_SINTOMAS
 
 FROM   TB_ARKIVE_DOENCA d
-WHERE  d.ID_DOENCA IN (
+WHERE  d.ST_ATIVO = 'S'
+  AND  d.ID_DOENCA IN (
     SELECT p.ID_DOENCA
     FROM   TB_ARKIVE_PREDISPOSICAO p
     WHERE  p.ID_ESPECIE = :id_especie
@@ -206,6 +208,11 @@ class ClinicalContext:
                 # Trunca descrições muito longas para não exceder a janela de contexto
                 ds_truncated = ds[:400] + "..." if len(ds) > 400 else ds
                 pred_lines.append(f"  • {nm}: {ds_truncated}")
+                sintomas_doenca = (doenca.get("ds_sintomas") or "").strip()
+                if sintomas_doenca:
+                    pred_lines.append(
+                        f"      Palavras-chave clínicas associadas: {sintomas_doenca}"
+                    )
             predisposicoes_block = "\n".join(pred_lines)
         else:
             predisposicoes_block = "  Nenhuma predisposição genética mapeada para esta raça/espécie."
@@ -225,6 +232,10 @@ class ClinicalContext:
 
         if self.diagnosticos_anteriores:
             _CONFIRMADO = {"S": "confirmado", "N": "não confirmado"}
+            _VALIDACAO_VET = {
+                "S": "validado pelo veterinário",
+                "N": "não validado pelo veterinário",
+            }
             hist_lines = []
             for diag in self.diagnosticos_anteriores:
                 dt_diag = diag.get("dt_hora")
@@ -237,9 +248,20 @@ class ClinicalContext:
                 confianca = diag.get("pc_confianca")
                 confianca_str = f"{confianca:.0f}%" if confianca is not None else "N/A"
                 status_conf = _CONFIRMADO.get(diag.get("st_confirmado"), "status desconhecido")
+                # ST_VALIDACAO_VET é nullable e semanticamente distinto de
+                # ST_CONFIRMADO: indica se o veterinário validou o INSIGHT
+                # gerado pela IA (não se o diagnóstico em si foi confirmado).
+                # O prompt do LLM (diagnostic_v3) instrui ceticismo redobrado
+                # para diagnósticos anteriores não validados pelo vet, então
+                # esse sinal precisa chegar ao resumo textual.
+                st_validacao = diag.get("st_validacao_vet")
+                status_validacao = (
+                    _VALIDACAO_VET.get(st_validacao, "insight de IA não avaliado pelo veterinário")
+                )
                 hist_lines.append(
                     f"  • [{dt_diag_str}] {titulo} — Severidade: {severidade} "
-                    f"| Confiança à época: {confianca_str} | {status_conf}"
+                    f"| Confiança à época: {confianca_str} | {status_conf} "
+                    f"| {status_validacao}"
                 )
             historico_block = "\n".join(hist_lines)
         else:

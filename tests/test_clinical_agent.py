@@ -426,5 +426,41 @@ class TestAnalyzeIntegrationPredisposicaoEBonus:
         assert result["pc_confianca"] <= 100
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# _calculate_confidence — uso de DS_SINTOMAS da doença na correlação
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class TestCalculateConfidenceUsaDsSintomasDaDoenca:
+    """
+    Regressão: DS_SINTOMAS (palavras-chave cadastradas em TB_ARKIVE_DOENCA)
+    nunca era lido pelo Python, apesar do comentário no DDL dizer que é
+    'usado no motor de regras'. Agora _calculate_confidence correlaciona os
+    sintomas relatados também contra DS_SINTOMAS, não só contra NM_DOENCA.
+    """
+
+    def test_correlacao_via_ds_sintomas_conta_como_diretamente_relacionada(self):
+        # O nome da doença não tem nenhuma palavra em comum com os sintomas,
+        # mas DS_SINTOMAS (palavras-chave do catálogo) tem.
+        sintomas = "vomito diarreia letargia"
+        ctx_com_keywords = _make_ctx(
+            predisposicoes=[
+                {
+                    "nm_doenca": "Doença X",
+                    "ds_doenca": "...",
+                    "ds_sintomas": "vomito diarreia desidratacao",
+                }
+            ]
+        )
+        ctx_sem_keywords = _make_ctx(
+            predisposicoes=[
+                {"nm_doenca": "Doença X", "ds_doenca": "...", "ds_sintomas": ""}
+            ]
+        )
+        score_com = _calculate_confidence(ctx_com_keywords, sintomas=sintomas)
+        score_sem = _calculate_confidence(ctx_sem_keywords, sintomas=sintomas)
+        assert score_com > score_sem
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
