@@ -4,10 +4,15 @@ from config import validate_config
 from agents.clinical_agent import ClinicalIntelligenceEngine
 
 # Valida as variáveis de ambiente (ORACLE_USER, GROQ_API_KEY, etc.)
+# Fail-fast: se a configuração for inválida, a API não deve subir "pela
+# metade" e quebrar de forma inesperada na primeira request (ex.: ao
+# instanciar ClinicalIntelligenceEngine sem GROQ_API_KEY). Interrompe o
+# processo aqui, com uma mensagem de erro clara.
 try:
     validate_config()
 except RuntimeError as exc:
     print(f"Erro de configuração: {exc}")
+    raise SystemExit(1) from exc
 
 app = FastAPI(title="API Clínica ArkIve")
 
