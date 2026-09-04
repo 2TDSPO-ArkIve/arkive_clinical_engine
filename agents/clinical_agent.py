@@ -84,11 +84,22 @@ class ClinicalIntelligenceEngine:
         """
         Retorna a chain de diagnóstico estruturado para `model`, criando e
         cacheando o client ChatGroq correspondente na primeira chamada.
+
+        Usa method="json_schema" (response_format nativo da Groq) em vez do
+        padrão "function_calling" (tool-calling). Os modelos gpt-oss servidos
+        pela Groq têm um bug conhecido no modo function_calling: emitem uma
+        pseudo-tool chamada "json" que não bate com o nome da tool registrada
+        pelo langchain-groq, causando erro 400 "tool 'json' which was not in
+        request.tools" — mesmo quando o raciocínio do modelo está correto.
+        json_schema evita esse problema por não depender de tool-calling.
         """
         if model not in self._chains:
             logger.debug("Criando client ChatGroq para o modelo '%s' (primeiro uso).", model)
             llm = ChatGroq(model=model, api_key=GROQ_API_KEY, temperature=GROQ_TEMPERATURE)
-            self._chains[model] = llm.with_structured_output(DiagnosticoOutputDetalhado)
+            self._chains[model] = llm.with_structured_output(
+                DiagnosticoOutputDetalhado,
+                method="json_schema",
+            )
         return self._chains[model]
 
     # Método Público Principal
