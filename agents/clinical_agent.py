@@ -2,8 +2,11 @@
 agents/clinical_agent.py
 ========================
 Motor de Inteligência Clínica Veterinária ArkIve.
-Pipeline: Oracle (READ-ONLY) → heurística local → pc_confianca determinístico
-          → DuckDuckGo opcional → 1 chamada ao Groq.
+Pipeline: Oracle (READ-ONLY) → pc_confianca determinístico → decisão de
+          busca web (baseada no próprio pc_confianca vs AMBIGUITY_THRESHOLD)
+          → DuckDuckGo opcional → chamada ao Groq com fallback automático
+          entre modelos (GROQ_MODELS) e retry com backoff para erros
+          transitórios.
 """
 
 from __future__ import annotations
@@ -20,81 +23,30 @@ from langchain_groq import ChatGroq
 from config import (
     AMBIGUITY_THRESHOLD,
     GROQ_API_KEY,
-    GROQ_MODEL,
+    GROQ_MAX_RETRIES_PER_MODEL,
+    GROQ_MODELS,
+    GROQ_RETRY_BACKOFF_SECONDS,
     GROQ_TEMPERATURE,
 )
 from database.connection import get_connection
 from database.queries import ClinicalContext, fetch_clinical_data
-from schemas.diagnostic import DiagnosticoOutput
+from prompts.diagnostic import DIAGNOSTIC_SYSTEM_PROMPT
+from schemas.diagnostic_detalhado import DiagnosticoOutputDetalhado
 
 logger = logging.getLogger(__name__)
 
-# System Prompt — injetado na única chamada ao Groq
-
-_DIAGNOSTIC_SYSTEM_PROMPT = (
-    "Você é o Motor de Inteligência Clínica Veterinária do sistema ArkIve, "
-    "desenvolvido para auxiliar médicos veterinários brasileiros na formulação "
-    "de hipóteses diagnósticas fundamentadas. O sistema atende qualquer espécie "
-    "animal — doméstica, silvestre, zoológica ou de produção.\n\n"
-
-    "PAPEL E RESPONSABILIDADE:\n"
-    "Analise os dados clínicos fornecidos e gere uma suspeita diagnóstica "
-    "estruturada, priorizando a segurança do paciente e a precisão clínica. "
-    "Você está produzindo uma HIPÓTESE DIAGNÓSTICA para orientar o veterinário "
-    "— não um diagnóstico definitivo.\n\n"
-
-    "INSTRUÇÕES CRÍTICAS ANTI-ALUCINAÇÃO:\n"
-    "1. Baseie-se EXCLUSIVAMENTE nos dados clínicos fornecidos e em evidências "
-    "médico-veterinárias estabelecidas (ou nas fontes web incluídas no contexto).\n"
-    "2. NUNCA invente sintomas, resultados laboratoriais ou informações ausentes.\n"
-    "3. Predisposições genéticas são FATORES DE RISCO, não diagnósticos definitivos.\n"
-    "4. Se fontes web foram consultadas, integre as evidências de forma crítica "
-    "no raciocínio clínico. Não liste URLs dentro do ds_insight_ia — as fontes "
-    "já serão registradas separadamente no campo fontes_pesquisadas.\n\n"
-
-    "ESTRUTURA OBRIGATÓRIA DO ds_insight_ia:\n"
-    "Escreva em português técnico e objetivo, seguindo exatamente esta ordem, "
-    "sem títulos ou marcadores — apenas parágrafos fluidos:\n"
-    "  1º parágrafo: perfil do paciente e apresentação clínica principal.\n"
-    "  2º parágrafo: correlação entre sintomas, bem-estar e hipótese diagnóstica.\n"
-    "  3º parágrafo: papel das predisposições genéticas no raciocínio clínico.\n"
-    "  4º parágrafo: limitações do diagnóstico e exames complementares sugeridos. "
-    "Se fontes web enriqueceram o diagnóstico, mencione apenas que evidências "
-    "da literatura veterinária corroboram a hipótese — sem colar URLs.\n\n"
-
-    "RACIOCÍNIO CLÍNICO ESPERADO:\n"
-    "- Correlacione sintomas com espécie, raça, sexo e status reprodutivo.\n"
-    "- Considere dados de bem-estar como indicadores sistêmicos relevantes.\n"
-    "- Priorize predisposições genéticas mapeadas como diferenciais prioritários.\n\n"
-
-    "GARANTIAS DE TIPO OBRIGATÓRIAS — VIOLAÇÕES CAUSAM FALHA NO SISTEMA:\n"
-    "• `ds_diagnostico`     → string de texto, entre 5 e 500 caracteres.\n"
-    "• `tp_severidade`      → exatamente uma destas strings: 'LEVE', 'MODERADA' "
-    "ou 'GRAVE'. Nunca use outros valores.\n"
-    "• `ds_insight_ia`      → string de texto, mínimo 50 caracteres. "
-    "PROIBIDO incluir URLs, links ou endereços web neste campo. "
-    "Se fontes web foram consultadas, mencione apenas que a literatura "
-    "veterinária corrobora a hipótese — as URLs ficam exclusivamente "
-    "em fontes_pesquisadas.\n"
-    "• `pc_confianca`       → inteiro puro fornecido pelo sistema no campo "
-    "'>>> VALOR OBRIGATÓRIO: pc_confianca <<<'. Use EXATAMENTE este número. "
-    "NUNCA recalcule, NUNCA ajuste, NUNCA envie como string ou float.\n"
-    "• `fontes_pesquisadas` → lista de strings com URLs. Lista vazia [] se "
-    "busca web não foi realizada. NUNCA null ou omitido.\n\n"
-
-    "Responda EXCLUSIVAMENTE no formato JSON estruturado conforme o schema "
-    "fornecido. Não inclua texto adicional fora do JSON."
-)
-
-# Resultado da heurística local de ambiguidade (sem LLM)
+# Resultado da decisão de busca web (sem LLM)
 
 
 @dataclass
-class _LocalAmbiguityResult:
-    """Resultado da avaliação de ambiguidade feita em Python puro (sem LLM)."""
+class _WebSearchDecision:
+    """
+    Decisão sobre acionar busca web, derivada do pc_confianca já calculado
+    deterministicamente por _calculate_confidence() — fonte única de
+    verdade, comparada diretamente contra AMBIGUITY_THRESHOLD.
+    """
     needs_web_search: bool
-    score: int          # 0-100: estimativa local de confiança
-    reason: str         # Descrição legível do motivo
+    reason: str         # Descrição legível dos motivos prováveis (para logs)
     search_query: str   # Query sugerida para o DuckDuckGo
 
 
@@ -111,29 +63,47 @@ class ClinicalIntelligenceEngine:
     """
 
     def __init__(self) -> None:
-        """Inicializa LLM Groq e a chain de diagnóstico estruturado."""
-        logger.info("Inicializando ClinicalIntelligenceEngine | Modelo: %s", GROQ_MODEL)
+        """
+        Inicializa o motor com fallback automático entre modelos Groq.
 
-        self._llm = ChatGroq(
-            model=GROQ_MODEL,
-            api_key=GROQ_API_KEY,
-            temperature=GROQ_TEMPERATURE,
+        Não constrói mais uma única chain fixa no __init__: os clients
+        ChatGroq (um por modelo) são criados sob demanda e cacheados em
+        self._chains na primeira vez que cada modelo é efetivamente
+        necessário — evita conectar modelos de fallback que talvez nunca
+        cheguem a ser usados numa execução sem erros.
+        """
+        logger.info(
+            "Inicializando ClinicalIntelligenceEngine | Modelo primário: %s | "
+            "Fallbacks (em ordem): %s",
+            GROQ_MODELS[0],
+            GROQ_MODELS[1:],
         )
+        self._chains: dict[str, Any] = {}
 
-        # Structured output via function calling do Groq
-        self._diagnostic_chain = self._llm.with_structured_output(DiagnosticoOutput)
-
-        logger.info("Chain de diagnóstico inicializada (1 chamada de API por execução).")
+    def _get_chain(self, model: str) -> Any:
+        """
+        Retorna a chain de diagnóstico estruturado para `model`, criando e
+        cacheando o client ChatGroq correspondente na primeira chamada.
+        """
+        if model not in self._chains:
+            logger.debug("Criando client ChatGroq para o modelo '%s' (primeiro uso).", model)
+            llm = ChatGroq(model=model, api_key=GROQ_API_KEY, temperature=GROQ_TEMPERATURE)
+            self._chains[model] = llm.with_structured_output(DiagnosticoOutputDetalhado)
+        return self._chains[model]
 
     # Método Público Principal
 
     def analyze(self, id_consulta: int) -> dict[str, Any]:
         """
-        Ponto de entrada principal. Faz exatamente 1 chamada ao Groq.
+        Ponto de entrada principal. Faz 1 chamada bem-sucedida ao Groq — mas,
+        em caso de erro transitório ou de cota, pode tentar novamente no
+        mesmo modelo (retry com backoff) ou trocar de modelo (fallback)
+        antes de desistir. Ver _invoke_with_fallback().
 
         Raises:
             ValueError: Consulta não encontrada no banco.
-            RuntimeError: Falha ao gerar diagnóstico no Groq.
+            RuntimeError: Falha ao gerar diagnóstico no Groq (todos os
+                modelos da lista falharam).
             oracledb.DatabaseError: Falha de acesso ao Oracle.
         """
         logger.info("── Iniciando análise clínica | ID_CONSULTA=%d ──", id_consulta)
@@ -142,34 +112,40 @@ class ClinicalIntelligenceEngine:
         ctx: ClinicalContext = self._fetch_oracle_data(id_consulta)
         clinical_summary: str = ctx.to_clinical_summary()
 
-        # Etapa 2: Heurística local de ambiguidade
-        ambiguity = _evaluate_ambiguity_locally(ctx)
-        logger.info(
-            "Heurística local | score=%d%% | busca_web=%s | motivo: %s",
-            ambiguity.score,
-            ambiguity.needs_web_search,
-            ambiguity.reason,
-        )
-
-        # Etapa 3: Cálculo determinístico do pc_confianca
+        # Etapa 2: Cálculo determinístico do pc_confianca — feito ANTES da
+        # decisão de busca web, pois agora é ele a fonte única de verdade
+        # usada para decidir se a busca web é necessária (ver Etapa 3).
         sintomas = (ctx.ds_sintomas or "").strip()
         confianca_calculada = _calculate_confidence(ctx, sintomas)
         logger.info("Confiança calculada deterministicamente: %d%%", confianca_calculada)
+
+        # Etapa 3: Decisão de busca web — compara o MESMO pc_confianca
+        # calculado acima contra AMBIGUITY_THRESHOLD. Evita manter duas
+        # rubricas de score independentes (uma para "ambiguidade" e outra
+        # para "confiança") que podiam divergir entre si.
+        web_decision = _decide_web_search(ctx, confianca_calculada, sintomas)
+        logger.info(
+            "Decisão de busca web | pc_confianca=%d%% | limiar=%d%% | busca_web=%s | motivo: %s",
+            confianca_calculada,
+            AMBIGUITY_THRESHOLD,
+            web_decision.needs_web_search,
+            web_decision.reason,
+        )
 
         # Etapa 4: Busca web condicional
         web_context: str = ""
         sources: list[str] = []
 
-        if ambiguity.needs_web_search:
-            logger.info("Acionando busca web | Query: '%s'", ambiguity.search_query)
-            web_context, sources = self._perform_web_search(ambiguity.search_query)
+        if web_decision.needs_web_search:
+            logger.info("Acionando busca web | Query: '%s'", web_decision.search_query)
+            web_context, sources = self._perform_web_search(web_decision.search_query)
             logger.info("%d fonte(s) recuperada(s) do DuckDuckGo.", len(sources))
         else:
             logger.info("Dados locais suficientes — busca web não acionada.")
 
-        # Etapa 5: Chamada ao Groq
-        logger.info("Enviando requisição ao Groq (chamada 1/1)...")
-        diagnostic: DiagnosticoOutput = self._generate_diagnostic(
+        # Etapa 5: Chamada ao Groq (com fallback/retry entre modelos)
+        logger.info("Enviando requisição ao Groq...")
+        diagnostic: DiagnosticoOutputDetalhado = self._generate_diagnostic(
             clinical_summary=clinical_summary,
             web_context=web_context,
             sources=sources,
@@ -184,7 +160,14 @@ class ClinicalIntelligenceEngine:
             diagnostic.pc_confianca,
         )
 
-        return diagnostic.model_dump()
+        # Compõe o payload final: os 4 campos de insight continuam
+        # disponíveis individualmente (para quem quiser consumi-los
+        # granularmente), e ds_insight_ia é adicionado como a junção deles
+        # em um único texto — mantendo compatibilidade com o contrato de
+        # coluna única (DS_INSIGHT_IA CLOB) esperado pelo serviço Java.
+        result = diagnostic.model_dump()
+        result["ds_insight_ia"] = diagnostic.to_ds_insight_ia()
+        return result
 
     # Métodos Privados
 
@@ -241,8 +224,8 @@ class ClinicalIntelligenceEngine:
         sources: list[str],
         ctx: ClinicalContext,
         confianca_calculada: int,
-    ) -> DiagnosticoOutput:
-        """Monta o prompt completo e faz a única chamada ao Groq. Retorna DiagnosticoOutput validado."""
+    ) -> DiagnosticoOutputDetalhado:
+        """Monta o prompt completo e faz a única chamada ao Groq. Retorna DiagnosticoOutputDetalhado validado."""
         parts = [
             "Analise os seguintes dados clínicos veterinários e gere o "
             "diagnóstico estruturado:\n\n",
@@ -259,9 +242,9 @@ class ClinicalIntelligenceEngine:
                 "\n🌐 CONTEXTO ADICIONAL — LITERATURA VETERINÁRIA (BUSCA WEB):\n",
                 web_context,
                 "\n" + "═" * 60,
-                "\nIMPORTANTE: integre as evidências ao raciocínio clínico no "
-                "ds_insight_ia. Não cole URLs no insight — elas já estão em "
-                "fontes_pesquisadas.",
+                "\nIMPORTANTE: integre as evidências ao raciocínio clínico nos "
+                "campos de insight. Não cole URLs em nenhum deles — elas já "
+                "estão em fontes_pesquisadas.",
             ])
 
         if sources:
@@ -271,17 +254,11 @@ class ClinicalIntelligenceEngine:
             )
 
         messages = [
-            SystemMessage(content=_DIAGNOSTIC_SYSTEM_PROMPT),
+            SystemMessage(content=DIAGNOSTIC_SYSTEM_PROMPT),
             HumanMessage(content="".join(parts)),
         ]
 
-        try:
-            diagnostic: DiagnosticoOutput = self._diagnostic_chain.invoke(messages)
-        except Exception as exc:
-            logger.error("Falha na chamada ao Groq: %s", exc)
-            raise RuntimeError(
-                f"O modelo não gerou um diagnóstico estruturado válido: {exc}"
-            ) from exc
+        diagnostic: DiagnosticoOutputDetalhado = self._invoke_with_fallback(messages)
 
         # Garante que pc_confianca é sempre o valor calculado pelo sistema
         diagnostic.pc_confianca = confianca_calculada
@@ -291,6 +268,99 @@ class ClinicalIntelligenceEngine:
             diagnostic.fontes_pesquisadas = sources
 
         return diagnostic
+
+    def _invoke_with_fallback(self, messages: list[Any]) -> DiagnosticoOutputDetalhado:
+        """
+        Invoca o Groq percorrendo GROQ_MODELS na ordem configurada (modelo
+        primário primeiro, depois os fallbacks).
+
+        Para cada modelo, tenta até GROQ_MAX_RETRIES_PER_MODEL vezes — mas
+        SOMENTE quando o erro é classificado como transitório (timeout,
+        erro de conexão, 5xx), com backoff exponencial baseado em
+        GROQ_RETRY_BACKOFF_SECONDS (1ª espera = valor, 2ª = valor*2, ...).
+        Erros de cota/indisponibilidade (429, modelo descontinuado etc.)
+        pulam DIRETO para o próximo modelo, sem retry — repetir no mesmo
+        modelo não ajuda nesses casos.
+
+        "Stateless" por chamada: toda invocação de analyze() reinicia esta
+        função do zero, sempre tentando o modelo primário primeiro — assim
+        o sistema não fica "preso" num modelo de fallback depois que a
+        cota do modelo primário já foi resetada pela Groq.
+
+        Raises:
+            RuntimeError: se TODOS os modelos da lista falharem.
+        """
+        ultima_excecao: Exception | None = None
+
+        for model in GROQ_MODELS:
+            chain = self._get_chain(model)
+
+            for tentativa in range(1, GROQ_MAX_RETRIES_PER_MODEL + 1):
+                try:
+                    diagnostic: DiagnosticoOutputDetalhado = chain.invoke(messages)
+                    logger.info(
+                        "Diagnóstico gerado usando modelo: %s (tentativa %d/%d)",
+                        model,
+                        tentativa,
+                        GROQ_MAX_RETRIES_PER_MODEL,
+                    )
+                    return diagnostic
+
+                except Exception as exc:
+                    ultima_excecao = exc
+
+                    if _is_quota_or_unavailable_error(exc):
+                        logger.warning(
+                            "Modelo '%s' indisponível ou com cota esgotada (%s) — "
+                            "pulando para o próximo modelo da lista.",
+                            model,
+                            exc,
+                        )
+                        break  # não adianta retry no mesmo modelo; próximo modelo
+
+                    if _is_retryable_error(exc) and tentativa < GROQ_MAX_RETRIES_PER_MODEL:
+                        backoff = GROQ_RETRY_BACKOFF_SECONDS * tentativa
+                        logger.warning(
+                            "Erro transitório no modelo '%s' (tentativa %d/%d): %s — "
+                            "nova tentativa em %ds.",
+                            model,
+                            tentativa,
+                            GROQ_MAX_RETRIES_PER_MODEL,
+                            exc,
+                            backoff,
+                        )
+                        time.sleep(backoff)
+                        continue
+
+                    logger.warning(
+                        "Modelo '%s' falhou (tentativa %d/%d, sem mais retries neste "
+                        "modelo): %s — pulando para o próximo modelo.",
+                        model,
+                        tentativa,
+                        GROQ_MAX_RETRIES_PER_MODEL,
+                        exc,
+                    )
+                    break  # esgotou retries (ou erro não-retryable) -> próximo modelo
+
+        logger.error(
+            "Todos os modelos Groq falharam (%s). Última exceção: %s",
+            GROQ_MODELS,
+            ultima_excecao,
+        )
+        raise RuntimeError(
+            f"O modelo não gerou um diagnóstico estruturado válido após tentar "
+            f"{GROQ_MODELS}: {ultima_excecao}"
+        ) from ultima_excecao
+
+
+def _termos_doenca(doenca: dict[str, str]) -> set[str]:
+    """
+    Extrai o conjunto de palavras-chave (≥4 letras) de uma predisposição,
+    combinando o nome da doença com DS_SINTOMAS (palavras-chave clínicas
+    catalogadas em TB_ARKIVE_DOENCA, quando presentes).
+    """
+    texto = f"{doenca.get('nm_doenca', '')} {doenca.get('ds_sintomas', '')}"
+    return set(re.findall(r"\b\w{4,}\b", texto.lower()))
 
 
 def _calculate_confidence(ctx: ClinicalContext, sintomas: str) -> int:
@@ -324,11 +394,12 @@ def _calculate_confidence(ctx: ClinicalContext, sintomas: str) -> int:
     if ctx.predisposicoes:
         sintomas_lower = sintomas.lower()
         # Verifica se alguma doença mapeada tem termos presentes nos sintomas
+        # relatados. Compara contra o NOME da doença E contra as palavras-
+        # chave clínicas catalogadas em DS_SINTOMAS (TB_ARKIVE_DOENCA) —
+        # esta última é mais precisa, já que é o campo pensado justamente
+        # para o motor de regras, em vez de depender só do nome da doença.
         diretamente_relacionada = any(
-            any(
-                termo in sintomas_lower
-                for termo in re.findall(r"\b\w{4,}\b", doenca.get("nm_doenca", "").lower())
-            )
+            any(termo in sintomas_lower for termo in _termos_doenca(doenca))
             for doenca in ctx.predisposicoes
         )
         score += 20 if diretamente_relacionada else 10
@@ -365,60 +436,107 @@ def _calculate_confidence(ctx: ClinicalContext, sintomas: str) -> int:
     return resultado
 
 
-def _evaluate_ambiguity_locally(ctx: ClinicalContext) -> _LocalAmbiguityResult:
+def _decide_web_search(ctx: ClinicalContext, pc_confianca: int, sintomas: str) -> _WebSearchDecision:
     """
-    Avalia qualidade dos dados clínicos com regras determinísticas (sem LLM).
-    Se score < AMBIGUITY_THRESHOLD → needs_web_search = True.
+    Decide se a busca web deve ser acionada.
 
-    Penalidades (base = 100):
-    -35 DS_SINTOMAS ausente ou < 20 caracteres
-    -15 DS_SINTOMAS genérico (1 palavra)
-    -20 DS_MOTIVO ausente ou < 10 caracteres
-    -20 Sem predisposições genéticas mapeadas para a espécie/raça
-    -10 Avaliação de bem-estar ausente
+    IMPORTANTE: a decisão usa o MESMO pc_confianca já calculado
+    deterministicamente por _calculate_confidence() — não recalcula uma
+    métrica própria. Antes desta versão, existiam duas rubricas
+    independentes (uma para "ambiguidade" com score próprio, outra para
+    "confiança"), que podiam divergir entre si e não respeitavam o mesmo
+    AMBIGUITY_THRESHOLD. Agora há uma única fonte de verdade.
+
+    As "razões" abaixo continuam sendo calculadas — mas apenas para fins
+    de log e para montar a query de busca web; elas NÃO determinam mais o
+    booleano needs_web_search (quem determina é só a comparação de
+    pc_confianca contra AMBIGUITY_THRESHOLD).
     """
-    score = 100
+    motivo = (ctx.ds_motivo or "").strip()
     reasons: list[str] = []
 
-    sintomas = (ctx.ds_sintomas or "").strip()
-    motivo = (ctx.ds_motivo or "").strip()
-
-    # Penalidade: sintomas ausentes ou muito curtos
     if len(sintomas) < 20:
-        score -= 35
         reasons.append("sintomas ausentes ou insuficientes")
     elif len(re.findall(r"\w+", sintomas)) <= 1:
-        score -= 15
         reasons.append("sintomas excessivamente genéricos")
 
-    # Penalidade: motivo ausente ou muito curto
     if len(motivo) < 10:
-        score -= 20
         reasons.append("motivo da consulta não informado")
 
-    # Penalidade: sem predisposições mapeadas para espécie/raça
     if not ctx.predisposicoes:
         especie_str = ctx.nm_especie or "não identificada"
         raca_str = f" / raça '{ctx.nm_raca}'" if ctx.nm_raca else ""
-        score -= 20
         reasons.append(
             f"nenhuma predisposição genética mapeada no banco para a espécie "
             f"'{especie_str}'{raca_str} — busca web pode enriquecer o diagnóstico"
         )
 
-    # Penalidade: sem avaliação de bem-estar
     if not ctx.ds_apetite and not ctx.ds_atividade and not ctx.ds_comportamento:
-        score -= 10
         reasons.append("avaliação de bem-estar ausente")
 
-    score = max(0, score)
-
-    return _LocalAmbiguityResult(
-        needs_web_search=score < AMBIGUITY_THRESHOLD,
-        score=score,
+    return _WebSearchDecision(
+        needs_web_search=pc_confianca < AMBIGUITY_THRESHOLD,
         reason="; ".join(reasons) if reasons else "dados clínicos suficientes",
         search_query=_build_search_query(ctx, sintomas, motivo),
     )
+
+
+def _is_quota_or_unavailable_error(exc: Exception) -> bool:
+    """
+    Identifica erros de cota (rate limit / HTTP 429) ou de modelo
+    indisponível/descontinuado. Nesses casos, repetir no MESMO modelo não
+    ajuda — o fallback deve pular direto para o próximo modelo da lista,
+    sem gastar tentativas de retry.
+
+    A inspeção usa tanto `status_code` (quando a exceção da lib groq/
+    langchain-groq o expõe) quanto o texto da mensagem como fallback, já
+    que o tipo exato de exceção pode variar entre versões das bibliotecas.
+    """
+    status_code = getattr(exc, "status_code", None)
+    if status_code == 429:
+        return True
+
+    mensagem = str(exc).lower()
+    marcadores = (
+        "rate limit",
+        "rate_limit",
+        "quota",
+        "429",
+        "decommissioned",
+        "does not exist",
+        "model_not_found",
+        "not found",
+        "unavailable",
+    )
+    return any(marcador in mensagem for marcador in marcadores)
+
+
+def _is_retryable_error(exc: Exception) -> bool:
+    """
+    Identifica erros transitórios (timeout, erro de conexão, 5xx) que
+    justificam uma nova tentativa NO MESMO modelo antes de desistir dele.
+
+    Erros de cota/indisponibilidade são tratados separadamente por
+    _is_quota_or_unavailable_error() e NÃO passam por aqui — devem pular
+    direto para o próximo modelo, sem retry.
+    """
+    status_code = getattr(exc, "status_code", None)
+    if isinstance(status_code, int) and 500 <= status_code < 600:
+        return True
+
+    if isinstance(exc, (TimeoutError, ConnectionError)):
+        return True
+
+    mensagem = str(exc).lower()
+    marcadores = (
+        "timeout",
+        "timed out",
+        "connection",
+        "temporarily unavailable",
+        "internal server error",
+        "service unavailable",
+    )
+    return any(marcador in mensagem for marcador in marcadores)
 
 
 def _build_search_query(ctx: ClinicalContext, sintomas: str, motivo: str) -> str:
