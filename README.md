@@ -80,10 +80,12 @@ O sistema opera em **modo estritamente read-only** no banco, nunca escrevendo ou
 
 ```
 Entrada: main.py ──► python main.py <ID_CONSULTA>   (ou api.py ──► GET /diagnostico/{id_consulta})
-Etapa 1 ──► Oracle (READ-ONLY): extrai animal, espécie, raça, consulta, bem-estar, predisposições genéticas
-             (nível espécie + raça exata) e os últimos DIAGNOSTIC_HISTORY_LIMIT diagnósticos anteriores do animal.
-Etapa 2 ──► Python puro (sem LLM): _calculate_confidence() calcula pc_confianca com rubrica fixa baseada nos
-             dados reais do Oracle (inclui match de predisposição via nome da doença e DS_SINTOMAS catalogado).
+Etapa 1 ──► Oracle (READ-ONLY): extrai animal, espécie, raça, consulta (incl. DS_TRANSCRICAO — relato bruto do
+             veterinário), bem-estar, predisposições genéticas (nível espécie + raça exata) e os últimos
+             DIAGNOSTIC_HISTORY_LIMIT diagnósticos anteriores do animal.
+Etapa 2 ──► Python puro (sem LLM): _calculate_confidence() calcula pc_confianca com rubrica fixa baseada na
+             narrativa clínica (DS_TRANSCRICAO + DS_SINTOMAS combinados) e nos demais dados reais do Oracle
+             (inclui match de predisposição via nome da doença e DS_SINTOMAS catalogado).
 Etapa 3 ──► Python puro (sem LLM): _decide_web_search() aciona busca web se pc_confianca < AMBIGUITY_THRESHOLD —
              mesma métrica usada em toda a decisão, sem heurística paralela.
 Etapa 4 ──► DuckDuckGo (condicional): busca literatura veterinária, priorizando NCBI/PubMed e Merck Veterinary Manual.
@@ -177,6 +179,7 @@ GROQ_RETRY_BACKOFF_SECONDS=2
 LOG_LEVEL=INFO
 AMBIGUITY_THRESHOLD=60
 DIAGNOSTIC_HISTORY_LIMIT=5
+MAX_TRANSCRICAO_CHARS=6000
 ```
 
 ### 5. Executar
@@ -234,17 +237,21 @@ A busca web é acionada com base no **mesmo `pc_confianca`** calculado determini
 
 O grau de confiança é calculado **deterministicamente em Python** com base nos dados reais do Oracle, antes de chamar a LLM. O modelo recebe o valor pronto e apenas o utiliza — nunca recalcula. Esse mesmo valor decide se a busca web é acionada (ver seção anterior).
 
+A rubrica de "sintomas" avalia a **narrativa clínica** — `DS_TRANSCRICAO` (relato bruto do veterinário) concatenado a `DS_SINTOMAS` (campo estruturado), quando ambos existirem — nunca só o campo estruturado isoladamente. `DS_TRANSCRICAO` nunca é copiado para `DS_SINTOMAS`/`DS_OBSERVACAO`: a combinação existe apenas como variável de execução usada pela rubrica, pela decisão de busca web e pela query de busca.
+
 | Critério | Pontuação |
 |----------|-----------|
 | BASE (sempre) | +30 pts |
-| Sintomas específicos e detalhados (> 3 características) | +25 pts |
-| Sintomas moderadamente descritivos (1–3 características) | +10 pts |
+| Narrativa clínica específica e detalhada (> 3 características) | +25 pts |
+| Narrativa clínica moderadamente descritiva (1–3 características) | +10 pts |
 | Predisposição genética diretamente relacionada aos sintomas (nome da doença ou palavras-chave `DS_SINTOMAS`) | +20 pts |
 | Predisposição genética presente mas indiretamente relacionada | +10 pts |
 | Avaliação de bem-estar completa e coerente | +10 pts |
 | Peso registrado e compatível | +5 pts |
 | Dados clínicos relevantes ausentes (peso, idade ou bem-estar) | -10 pts |
-| Sintomas vagos ou genéricos demais | -15 pts |
+| Narrativa clínica vaga ou genérica demais | -15 pts |
+
+> **Predisposição racial ≠ evidência principal.** O system prompt (`prompts/diagnostic.py`) só permite tratar uma predisposição genética mapeada como diferencial prioritário quando há sinal clínico compatível na narrativa (transcrição e/ou sintomas). Sem sinal clínico compatível, a predisposição entra apenas como fator de risco de fundo em `insight_predisposicao` — nunca como base de `ds_diagnostico`.
 
 ---
 
