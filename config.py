@@ -78,6 +78,13 @@ _AMBIGUITY_THRESHOLD_RAW: str = os.getenv("AMBIGUITY_THRESHOLD", "60")
 #: são buscados no Oracle e injetados no resumo clínico enviado à IA.
 _DIAGNOSTIC_HISTORY_LIMIT_RAW: str = os.getenv("DIAGNOSTIC_HISTORY_LIMIT", "5")
 
+# ── Transcrição de Voz ──────────────────────────────────────────────────────
+
+#: Tamanho máximo (em caracteres) da transcrição de voz (DS_TRANSCRICAO)
+#: exibida no resumo clínico — evita estourar a janela de contexto do LLM
+#: com uma consulta muito longa.
+_MAX_TRANSCRICAO_CHARS_RAW: str = os.getenv("MAX_TRANSCRICAO_CHARS", "6000")
+
 # ── Parsing seguro de inteiros vindos do .env ─────────────────────────────────
 #
 # int(os.getenv(...)) direto no nível de módulo derruba o processo com um
@@ -111,6 +118,10 @@ if _err:
     _config_errors.append(_err)
 
 DIAGNOSTIC_HISTORY_LIMIT, _err = _parse_positive_int(_DIAGNOSTIC_HISTORY_LIMIT_RAW, "DIAGNOSTIC_HISTORY_LIMIT", 5)
+if _err:
+    _config_errors.append(_err)
+
+MAX_TRANSCRICAO_CHARS, _err = _parse_positive_int(_MAX_TRANSCRICAO_CHARS_RAW, "MAX_TRANSCRICAO_CHARS", 6000)
 if _err:
     _config_errors.append(_err)
 

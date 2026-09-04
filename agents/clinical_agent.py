@@ -126,15 +126,22 @@ class ClinicalIntelligenceEngine:
         # Etapa 2: Cálculo determinístico do pc_confianca — feito ANTES da
         # decisão de busca web, pois agora é ele a fonte única de verdade
         # usada para decidir se a busca web é necessária (ver Etapa 3).
-        sintomas = (ctx.ds_sintomas or "").strip()
-        confianca_calculada = _calculate_confidence(ctx, sintomas)
+        # Narrativa clínica usada pelos sinais determinísticos (confiança,
+        # decisão de busca web, keywords de busca): transcrição de voz bruta
+        # (DS_TRANSCRICAO, quando disponível) + sintomas estruturados,
+        # concatenados como texto único. Variável local de composição em
+        # tempo de execução — NÃO grava a transcrição em ctx.ds_sintomas.
+        narrativa_clinica = " ".join(
+            p for p in ((ctx.ds_transcricao or "").strip(), (ctx.ds_sintomas or "").strip()) if p
+        )
+        confianca_calculada = _calculate_confidence(ctx, narrativa_clinica)
         logger.info("Confiança calculada deterministicamente: %d%%", confianca_calculada)
 
         # Etapa 3: Decisão de busca web — compara o MESMO pc_confianca
         # calculado acima contra AMBIGUITY_THRESHOLD. Evita manter duas
         # rubricas de score independentes (uma para "ambiguidade" e outra
         # para "confiança") que podiam divergir entre si.
-        web_decision = _decide_web_search(ctx, confianca_calculada, sintomas)
+        web_decision = _decide_web_search(ctx, confianca_calculada, narrativa_clinica)
         logger.info(
             "Decisão de busca web | pc_confianca=%d%% | limiar=%d%% | busca_web=%s | motivo: %s",
             confianca_calculada,

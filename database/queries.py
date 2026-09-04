@@ -27,7 +27,7 @@ from typing import Any
 
 import oracledb
 
-from config import DIAGNOSTIC_HISTORY_LIMIT
+from config import DIAGNOSTIC_HISTORY_LIMIT, MAX_TRANSCRICAO_CHARS
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +61,7 @@ SELECT
     c.DS_MOTIVO,
     c.DS_SINTOMAS,
     c.DS_OBSERVACAO    AS DS_OBS_CONSULTA,
+    c.DS_TRANSCRICAO,
     c.KG_PESO          AS KG_PESO_CONSULTA,
 
     -- Avaliação de Bem-Estar mais recente (via LATERAL JOIN)
@@ -205,6 +206,7 @@ class ClinicalContext:
     ds_motivo: str = ""
     ds_sintomas: str = ""
     ds_obs_consulta: str = ""
+    ds_transcricao: str = ""
     kg_peso_consulta: float | None = None
 
     # Bem-Estar
@@ -258,6 +260,16 @@ class ClinicalContext:
             predisposicoes_block = "\n".join(pred_lines)
         else:
             predisposicoes_block = "  Nenhuma predisposição genética mapeada para esta raça/espécie."
+
+        transcricao = (self.ds_transcricao or "").strip()
+        if transcricao:
+            transcricao_block = (
+                transcricao[:MAX_TRANSCRICAO_CHARS] + "... [transcrição truncada]"
+                if len(transcricao) > MAX_TRANSCRICAO_CHARS
+                else transcricao
+            )
+        else:
+            transcricao_block = "  Transcrição de voz não disponível para esta consulta."
 
         welfare_items = {
             "Apetite": self.ds_apetite,
@@ -319,7 +331,9 @@ class ClinicalContext:
             f"Status reprod.: {_CASTRADO.get(self.ds_castrado, self.ds_castrado)}\n"
             f"Idade estimada: {idade_str}\n"
             f"Peso:           {peso_str}\n"
-            "\n=== DADOS DA CONSULTA ===\n"
+            "\n=== RELATO CLÍNICO DO VETERINÁRIO (TRANSCRIÇÃO DA CONSULTA) ===\n"
+            + transcricao_block
+            + "\n\n=== DADOS DA CONSULTA ===\n"
             f"ID Consulta:    {self.id_consulta}\n"
             f"Data/Hora:      {dt_str}\n"
             f"Modalidade:     {self.tp_modalidade}\n"
@@ -384,6 +398,7 @@ def fetch_clinical_data(conn: oracledb.Connection, id_consulta: int) -> Clinical
     ctx.ds_motivo = str(row_dict.get("ds_motivo") or "")
     ctx.ds_sintomas = str(row_dict.get("ds_sintomas") or "")
     ctx.ds_obs_consulta = str(row_dict.get("ds_obs_consulta") or "")
+    ctx.ds_transcricao = str(row_dict.get("ds_transcricao") or "")
     ctx.kg_peso_consulta = _safe_float(row_dict.get("kg_peso_consulta"))
 
     ctx.nr_idade = _safe_float(row_dict.get("nr_idade"))
