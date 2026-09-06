@@ -371,7 +371,19 @@ Logs de execução são exibidos no terminal. Em caso de erro, o JSON de saída 
 
 A busca web é acionada com base no **mesmo `pc_confianca`** calculado deterministicamente (ver seção seguinte) — não existe uma métrica de "ambiguidade" separada. Se `pc_confianca < AMBIGUITY_THRESHOLD` (padrão: 60%), o DuckDuckGo é acionado para buscar literatura veterinária atualizada, enriquecendo o contexto antes da chamada à LLM.
 
-Só é aproveitado o resultado que vier de uma **lista curada de fontes veterinárias confiáveis** — PubMed/PMC, Merck & MSD Vet Manual, WSAVA, AVMA, AAHA, periódicos peer-reviewed (Wiley, ScienceDirect, Vet Record, Frontiers, MDPI) e fontes brasileiras (SciELO, CFMV). Qualquer outro domínio é descartado; se nada confiável for encontrado, o motor segue sem contexto externo (`fontes_pesquisadas: []`). A lista fica em `TRUSTED_VET_DOMAINS` (`agents/clinical_agent.py`).
+Só é aproveitado o resultado que vier de uma **lista curada de ~108 domínios de fontes veterinárias confiáveis**, cobrindo:
+
+- bases indexadas (PubMed/PMC, Europe PMC, CAB Direct, SciELO, BVS-Vet);
+- publishers peer-reviewed (Wiley, ScienceDirect, Springer, Cambridge, SAGE, Taylor & Francis, PLOS, Frontiers, MDPI, BMC, BMJ/Vet Record);
+- manuais e referência clínica (Merck & MSD Vet Manual, VIN, IVIS, Plumb's, IRIS, Vetstream, Clinician's Brief);
+- diretrizes de associações (WSAVA, AVMA, AAHA, BSAVA, FECAVA, AAEP, ABCD, Anclivepa, ABROVET);
+- colleges de especialidade (ACVIM/ACVS/ACVP/ACVECC/ACVO/ACVD/ACVR/ACVB/ACVAA/ACVN, ECVIM-CA, ECVS);
+- conselhos e reguladores (CFMV, CRMV-SP, RCVS, FVE, CVMA);
+- autoridades sanitárias / One Health (WOAH, FAO, WHO, CDC, EFSA, USDA, Embrapa);
+- toxicologia e parasitologia (ASPCA Poison Control, Pet Poison Helpline, CAPC, ESCCAP);
+- periódicos e escolas de veterinária do Brasil e do exterior.
+
+Qualquer outro domínio é descartado (inclusive `scholar.google` e landing pages de bases pagas). Se nada confiável for encontrado, o motor segue sem contexto externo (`fontes_pesquisadas: []`). A lista completa fica em `TRUSTED_VET_DOMAINS` (`agents/clinical_agent.py`).
 
 **Resultado: normalmente 1 chamada à API do Groq por execução.** Em caso de erro transitório ou cota esgotada, o sistema pode tentar novamente ou trocar de modelo automaticamente — ver "Modelos Groq — Fallback e Retry" abaixo.
 

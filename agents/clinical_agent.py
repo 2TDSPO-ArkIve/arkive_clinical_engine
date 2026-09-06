@@ -36,24 +36,58 @@ from schemas.diagnostic_detalhado import DiagnosticoOutputDetalhado
 
 logger = logging.getLogger(__name__)
 
-#: Domínios aceitos como fonte de literatura veterinária na etapa de busca
-#: web. Resultados fora desta lista são descartados — o motor prefere não ter
-#: contexto externo a ter contexto de fonte não confiável. Cobertura
-#: internacional + Brasil: bases indexadas, periódicos peer-reviewed, manuais
-#: de referência, associações e conselhos profissionais.
+#: Domínios aceitos como fonte de literatura veterinária na busca web.
+#: Resultado fora desta lista é descartado — o motor prefere não ter contexto
+#: externo a ter contexto de fonte não confiável. Curadoria ampla
+#: (internacional + Brasil): bases indexadas, publishers peer-reviewed,
+#: manuais e diretrizes clínicas, colleges de especialidade, associações,
+#: conselhos, autoridades sanitárias e escolas de veterinária. NÃO inclui
+#: meta-buscadores sem curadoria (scholar.google), landing pages de bases
+#: pagas (scopus, clarivate, ebsco), nem domínio genérico de universidade ou
+#: de governo. O match é por sufixo de host (ver _is_trusted_source), então
+#: um domínio-raiz já cobre todos os seus subdomínios.
 TRUSTED_VET_DOMAINS: tuple[str, ...] = (
-    # Bases indexadas / artigos peer-reviewed
-    "ncbi.nlm.nih.gov", "pubmed.ncbi.nlm.nih.gov", "pmc.ncbi.nlm.nih.gov",
-    "scielo.br", "scielo.org",
-    "onlinelibrary.wiley.com", "sciencedirect.com", "frontiersin.org",
-    "mdpi.com", "bmj.com", "veterinaryrecord.bmj.com", "avmajournals.avma.org",
-    # Manuais e diretrizes de referência
-    "merckvetmanual.com", "msdvetmanual.com",
-    "wsava.org", "avma.org", "aaha.org", "catvets.com", "icatcare.org",
-    # Colleges de especialidade / escolas de veterinária
-    "acvim.org", "vet.cornell.edu", "vetmed.ucdavis.edu", "vetmed.tamu.edu",
-    # Conselho profissional (Brasil)
-    "cfmv.gov.br",
+    # Bases indexadas / bibliográficas (nih.gov cobre pubmed/pmc/ncbi)
+    "nih.gov", "europepmc.org", "cabdirect.org",
+    "doaj.org", "scielo.br", "scielo.org", "bvsalud.org", "vet.bvs.br",
+    # Publishers acadêmicos / periódicos peer-reviewed
+    "onlinelibrary.wiley.com", "sciencedirect.com", "link.springer.com",
+    "springeropen.com", "tandfonline.com", "journals.sagepub.com",
+    "cambridge.org", "journals.plos.org", "frontiersin.org", "mdpi.com",
+    "nature.com", "karger.com", "biomedcentral.com", "bmj.com",
+    # Periódicos / portais científicos brasileiros
+    "journals.usp.br", "revistas.usp.br", "seer.ufu.br", "seer.ufrgs.br",
+    "periodicos.uff.br", "portalseer.ufba.br", "pubvet.com.br", "rbmv.org",
+    # Manuais, diretrizes e referência clínica
+    "merckvetmanual.com", "msdvetmanual.com", "vin.com", "ivis.org",
+    "vetstream.com", "plumbs.com", "iris-kidney.com", "cliniciansbrief.com",
+    "todaysveterinarypractice.com", "todaysveterinarynurse.com",
+    "vetfolio.com", "dvm360.com", "vetsmart.com.br",
+    # Toxicologia e parasitologia
+    "aspca.org", "aspcapro.org", "petpoisonhelpline.com",
+    "capcvet.org", "esccap.org", "troccap.com",
+    # Associações e federações
+    "wsava.org", "avma.org", "aaha.org", "fecava.org", "bsava.com",
+    "bva.co.uk", "catvets.com", "icatcare.org", "abcd-vets.org",
+    "aaep.org", "aabp.org", "anclivepabrasil.com.br", "abrovet.org.br",
+    "abraveq.com.br", "sbcve.org.br",
+    # Colleges de especialidade (board-certified)
+    "acvim.org", "acvs.org", "acvp.org", "acvecc.org", "acvo.org",
+    "acvd.org", "acvr.org", "acvb.org", "acvaa.org", "acvn.org",
+    "ecvim-ca.org", "ecvs.org",
+    # Conselhos e reguladores
+    "cfmv.gov.br", "crmvsp.gov.br", "rcvs.org.uk", "fve.org",
+    "canadianveterinarians.net",
+    # Autoridades sanitárias / One Health (usda.gov cobre aphis)
+    "woah.org", "fao.org", "who.int", "cdc.gov", "efsa.europa.eu",
+    "usda.gov", "embrapa.br",
+    # Escolas de veterinária (recursos clínicos / pesquisa)
+    "vet.cornell.edu", "vetmed.ucdavis.edu", "vetmed.tamu.edu",
+    "vet.upenn.edu", "vetmed.wsu.edu", "vetmed.iastate.edu", "vet.osu.edu",
+    "cvm.ncsu.edu", "vetmed.ufl.edu", "vet.tufts.edu", "vetmed.wisc.edu",
+    "vetmedbiosci.colostate.edu", "rvc.ac.uk", "ovc.uoguelph.ca",
+    "vetmeduni.ac.at", "fmv.ulisboa.pt", "fmvz.usp.br", "fmvz.unesp.br",
+    "vet.ufmg.br", "dvt.ufv.br",
 )
 
 
