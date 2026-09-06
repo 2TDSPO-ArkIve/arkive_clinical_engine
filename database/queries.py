@@ -16,6 +16,15 @@ DIAGNOSTIC_HISTORY_QUERY: busca os diagnósticos mais recentes de OUTRAS
                            consultas do mesmo animal, para dar continuidade
                            de cuidado ao raciocínio da IA. Quantidade
                            configurável via DIAGNOSTIC_HISTORY_LIMIT.
+PRESCRIPTION_HISTORY_QUERY: prescrições (medicamentos/tratamentos) mais
+                           recentes do animal, com resumo de adesão
+                           terapêutica. Join via TB_ARKIVE_CONSULTA porque
+                           a prescrição referencia ID_CONSULTA, não
+                           ID_ANIMAL. Quantidade via HISTORICO_CUIDADO_LIMIT.
+PREVENTIVE_STATUS_QUERY:  eventos de cuidado preventivo (vacina, vermífugo,
+                           check-up, antiparasitário) do animal, priorizando
+                           os ATRASADO/PENDENTE. Quantidade via
+                           HISTORICO_CUIDADO_LIMIT.
 """
 
 from __future__ import annotations
@@ -27,7 +36,7 @@ from typing import Any
 
 import oracledb
 
-from config import DIAGNOSTIC_HISTORY_LIMIT, MAX_TRANSCRICAO_CHARS
+from config import DIAGNOSTIC_HISTORY_LIMIT, HISTORICO_CUIDADO_LIMIT, MAX_TRANSCRICAO_CHARS
 
 logger = logging.getLogger(__name__)
 
@@ -174,6 +183,83 @@ ORDER BY c2.DT_HORA DESC
 FETCH FIRST :limit ROWS ONLY
 """
 
+# SQL 4: Prescrições Recentes do Animal (Medicamentos / Tratamentos)
+#
+# A tabela TB_ARKIVE_PRESCRICAO referencia ID_CONSULTA (não ID_ANIMAL), então
+# o vínculo com o animal é feito via TB_ARKIVE_CONSULTA. Traz as prescrições
+# mais recentes por DT_INICIO, mais um resumo de adesão terapêutica: contagem
+# de registros em TB_ARKIVE_ADESAO_PRESCRICAO com ST_TOMOU = 'S' (seguiu) e
+# 'N' (não seguiu) — via subquery escalar, para não multiplicar linhas.
+# Usado pela IA para entender tratamento em curso, falha de resposta e
+# possível baixa adesão como fator de risco.
+# Limitado a :limit (HISTORICO_CUIDADO_LIMIT) para não estourar a janela de
+# contexto do LLM.
+#
+# NOTA READ-ONLY: consulta puramente SELECT, como todas as demais.
+
+PRESCRIPTION_HISTORY_QUERY: str = """
+SELECT
+    p.NM_MEDICAMENTO,
+    p.DS_DOSAGEM,
+    p.DS_FREQUENCIA,
+    p.TP_VIA_ADMINISTRACAO,
+    p.DT_INICIO,
+    p.DT_FIM,
+    p.DS_INSTRUCOES,
+    c.DT_HORA AS DT_CONSULTA,
+    (SELECT COUNT(*)
+       FROM TB_ARKIVE_ADESAO_PRESCRICAO ad
+      WHERE ad.ID_PRESCRICAO = p.ID_PRESCRICAO
+        AND ad.ST_TOMOU = 'S')   AS QT_ADESAO_SIM,
+    (SELECT COUNT(*)
+       FROM TB_ARKIVE_ADESAO_PRESCRICAO ad
+      WHERE ad.ID_PRESCRICAO = p.ID_PRESCRICAO
+        AND ad.ST_TOMOU = 'N')   AS QT_ADESAO_NAO
+
+FROM       TB_ARKIVE_PRESCRICAO p
+JOIN       TB_ARKIVE_CONSULTA   c  ON c.ID_CONSULTA = p.ID_CONSULTA
+
+WHERE  c.ID_ANIMAL = :id_animal
+
+ORDER BY p.DT_INICIO DESC
+FETCH FIRST :limit ROWS ONLY
+"""
+
+# SQL 5: Status de Cuidado Preventivo do Animal (Vacinas / Vermífugo / etc.)
+#
+# TB_ARKIVE_EVENTO_PREVENTIVO tem ID_ANIMAL direto. Join com
+# TB_ARKIVE_PROTOCOLO_PREVENTIVO para trazer o nome e o tipo do protocolo.
+# Ordena priorizando o que exige ação (ATRASADO, depois PENDENTE), depois
+# REALIZADO, e por DT_PROXIMO. A IA usa isso como fator de risco de fundo
+# (ex.: imunização em atraso) e como recomendação em insight_limitacoes —
+# nunca como hipótese diagnóstica principal.
+# Limitado a :limit (HISTORICO_CUIDADO_LIMIT).
+#
+# NOTA READ-ONLY: consulta puramente SELECT.
+
+PREVENTIVE_STATUS_QUERY: str = """
+SELECT
+    pp.NM_PROTOCOLO,
+    pp.TP_PROTOCOLO,
+    ep.ST_STATUS,
+    ep.DT_APLICACAO,
+    ep.DT_PROXIMO
+
+FROM       TB_ARKIVE_EVENTO_PREVENTIVO     ep
+JOIN       TB_ARKIVE_PROTOCOLO_PREVENTIVO  pp  ON pp.ID_PROTOCOLO = ep.ID_PROTOCOLO
+
+WHERE  ep.ID_ANIMAL = :id_animal
+
+ORDER BY
+    CASE ep.ST_STATUS
+        WHEN 'ATRASADO' THEN 0
+        WHEN 'PENDENTE' THEN 1
+        ELSE 2
+    END,
+    ep.DT_PROXIMO
+FETCH FIRST :limit ROWS ONLY
+"""
+
 # Contexto Clínico Completo
 
 
@@ -228,6 +314,17 @@ class ClinicalContext:
 
     # Histórico de Diagnósticos Anteriores (outras consultas do mesmo animal)
     diagnosticos_anteriores: list[dict[str, Any]] = field(default_factory=list)
+
+    # Prescrições recentes (medicamentos / tratamentos) do animal.
+    # Cada item: colunas de PRESCRIPTION_HISTORY_QUERY (nm_medicamento,
+    # ds_dosagem, ds_frequencia, tp_via_administracao, dt_inicio, dt_fim,
+    # ds_instrucoes, dt_consulta, qt_adesao_sim, qt_adesao_nao).
+    prescricoes: list[dict[str, Any]] = field(default_factory=list)
+
+    # Eventos de cuidado preventivo (vacina, vermífugo, check-up) do animal.
+    # Cada item: colunas de PREVENTIVE_STATUS_QUERY (nm_protocolo,
+    # tp_protocolo, st_status, dt_aplicacao, dt_proximo).
+    eventos_preventivos: list[dict[str, Any]] = field(default_factory=list)
 
     # Propriedades derivadas
 
@@ -321,6 +418,54 @@ class ClinicalContext:
         else:
             historico_block = "  Nenhum diagnóstico anterior registrado para este animal."
 
+        if self.prescricoes:
+            presc_lines = []
+            for presc in self.prescricoes:
+                nm = presc.get("nm_medicamento") or "Medicamento não informado"
+                dose = presc.get("ds_dosagem") or "dose não informada"
+                freq = presc.get("ds_frequencia")
+                via = presc.get("tp_via_administracao")
+                dt_ini = presc.get("dt_inicio")
+                dt_fim = presc.get("dt_fim")
+                dt_ini_str = dt_ini.strftime("%d/%m/%Y") if hasattr(dt_ini, "strftime") else "início não informado"
+                dt_fim_str = dt_fim.strftime("%d/%m/%Y") if hasattr(dt_fim, "strftime") else "sem término previsto"
+                detalhes = [f"{dose}"]
+                if freq:
+                    detalhes.append(freq)
+                if via:
+                    detalhes.append(f"via {via}")
+                sim = presc.get("qt_adesao_sim") or 0
+                nao = presc.get("qt_adesao_nao") or 0
+                if sim or nao:
+                    adesao_str = f" | adesão: seguida {sim}x, não seguida {nao}x"
+                else:
+                    adesao_str = " | adesão não registrada"
+                presc_lines.append(
+                    f"  • {nm} ({', '.join(detalhes)}) — {dt_ini_str} a {dt_fim_str}{adesao_str}"
+                )
+                instrucoes = (presc.get("ds_instrucoes") or "").strip()
+                if instrucoes:
+                    presc_lines.append(f"      Instruções: {instrucoes}")
+            medicacoes_block = "\n".join(presc_lines)
+        else:
+            medicacoes_block = "  Nenhuma prescrição registrada para este animal."
+
+        if self.eventos_preventivos:
+            prev_lines = []
+            for evt in self.eventos_preventivos:
+                nm = evt.get("nm_protocolo") or "Protocolo não informado"
+                tipo = evt.get("tp_protocolo") or "tipo não informado"
+                status = (evt.get("st_status") or "status desconhecido").upper()
+                dt_prox = evt.get("dt_proximo")
+                dt_prox_str = dt_prox.strftime("%d/%m/%Y") if hasattr(dt_prox, "strftime") else "data não informada"
+                destaque = " ⚠️ ATRASADO" if status == "ATRASADO" else ""
+                prev_lines.append(
+                    f"  • {nm} [{tipo}] — status: {status} | próxima data prevista: {dt_prox_str}{destaque}"
+                )
+            preventivo_block = "\n".join(prev_lines)
+        else:
+            preventivo_block = "  Nenhum evento de cuidado preventivo registrado para este animal."
+
         return (
             "=== DADOS DO PACIENTE ===\n"
             f"Nome:           {self.nm_animal}\n"
@@ -347,6 +492,10 @@ class ClinicalContext:
             + predisposicoes_block
             + "\n\n=== HISTÓRICO DE DIAGNÓSTICOS ANTERIORES (outras consultas) ===\n"
             + historico_block
+            + "\n\n=== MEDICAÇÕES / PRESCRIÇÕES RECENTES ===\n"
+            + medicacoes_block
+            + "\n\n=== CUIDADO PREVENTIVO (VACINAS / VERMÍFUGO / CHECK-UP) ===\n"
+            + preventivo_block
         )
 
 
@@ -457,6 +606,48 @@ def fetch_clinical_data(conn: oracledb.Connection, id_consulta: int) -> Clinical
         logger.info(
             "%d diagnóstico(s) anterior(es) encontrado(s) para o animal.",
             len(ctx.diagnosticos_anteriores),
+        )
+
+    # Query 4: Prescrições Recentes (Medicamentos / Tratamentos) do Animal
+    if ctx.id_animal:
+        logger.info(
+            "Executando PRESCRIPTION_HISTORY_QUERY | ID_ANIMAL=%s | limit=%d",
+            ctx.id_animal,
+            HISTORICO_CUIDADO_LIMIT,
+        )
+        with conn.cursor() as cur:
+            cur.execute(
+                PRESCRIPTION_HISTORY_QUERY,
+                {"id_animal": ctx.id_animal, "limit": HISTORICO_CUIDADO_LIMIT},
+            )
+            presc_columns = [col[0].lower() for col in cur.description]
+            for presc_row in cur.fetchall():
+                ctx.prescricoes.append(dict(zip(presc_columns, presc_row)))
+
+        logger.info(
+            "%d prescrição(ões) recente(s) encontrada(s) para o animal.",
+            len(ctx.prescricoes),
+        )
+
+    # Query 5: Status de Cuidado Preventivo (Vacinas / Vermífugo / Check-up)
+    if ctx.id_animal:
+        logger.info(
+            "Executando PREVENTIVE_STATUS_QUERY | ID_ANIMAL=%s | limit=%d",
+            ctx.id_animal,
+            HISTORICO_CUIDADO_LIMIT,
+        )
+        with conn.cursor() as cur:
+            cur.execute(
+                PREVENTIVE_STATUS_QUERY,
+                {"id_animal": ctx.id_animal, "limit": HISTORICO_CUIDADO_LIMIT},
+            )
+            prev_columns = [col[0].lower() for col in cur.description]
+            for prev_row in cur.fetchall():
+                ctx.eventos_preventivos.append(dict(zip(prev_columns, prev_row)))
+
+        logger.info(
+            "%d evento(s) de cuidado preventivo encontrado(s) para o animal.",
+            len(ctx.eventos_preventivos),
         )
 
     return ctx

@@ -24,7 +24,7 @@
 
 ## Demonstração em Vídeo
 
-> Assista à apresentação do projeto, explicação da arquitetura e testes:
+> Apresentação do projeto, explicação da arquitetura e testes (gravação das Sprints 1 e 2).
 
 [![Assistir no YouTube](https://img.shields.io/badge/YouTube-Assistir%20Apresentação-red?style=for-the-badge&logo=youtube)](https://www.youtube.com/watch?v=zWqLgywXfv4)
 
@@ -61,6 +61,140 @@ O sistema opera em **modo estritamente read-only** no banco, nunca escrevendo ou
 
 ---
 
+## Componente de Inteligência Artificial
+
+O motor de IA é o núcleo do ArkIve. Abaixo: como ele raciocina, o que usa como base clínica e
+como se conecta ao resto da plataforma.
+
+Retomando o [problema abordado](#problema-abordado): sem inteligência ligando uma consulta à
+seguinte, o veterinário decide sem o histórico consolidado à mão. A cada consulta registrada, o
+motor consolida automaticamente o que se sabe daquele animal e devolve uma **hipótese diagnóstica
+estruturada, explicada e com grau de confiança**, para o veterinário revisar e validar — e essa
+validação já entra como contexto da próxima consulta. É isso que torna a jornada *contínua*.
+
+### Um motor híbrido: regras + LLM
+
+A abordagem é **híbrida — motor de regras determinístico + LLM (IA Generativa) com saída
+estruturada validada**. Antes de fechar nessa combinação, avaliamos outras:
+
+| Alternativa | Limitação para este caso |
+|---|---|
+| **Modelo preditivo supervisionado** | Não há base rotulada de diagnósticos confirmados em volume suficiente para treino; o catálogo de doenças e predisposições (`TB_ARKIVE_DOENCA`, `TB_ARKIVE_PREDISPOSICAO`) ainda está em povoamento. Um modelo treinado agora aprenderia ruído. |
+| **Sistema de recomendação** | O produto não é um *ranking* de itens (serviços, produtos), e sim **raciocínio clínico explicado**. Recomendação não entrega o "porquê". |
+| **NLP isolado** | A transcrição de voz (`DS_TRANSCRICAO`) já é consumida, mas o valor está em **correlacionar** o texto livre com dados estruturados, histórico e predisposição — não em extrair entidades do texto. |
+| **Motor de regras puro** | Ótimo onde a regra é clara e precisa ser auditável e barata, mas rígido demais para redigir a síntese clínica em linguagem natural. |
+
+Como cada parte é usada:
+
+- **Motor de regras determinístico (Python puro, sem LLM):**
+  - `_calculate_confidence()` — rubrica de pontos fixa sobre os dados reais do Oracle, produz
+    `pc_confianca` (0–100). Auditável, reproduzível, custo zero.
+  - `_decide_web_search()` — usa o **mesmo** `pc_confianca` para decidir se aciona a busca web
+    (`pc_confianca < AMBIGUITY_THRESHOLD`). Fonte única de verdade, sem heurística paralela.
+  - match de predisposição × sintomas por palavras-chave catalogadas (`TB_ARKIVE_DOENCA.DS_SINTOMAS`).
+- **LLM (Groq API, `ChatGroq.with_structured_output`):** faz a **síntese clínica em português**,
+  explicável, sobre contexto heterogêneo (perfil + sintomas + transcrição + bem-estar + histórico
+  + medicações + status preventivo + literatura web opcional). Saída **validada por Pydantic v2**
+  (`DiagnosticoOutputDetalhado`), `temperature=0.10`, com fallback automático entre modelos.
+- **Busca web condicional (DuckDuckGo, `ddgs`):** enriquecimento tipo-RAG quando a confiança é
+  baixa, restrito a uma lista curada de fontes veterinárias confiáveis (ver
+  [Fluxo de Decisão — Busca Web](#fluxo-de-decisão--busca-web)).
+- **Prompt engineering:** system prompt com travas anti-alucinação explícitas
+  (`prompts/diagnostic.py`).
+
+Em resumo: determinismo onde existe regra clara (confiança, gatilho de busca, match de
+predisposição); IA Generativa onde é preciso julgamento e redação — sempre com validação de schema
+e o `pc_confianca` calculado fora do modelo.
+
+### Personalização por animal
+
+A personalização é **por animal**, não por um perfil genérico de espécie/raça. A cada execução, o
+motor monta o contexto daquele animal específico a partir de:
+
+| Sinal de personalização | Origem | Como personaliza |
+|---|---|---|
+| Perfil do paciente | `TB_ARKIVE_ANIMAL` + `TB_ARKIVE_ESPECIE` + `TB_ARKIVE_RACA` | espécie, raça exata, porte, sexo, status reprodutivo |
+| Narrativa da consulta atual | `TB_ARKIVE_CONSULTA` (`DS_MOTIVO`, `DS_SINTOMAS`, `DS_TRANSCRICAO`) | relato bruto do veterinário daquela consulta |
+| Bem-estar longitudinal | `TB_ARKIVE_AVALIACAO_BEM_ESTAR` | apetite, atividade, comportamento, peso e idade ao longo do tempo |
+| Predisposição genética | `TB_ARKIVE_PREDISPOSICAO` + `TB_ARKIVE_DOENCA` | herança nível espécie (sempre) + raça exata do animal |
+| Histórico de diagnósticos | `TB_ARKIVE_DIAGNOSTICO` (outras consultas) | recorrência, progressão de severidade, diagnósticos não validados pelo vet |
+| Medicações e adesão | `TB_ARKIVE_PRESCRICAO` + `TB_ARKIVE_ADESAO_PRESCRICAO` | tratamento em curso, falha de resposta, baixa adesão como risco |
+| Cuidado preventivo | `TB_ARKIVE_PROTOCOLO_PREVENTIVO` + `TB_ARKIVE_EVENTO_PREVENTIVO` | vacina/vermífugo/check-up atrasado como fator de risco de fundo |
+
+O `pc_confianca` também é personalizado: ele é calculado sobre os dados reais **daquele** animal e
+decide, para aquele caso, se vale enriquecer o raciocínio com literatura externa.
+
+### Dados clínicos que a IA utiliza
+
+Todos os dados vêm do banco Oracle da FIAP, em **modo estritamente read-only** (apenas `SELECT`).
+
+| Fonte (origem) | Estrutura (colunas-chave) | Utilização pela IA |
+|---|---|---|
+| `TB_ARKIVE_ANIMAL` | `NM_ANIMAL`, `DS_SEXO`, `DS_CASTRADO`, `ID_ESPECIE`, `ID_RACA` | perfil-base do paciente |
+| `TB_ARKIVE_ESPECIE` / `TB_ARKIVE_RACA` | `NM_ESPECIE`; `NM_RACA`, `TP_PORTE` | correlação de sintomas com espécie/raça/porte |
+| `TB_ARKIVE_CONSULTA` | `DT_HORA`, `TP_MODALIDADE`, `DS_MOTIVO`, `DS_SINTOMAS`, `DS_OBSERVACAO`, `DS_TRANSCRICAO`, `KG_PESO` | quadro clínico atual; `DS_TRANSCRICAO` = relato bruto (voz) do veterinário |
+| `TB_ARKIVE_AVALIACAO_BEM_ESTAR` | `NR_IDADE`, `KG_PESO`, `DS_APETITE`, `DS_ATIVIDADE`, `DS_COMPORTAMENTO` | indicadores sistêmicos; avaliação mais recente do animal |
+| `TB_ARKIVE_DOENCA` + `TB_ARKIVE_PREDISPOSICAO` | `NM_DOENCA`, `DS_DOENCA`, `DS_SINTOMAS`; `ID_ESPECIE`, `ID_RACA`, `ID_DOENCA` | predisposições genéticas da espécie (sempre) e da raça exata |
+| `TB_ARKIVE_DIAGNOSTICO` (outras consultas) | `DS_DIAGNOSTICO`, `TP_SEVERIDADE`, `PC_CONFIANCA`, `ST_CONFIRMADO`, `ST_VALIDACAO_VET` | continuidade de cuidado: recorrência, progressão, ceticismo com o não validado |
+| `TB_ARKIVE_PRESCRICAO` + `TB_ARKIVE_ADESAO_PRESCRICAO` | `NM_MEDICAMENTO`, `DS_DOSAGEM`, `DS_FREQUENCIA`, `TP_VIA_ADMINISTRACAO`, `DT_INICIO`/`DT_FIM`; `ST_TOMOU` | medicações vigentes, resposta ao tratamento, adesão terapêutica |
+| `TB_ARKIVE_PROTOCOLO_PREVENTIVO` + `TB_ARKIVE_EVENTO_PREVENTIVO` | `NM_PROTOCOLO`, `TP_PROTOCOLO` (`VACINA`/`VERMIFUGO`/`CHECK-UP`/`ANTIPARASITARIO`), `ST_STATUS`, `DT_PROXIMO` | imunização/vermifugação em atraso como fator de risco e recomendação |
+
+**Saída da IA** — `DiagnosticoOutputDetalhado` (Pydantic v2), consumida pela API Java e persistida
+em `TB_ARKIVE_DIAGNOSTICO`: ver [Schema de Saída](#schema-de-saída-pydantic-v2).
+
+### Arquitetura e fluxo de dados
+
+1. **Tutor / veterinário** usam a aplicação (app/web) para registrar animal, consulta, bem-estar,
+   prescrições e eventos preventivos.
+2. A **API Java** faz o CRUD e persiste tudo no **Oracle** (`TB_ARKIVE_*`).
+3. Ao concluir uma consulta, a API Java aciona o **Motor ArkIve** por `ID_CONSULTA` — via CLI
+   (`python main.py <id>`) ou REST (`GET /diagnostico/{id_consulta}`).
+4. O motor **lê o Oracle em modo read-only** (5 consultas: dados clínicos, predisposições,
+   histórico de diagnósticos, prescrições, cuidado preventivo), calcula o `pc_confianca`,
+   opcionalmente consulta o **DuckDuckGo**, e chama a **Groq API**.
+5. O motor devolve um **JSON estruturado** (`DiagnosticoOutputDetalhado` + `ds_insight_ia`).
+6. A **API Java grava** o resultado em `TB_ARKIVE_DIAGNOSTICO`.
+7. A aplicação **exibe a hipótese** ao veterinário, que a valida (`ST_VALIDACAO_VET`) — e essa
+   validação entra no histórico da próxima consulta.
+
+```mermaid
+graph TD
+    subgraph App["Aplicação CLYVO VET"]
+        U["Tutor / Veterinário<br/>(app / web)"]
+        J["API Java<br/>(CRUD + persistência)"]
+    end
+
+    ORA[("Oracle FIAP<br/>TB_ARKIVE_*")]
+
+    subgraph Motor["Motor de Inteligência Clínica ArkIve — Python (READ-ONLY no banco)"]
+        direction TB
+        E1["1. Extração clínica<br/>5 SELECTs parametrizados"]
+        E2["2. pc_confianca<br/>rubrica determinística (Python puro)"]
+        E3["3. Decisão de busca web<br/>pc_confianca &lt; AMBIGUITY_THRESHOLD?"]
+        E4["4. Busca web (condicional)"]
+        E5["5. Síntese clínica (LLM)<br/>saída validada por Pydantic v2"]
+        E1 --> E2 --> E3 --> E4 --> E5
+    end
+
+    DDG["DuckDuckGo<br/>fontes veterinárias confiáveis<br/>(PubMed, Merck/MSD, WSAVA, SciELO…)"]
+    GROQ["Groq API<br/>LLM + fallback entre modelos"]
+
+    U -->|"HTTPS / REST"| J
+    J -->|"SQL (escrita)"| ORA
+    J -->|"aciona: ID_CONSULTA<br/>(CLI ou GET /diagnostico/{id})"| E1
+    ORA -.->|"oracledb Thin · SELECT apenas"| E1
+    E4 <-->|"HTTPS"| DDG
+    E5 <-->|"HTTPS"| GROQ
+    E5 -->|"JSON: DiagnosticoOutputDetalhado"| J
+    J -->|"INSERT em TB_ARKIVE_DIAGNOSTICO"| ORA
+    J -->|"exibe hipótese + grau de confiança"| U
+```
+
+A fronteira do motor com o banco é **somente leitura** em três camadas (privilégio `GRANT SELECT`,
+`autocommit = False`, `rollback()` no `finally`) — ver [Garantias de Segurança](#garantias-de-segurança-read-only).
+
+---
+
 ## Tecnologias Utilizadas
 
 | Camada | Tecnologia | Papel no sistema |
@@ -70,7 +204,7 @@ O sistema opera em **modo estritamente read-only** no banco, nunca escrevendo ou
 | Integração LLM | `langchain-groq` + `langchain-core` · `ChatGroq.with_structured_output()` | Conecta ao Groq e garante saída JSON validada pelo Pydantic; sem chains ou pipelines LCEL |
 | Banco de Dados | Oracle via `oracledb` (modo Thin) | Fonte de dados clínicos — somente leitura |
 | Validação de Schema | Pydantic v2 | Valida e tipifica a saída da IA |
-| Busca Web (fallback) | `ddgs` (DuckDuckGo Search) | Literatura veterinária complementar |
+| Busca Web (fallback) | `ddgs` (DuckDuckGo Search) | Literatura veterinária complementar — só resultados de uma lista curada de fontes confiáveis são aproveitados |
 | API REST | FastAPI + Uvicorn | Endpoint HTTP alternativo ao CLI (`GET /diagnostico/{id_consulta}`) |
 | Variáveis de Ambiente | `python-dotenv` | Isola credenciais do código-fonte |
 
@@ -78,20 +212,28 @@ O sistema opera em **modo estritamente read-only** no banco, nunca escrevendo ou
 
 ## Arquitetura do Sistema
 
+O diagrama arquitetural completo (aplicação, banco, APIs e componentes de IA) está na seção
+[Arquitetura e fluxo de dados](#arquitetura-e-fluxo-de-dados).
+Abaixo, o detalhamento do pipeline interno do motor:
+
 ```
 Entrada: main.py ──► python main.py <ID_CONSULTA>   (ou api.py ──► GET /diagnostico/{id_consulta})
-Etapa 1 ──► Oracle (READ-ONLY): extrai animal, espécie, raça, consulta (incl. DS_TRANSCRICAO — relato bruto do
-             veterinário), bem-estar, predisposições genéticas (nível espécie + raça exata) e os últimos
-             DIAGNOSTIC_HISTORY_LIMIT diagnósticos anteriores do animal.
+Etapa 1 ──► Oracle (READ-ONLY): 5 SELECTs parametrizados extraem animal, espécie, raça, consulta (incl.
+             DS_TRANSCRICAO — relato bruto do veterinário), bem-estar, predisposições genéticas (nível espécie +
+             raça exata), os últimos DIAGNOSTIC_HISTORY_LIMIT diagnósticos anteriores do animal, as últimas
+             HISTORICO_CUIDADO_LIMIT prescrições (com adesão) e os eventos de cuidado preventivo
+             (vacina/vermífugo/check-up, priorizando ATRASADO/PENDENTE).
 Etapa 2 ──► Python puro (sem LLM): _calculate_confidence() calcula pc_confianca com rubrica fixa baseada na
              narrativa clínica (DS_TRANSCRICAO + DS_SINTOMAS combinados) e nos demais dados reais do Oracle
              (inclui match de predisposição via nome da doença e DS_SINTOMAS catalogado).
 Etapa 3 ──► Python puro (sem LLM): _decide_web_search() aciona busca web se pc_confianca < AMBIGUITY_THRESHOLD —
              mesma métrica usada em toda a decisão, sem heurística paralela.
-Etapa 4 ──► DuckDuckGo (condicional): busca literatura veterinária, priorizando NCBI/PubMed e Merck Veterinary Manual.
-Etapa 5 ──► Groq API (com fallback + retry entre modelos — ver seção dedicada): recebe resumo clínico +
-             pc_confianca pronto e gera DiagnosticoOutputDetalhado (4 campos de raciocínio clínico), validado
-             pelo Pydantic v2.
+Etapa 4 ──► DuckDuckGo (condicional): busca literatura veterinária; um pós-filtro descarta todo resultado
+             que não seja de uma lista curada de fontes confiáveis (PubMed/PMC, Merck & MSD Vet Manual,
+             WSAVA, AVMA, periódicos peer-reviewed, SciELO, CFMV…).
+Etapa 5 ──► Groq API (com fallback + retry entre modelos — ver seção dedicada): recebe resumo clínico
+             (incl. medicações vigentes e status de cuidado preventivo) + pc_confianca pronto e gera
+             DiagnosticoOutputDetalhado (4 campos de raciocínio clínico), validado pelo Pydantic v2.
 Saída: JSON ──► {ds_diagnostico, tp_severidade, ds_insight_ia, pc_confianca, fontes_pesquisadas, + campos de
              insight individuais (insight_perfil, insight_correlacao, insight_predisposicao, insight_limitacoes)}
 
@@ -104,18 +246,19 @@ A resposta é consumida pela API Java para persistência em TB_ARKIVE_DIAGNOSTIC
 arkive_clinical_engine/
 ├── .env                        # Variáveis de ambiente
 ├── requirements.txt            # Dependências com versões fixas
-├── config.py                   # Configuração centralizada + validação fail-fast
-├── main.py                     # Ponto de entrada CLI
-├── api.py                      # Ponto de entrada API REST (FastAPI)
+├── config.py                       # Configuração centralizada + validação fail-fast
+├── main.py                         # Ponto de entrada CLI
+├── api.py                          # Ponto de entrada API REST (FastAPI)
+├── test_clinical_summary.py        # Check offline (assert puro) da renderização do resumo clínico
 ├── agents/
-│   └── clinical_agent.py       # Motor principal (LangChain + Groq + heurística determinística)
+│   └── clinical_agent.py           # Motor principal (LangChain + Groq + heurística determinística)
 ├── database/
-│   ├── connection.py           # Conexão Oracle Thin mode, READ-ONLY
-│   └── queries.py              # SQLs parametrizados + dataclass ClinicalContext
+│   ├── connection.py               # Conexão Oracle Thin mode, READ-ONLY
+│   └── queries.py                  # 5 SQLs parametrizados + dataclass ClinicalContext
 ├── prompts/
-│   └── diagnostic.py           # System prompt do Groq (histórico de versões fica no Git)
+│   └── diagnostic.py               # System prompt do Groq (histórico de versões fica no Git)
 └── schemas/
-    └── diagnostic_detalhado.py # Pydantic v2: DiagnosticoOutputDetalhado
+    └── diagnostic_detalhado.py     # Pydantic v2: DiagnosticoOutputDetalhado
 ```
 
 ---
@@ -179,6 +322,7 @@ GROQ_RETRY_BACKOFF_SECONDS=2
 LOG_LEVEL=INFO
 AMBIGUITY_THRESHOLD=60
 DIAGNOSTIC_HISTORY_LIMIT=5
+HISTORICO_CUIDADO_LIMIT=5
 MAX_TRANSCRICAO_CHARS=6000
 ```
 
@@ -225,7 +369,9 @@ Logs de execução são exibidos no terminal. Em caso de erro, o JSON de saída 
 
 ## Fluxo de Decisão — Busca Web
 
-A busca web é acionada com base no **mesmo `pc_confianca`** calculado deterministicamente (ver seção seguinte) — não existe uma métrica de "ambiguidade" separada. Se `pc_confianca < AMBIGUITY_THRESHOLD` (padrão: 60%), o DuckDuckGo é acionado para buscar literatura veterinária atualizada no NCBI/PubMed e Merck Veterinary Manual, enriquecendo o contexto antes da chamada à LLM.
+A busca web é acionada com base no **mesmo `pc_confianca`** calculado deterministicamente (ver seção seguinte) — não existe uma métrica de "ambiguidade" separada. Se `pc_confianca < AMBIGUITY_THRESHOLD` (padrão: 60%), o DuckDuckGo é acionado para buscar literatura veterinária atualizada, enriquecendo o contexto antes da chamada à LLM.
+
+Só é aproveitado o resultado que vier de uma **lista curada de fontes veterinárias confiáveis** — PubMed/PMC, Merck & MSD Vet Manual, WSAVA, AVMA, AAHA, periódicos peer-reviewed (Wiley, ScienceDirect, Vet Record, Frontiers, MDPI) e fontes brasileiras (SciELO, CFMV). Qualquer outro domínio é descartado; se nada confiável for encontrado, o motor segue sem contexto externo (`fontes_pesquisadas: []`). A lista fica em `TRUSTED_VET_DOMAINS` (`agents/clinical_agent.py`).
 
 **Resultado: normalmente 1 chamada à API do Groq por execução.** Em caso de erro transitório ou cota esgotada, o sistema pode tentar novamente ou trocar de modelo automaticamente — ver "Modelos Groq — Fallback e Retry" abaixo.
 
@@ -252,6 +398,8 @@ A rubrica de "sintomas" avalia a **narrativa clínica** — `DS_TRANSCRICAO` (re
 | Narrativa clínica vaga ou genérica demais | -15 pts |
 
 > **Predisposição racial ≠ evidência principal.** O system prompt (`prompts/diagnostic.py`) só permite tratar uma predisposição genética mapeada como diferencial prioritário quando há sinal clínico compatível na narrativa (transcrição e/ou sintomas). Sem sinal clínico compatível, a predisposição entra apenas como fator de risco de fundo em `insight_predisposicao` — nunca como base de `ds_diagnostico`.
+
+> **Medicações e cuidado preventivo não entram na rubrica.** As seções de prescrições e de status preventivo são injetadas no resumo clínico e alimentam o **raciocínio da LLM** (`insight_correlacao`, `insight_limitacoes`), mas **não** alteram o `pc_confianca` — a rubrica mede qualidade de sintoma, predisposição e bem-estar, e é mantida estável para permanecer auditável.
 
 ---
 

@@ -78,6 +78,13 @@ _AMBIGUITY_THRESHOLD_RAW: str = os.getenv("AMBIGUITY_THRESHOLD", "60")
 #: são buscados no Oracle e injetados no resumo clínico enviado à IA.
 _DIAGNOSTIC_HISTORY_LIMIT_RAW: str = os.getenv("DIAGNOSTIC_HISTORY_LIMIT", "5")
 
+#: Quantas prescrições recentes e quantos eventos de cuidado preventivo
+#: (vacina, vermífugo, check-up) do mesmo animal são buscados no Oracle e
+#: injetados no resumo clínico enviado à IA. Um único limite para as duas
+#: consultas, seguindo o mesmo racional de DIAGNOSTIC_HISTORY_LIMIT (não
+#: estourar a janela de contexto do LLM).
+_HISTORICO_CUIDADO_LIMIT_RAW: str = os.getenv("HISTORICO_CUIDADO_LIMIT", "5")
+
 # ── Transcrição de Voz ──────────────────────────────────────────────────────
 
 #: Tamanho máximo (em caracteres) da transcrição de voz (DS_TRANSCRICAO)
@@ -118,6 +125,10 @@ if _err:
     _config_errors.append(_err)
 
 DIAGNOSTIC_HISTORY_LIMIT, _err = _parse_positive_int(_DIAGNOSTIC_HISTORY_LIMIT_RAW, "DIAGNOSTIC_HISTORY_LIMIT", 5)
+if _err:
+    _config_errors.append(_err)
+
+HISTORICO_CUIDADO_LIMIT, _err = _parse_positive_int(_HISTORICO_CUIDADO_LIMIT_RAW, "HISTORICO_CUIDADO_LIMIT", 5)
 if _err:
     _config_errors.append(_err)
 

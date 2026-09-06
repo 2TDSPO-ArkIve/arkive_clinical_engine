@@ -16,6 +16,7 @@ import re
 import time
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlparse
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_groq import ChatGroq
@@ -34,6 +35,45 @@ from prompts.diagnostic import DIAGNOSTIC_SYSTEM_PROMPT
 from schemas.diagnostic_detalhado import DiagnosticoOutputDetalhado
 
 logger = logging.getLogger(__name__)
+
+#: Domínios aceitos como fonte de literatura veterinária na etapa de busca
+#: web. Resultados fora desta lista são descartados — o motor prefere não ter
+#: contexto externo a ter contexto de fonte não confiável. Cobertura
+#: internacional + Brasil: bases indexadas, periódicos peer-reviewed, manuais
+#: de referência, associações e conselhos profissionais.
+TRUSTED_VET_DOMAINS: tuple[str, ...] = (
+    # Bases indexadas / artigos peer-reviewed
+    "ncbi.nlm.nih.gov", "pubmed.ncbi.nlm.nih.gov", "pmc.ncbi.nlm.nih.gov",
+    "scielo.br", "scielo.org",
+    "onlinelibrary.wiley.com", "sciencedirect.com", "frontiersin.org",
+    "mdpi.com", "bmj.com", "veterinaryrecord.bmj.com", "avmajournals.avma.org",
+    # Manuais e diretrizes de referência
+    "merckvetmanual.com", "msdvetmanual.com",
+    "wsava.org", "avma.org", "aaha.org", "catvets.com", "icatcare.org",
+    # Colleges de especialidade / escolas de veterinária
+    "acvim.org", "vet.cornell.edu", "vetmed.ucdavis.edu", "vetmed.tamu.edu",
+    # Conselho profissional (Brasil)
+    "cfmv.gov.br",
+)
+
+
+def _is_trusted_source(url: str) -> bool:
+    """
+    True se a URL pertence a um domínio de TRUSTED_VET_DOMAINS (ou a um
+    subdomínio dele). Qualquer erro de parsing é tratado como não confiável.
+
+    O teste `host == d or host.endswith("." + d)` aceita subdomínios
+    legítimos (ex.: 'www.scielo.br') e barra spoofing por sufixo
+    (ex.: 'ncbi.nlm.nih.gov.exemplo.com').
+    """
+    try:
+        host = (urlparse(url).hostname or "").lower()
+    except ValueError:
+        return False
+    if host.startswith("www."):
+        host = host[4:]
+    return any(host == d or host.endswith("." + d) for d in TRUSTED_VET_DOMAINS)
+
 
 # Resultado da decisão de busca web (sem LLM)
 
@@ -217,16 +257,37 @@ class ClinicalIntelligenceEngine:
         try:
             time.sleep(2)  # Reduz chance de rate limit em execuções consecutivas
             with DDGS() as ddgs:
-                results = list(ddgs.text(query, max_results=5, safesearch="moderate"))
+                # Coleta bruta maior: só uma fração dos resultados passa pelo
+                # filtro de fonte confiável (_is_trusted_source).
+                results = list(ddgs.text(query, max_results=20, safesearch="moderate"))
+
+            descartados = 0
             for result in results:
                 href = result.get("href", "")
-                if href:
-                    snippets.append(
-                        f"📄 {result.get('title', '')}\n"
-                        f"{result.get('body', '')}\n"
-                        f"Fonte: {href}"
-                    )
-                    urls.append(href)
+                if not href:
+                    continue
+                if not _is_trusted_source(href):
+                    descartados += 1
+                    continue
+                snippets.append(
+                    f"📄 {result.get('title', '')}\n"
+                    f"{result.get('body', '')}\n"
+                    f"Fonte: {href}"
+                )
+                urls.append(href)
+                if len(urls) >= 5:
+                    break
+
+            logger.info(
+                "%d de %d resultado(s) descartado(s) por não estar em fonte veterinária confiável.",
+                descartados,
+                len(results),
+            )
+
+            if not urls:
+                logger.info("Nenhuma fonte veterinária confiável na busca — seguindo sem contexto web.")
+                return "", []
+
             web_context = "\n\n" + ("─" * 60) + "\n\n".join(snippets)
         except Exception as exc:
             logger.warning("Busca web falhou: %s. Prosseguindo sem contexto externo.", exc)
@@ -558,7 +619,14 @@ def _is_retryable_error(exc: Exception) -> bool:
 
 
 def _build_search_query(ctx: ClinicalContext, sintomas: str, motivo: str) -> str:
-    """Monta query veterinária para o DuckDuckGo priorizando NCBI e Merck."""
+    """
+    Monta a query veterinária para o DuckDuckGo (espécie + raça + palavras-
+    chave dos sintomas + termos de literatura clínica).
+
+    O operador `site:` NÃO é usado aqui — no ddgs ele é frouxo e às vezes zera
+    o resultado. A garantia de fonte confiável fica 100% a cargo do pós-filtro
+    _is_trusted_source() em _perform_web_search().
+    """
     parts: list[str] = []
 
     if ctx.nm_especie:
@@ -570,9 +638,6 @@ def _build_search_query(ctx: ClinicalContext, sintomas: str, motivo: str) -> str
     if texto:
         parts.extend(re.findall(r"\b\w{4,}\b", texto)[:4])
 
-    parts.append(
-        "veterinary clinical diagnosis "
-        "site:ncbi.nlm.nih.gov OR site:merckvetmanual.com"
-    )
+    parts.append("veterinary clinical diagnosis peer-reviewed")
 
     return " ".join(parts)[:200]
