@@ -144,7 +144,7 @@ em `TB_ARKIVE_DIAGNOSTICO`: ver [Schema de Saída](#schema-de-saída-pydantic-v2
 
 ### Arquitetura e fluxo de dados
 
-1. **Tutor / veterinário** usam a aplicação (app/web) para registrar animal, consulta, bem-estar,
+1. **Veterinário** usa a aplicação (app/web) para registrar animal, consulta, bem-estar,
    prescrições e eventos preventivos.
 2. A **API Java** faz o CRUD e persiste tudo no **Oracle** (`TB_ARKIVE_*`).
 3. Ao concluir uma consulta, a API Java aciona o **Motor ArkIve** por `ID_CONSULTA` — via CLI
@@ -160,7 +160,7 @@ em `TB_ARKIVE_DIAGNOSTICO`: ver [Schema de Saída](#schema-de-saída-pydantic-v2
 ```mermaid
 graph TD
     subgraph App["Aplicação CLYVO VET"]
-        U["Tutor / Veterinário<br/>(app / web)"]
+        U["Veterinário<br/>(app / web)"]
         J["API Java<br/>(CRUD + persistência)"]
     end
 
