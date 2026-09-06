@@ -75,16 +75,7 @@ validação já entra como contexto da próxima consulta. É isso que torna a jo
 ### Um motor híbrido: regras + LLM
 
 A abordagem é **híbrida — motor de regras determinístico + LLM (IA Generativa) com saída
-estruturada validada**. Antes de fechar nessa combinação, avaliamos outras:
-
-| Alternativa | Limitação para este caso |
-|---|---|
-| **Modelo preditivo supervisionado** | Não há base rotulada de diagnósticos confirmados em volume suficiente para treino; o catálogo de doenças e predisposições (`TB_ARKIVE_DOENCA`, `TB_ARKIVE_PREDISPOSICAO`) ainda está em povoamento. Um modelo treinado agora aprenderia ruído. |
-| **Sistema de recomendação** | O produto não é um *ranking* de itens (serviços, produtos), e sim **raciocínio clínico explicado**. Recomendação não entrega o "porquê". |
-| **NLP isolado** | A transcrição de voz (`DS_TRANSCRICAO`) já é consumida, mas o valor está em **correlacionar** o texto livre com dados estruturados, histórico e predisposição — não em extrair entidades do texto. |
-| **Motor de regras puro** | Ótimo onde a regra é clara e precisa ser auditável e barata, mas rígido demais para redigir a síntese clínica em linguagem natural. |
-
-Como cada parte é usada:
+estruturada validada**. Como cada parte é usada:
 
 - **Motor de regras determinístico (Python puro, sem LLM):**
   - `_calculate_confidence()` — rubrica de pontos fixa sobre os dados reais do Oracle, produz
