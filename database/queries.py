@@ -53,6 +53,7 @@ SELECT
     a.NM_ANIMAL,
     a.DS_SEXO,
     a.DS_CASTRADO,
+    a.DT_NASCIMENTO,
 
     -- Espécie
     e.ID_ESPECIE,
@@ -275,6 +276,7 @@ class ClinicalContext:
     nm_animal: str = ""
     ds_sexo: str = ""
     ds_castrado: str = ""
+    dt_nascimento: datetime | None = None
 
     # Espécie
     id_especie: int | None = None
@@ -333,6 +335,21 @@ class ClinicalContext:
         """Peso da consulta ou da avaliação de bem-estar como fallback."""
         return self.kg_peso_consulta or self.kg_peso_bem_estar
 
+    @property
+    def idade_anos(self) -> float | None:
+        """
+        Idade em anos: calculada de DT_NASCIMENTO (TB_ARKIVE_ANIMAL) até a data
+        da consulta — ou até hoje, se a consulta não tiver DT_HORA. Fallback
+        para NR_IDADE da avaliação de bem-estar quando não há data de
+        nascimento (ou ela é inconsistente, ex.: futura).
+        """
+        if self.dt_nascimento:
+            ref = self.dt_hora or datetime.now()
+            dias = (ref - self.dt_nascimento).days
+            if dias >= 0:
+                return dias / 365.25
+        return self.nr_idade
+
     def to_clinical_summary(self) -> str:
         """Renderiza resumo clínico textual para injeção no prompt da LLM."""
         _SEXO = {"M": "Macho", "F": "Fêmea"}
@@ -378,8 +395,18 @@ class ClinicalContext:
         ] or ["  Avaliação de bem-estar não registrada nesta consulta."]
 
         peso_str = f"{self.peso_efetivo_kg:.2f} kg" if self.peso_efetivo_kg else "Não informado"
-        idade_str = f"{self.nr_idade:.1f} anos" if self.nr_idade else "Não informada"
         dt_str = self.dt_hora.strftime("%d/%m/%Y %H:%M") if self.dt_hora else "Não informada"
+
+        # Idade: precisa (de DT_NASCIMENTO) quando há data de nascimento;
+        # estimada (de NR_IDADE) no fallback.
+        nascimento_str = (
+            self.dt_nascimento.strftime("%d/%m/%Y")
+            if hasattr(self.dt_nascimento, "strftime")
+            else "Não informada"
+        )
+        idade = self.idade_anos
+        idade_str = f"{idade:.1f} anos" if idade else "Não informada"
+        idade_label = "Idade" if self.dt_nascimento else "Idade estimada"
 
         if self.diagnosticos_anteriores:
             _CONFIRMADO = {"S": "confirmado", "N": "não confirmado"}
@@ -474,7 +501,8 @@ class ClinicalContext:
             f" | Porte: {self.tp_porte or 'Não informado'}\n"
             f"Sexo:           {_SEXO.get(self.ds_sexo, self.ds_sexo)}\n"
             f"Status reprod.: {_CASTRADO.get(self.ds_castrado, self.ds_castrado)}\n"
-            f"Idade estimada: {idade_str}\n"
+            f"Nascimento:     {nascimento_str}\n"
+            f"{(idade_label + ':').ljust(15)} {idade_str}\n"
             f"Peso:           {peso_str}\n"
             "\n=== RELATO CLÍNICO DO VETERINÁRIO (TRANSCRIÇÃO DA CONSULTA) ===\n"
             + transcricao_block
@@ -534,6 +562,7 @@ def fetch_clinical_data(conn: oracledb.Connection, id_consulta: int) -> Clinical
     ctx.nm_animal = str(row_dict.get("nm_animal") or "")
     ctx.ds_sexo = str(row_dict.get("ds_sexo") or "")
     ctx.ds_castrado = str(row_dict.get("ds_castrado") or "")
+    ctx.dt_nascimento = row_dict.get("dt_nascimento")  # datetime | None
 
     ctx.id_especie = row_dict.get("id_especie")
     ctx.nm_especie = str(row_dict.get("nm_especie") or "")

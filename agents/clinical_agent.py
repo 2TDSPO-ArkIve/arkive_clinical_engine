@@ -487,7 +487,7 @@ def _calculate_confidence(ctx: ClinicalContext, sintomas: str) -> int:
     +10 Predisposição genética presente mas indiretamente relacionada
     +10 Bem-estar completo (apetite + atividade + comportamento)
     +5  Peso registrado
-    -10 Dados relevantes ausentes (idade, peso ou bem-estar)
+    -10 Dados relevantes ausentes (idade — DT_NASCIMENTO ou NR_IDADE —, peso ou bem-estar)
     -15 Sintomas vagos ou genéricos
 
     Retorna inteiro entre 0 e 100.
@@ -525,9 +525,11 @@ def _calculate_confidence(ctx: ClinicalContext, sintomas: str) -> int:
     if ctx.peso_efetivo_kg:
         score += 5
 
-    # Penalidade: dados relevantes ausentes
+    # Penalidade: dados relevantes ausentes. "idade" é satisfeita tanto pela
+    # data de nascimento (TB_ARKIVE_ANIMAL.DT_NASCIMENTO) quanto pela idade
+    # estimada da avaliação de bem-estar (NR_IDADE) — ver ClinicalContext.idade_anos.
     dados_ausentes = (
-        not ctx.nr_idade
+        not ctx.idade_anos
         or not ctx.peso_efetivo_kg
         or (not ctx.ds_apetite and not ctx.ds_atividade and not ctx.ds_comportamento)
     )

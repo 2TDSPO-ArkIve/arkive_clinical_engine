@@ -105,7 +105,11 @@ DIAGNOSTIC_SYSTEM_PROMPT = (
     "evite repetição desnecessária entre os campos.\n\n"
 
     "RACIOCÍNIO CLÍNICO ESPERADO:\n"
-    "- Correlacione sintomas com espécie, raça, sexo e status reprodutivo. "
+    "- Correlacione sintomas com espécie, raça, sexo, status reprodutivo e "
+    "idade / faixa etária (neonatal, pediátrico, adulto, sênior/geriátrico). "
+    "Quando o resumo trouxer a data de nascimento, use a idade precisa derivada "
+    "dela em vez da estimada — diferenciais, doses e prognóstico mudam com a "
+    "idade. "
     "Quando o resumo clínico incluir uma seção 'RELATO CLÍNICO DO "
     "VETERINÁRIO (TRANSCRIÇÃO DA CONSULTA)', trate-a como a fonte mais "
     "completa e direta do que foi observado na consulta — some-a aos campos "

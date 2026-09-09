@@ -28,6 +28,16 @@ app.add_middleware(
 # Inicializa o motor de IA[cite: 5]
 engine = ClinicalIntelligenceEngine()
 
+@app.get("/health")
+def health():
+    """Liveness: confirma que o processo subiu e responde HTTP.
+
+    Não toca Oracle nem Groq — a config já é validada no boot (fail-fast),
+    então processo vivo implica config válida.
+    """
+    return {"status": "ok"}
+
+
 @app.get("/diagnostico/{id_consulta}")
 def gerar_diagnostico(id_consulta: int):
     if id_consulta <= 0:

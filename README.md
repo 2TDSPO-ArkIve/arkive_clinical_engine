@@ -104,7 +104,7 @@ motor monta o contexto daquele animal específico a partir de:
 
 | Sinal de personalização | Origem | Como personaliza |
 |---|---|---|
-| Perfil do paciente | `TB_ARKIVE_ANIMAL` + `TB_ARKIVE_ESPECIE` + `TB_ARKIVE_RACA` | espécie, raça exata, porte, sexo, status reprodutivo |
+| Perfil do paciente | `TB_ARKIVE_ANIMAL` + `TB_ARKIVE_ESPECIE` + `TB_ARKIVE_RACA` | espécie, raça exata, porte, sexo, status reprodutivo, idade precisa (`DT_NASCIMENTO`, com fallback para `NR_IDADE`) |
 | Narrativa da consulta atual | `TB_ARKIVE_CONSULTA` (`DS_MOTIVO`, `DS_SINTOMAS`, `DS_TRANSCRICAO`) | relato bruto do veterinário daquela consulta |
 | Bem-estar longitudinal | `TB_ARKIVE_AVALIACAO_BEM_ESTAR` | apetite, atividade, comportamento, peso e idade ao longo do tempo |
 | Predisposição genética | `TB_ARKIVE_PREDISPOSICAO` + `TB_ARKIVE_DOENCA` | herança nível espécie (sempre) + raça exata do animal |
@@ -121,7 +121,7 @@ Todos os dados vêm do banco Oracle da FIAP, em **modo estritamente read-only** 
 
 | Fonte (origem) | Estrutura (colunas-chave) | Utilização pela IA |
 |---|---|---|
-| `TB_ARKIVE_ANIMAL` | `NM_ANIMAL`, `DS_SEXO`, `DS_CASTRADO`, `ID_ESPECIE`, `ID_RACA` | perfil-base do paciente |
+| `TB_ARKIVE_ANIMAL` | `NM_ANIMAL`, `DS_SEXO`, `DS_CASTRADO`, `DT_NASCIMENTO`, `ID_ESPECIE`, `ID_RACA` | perfil-base do paciente |
 | `TB_ARKIVE_ESPECIE` / `TB_ARKIVE_RACA` | `NM_ESPECIE`; `NM_RACA`, `TP_PORTE` | correlação de sintomas com espécie/raça/porte |
 | `TB_ARKIVE_CONSULTA` | `DT_HORA`, `TP_MODALIDADE`, `DS_MOTIVO`, `DS_SINTOMAS`, `DS_OBSERVACAO`, `DS_TRANSCRICAO`, `KG_PESO` | quadro clínico atual; `DS_TRANSCRICAO` = relato bruto (voz) do veterinário |
 | `TB_ARKIVE_AVALIACAO_BEM_ESTAR` | `NR_IDADE`, `KG_PESO`, `DS_APETITE`, `DS_ATIVIDADE`, `DS_COMPORTAMENTO` | indicadores sistêmicos; avaliação mais recente do animal |
@@ -196,7 +196,7 @@ A fronteira do motor com o banco é **somente leitura** em três camadas (privil
 | Banco de Dados | Oracle via `oracledb` (modo Thin) | Fonte de dados clínicos — somente leitura |
 | Validação de Schema | Pydantic v2 | Valida e tipifica a saída da IA |
 | Busca Web (fallback) | `ddgs` (DuckDuckGo Search) | Literatura veterinária complementar — só resultados de uma lista curada de fontes confiáveis são aproveitados |
-| API REST | FastAPI + Uvicorn | Endpoint HTTP alternativo ao CLI (`GET /diagnostico/{id_consulta}`) |
+| API REST | FastAPI + Uvicorn | Endpoint HTTP alternativo ao CLI (`GET /diagnostico/{id_consulta}`) + `GET /health` (liveness) |
 | Variáveis de Ambiente | `python-dotenv` | Isola credenciais do código-fonte |
 
 ---
@@ -209,8 +209,8 @@ Abaixo, o detalhamento do pipeline interno do motor:
 
 ```
 Entrada: main.py ──► python main.py <ID_CONSULTA>   (ou api.py ──► GET /diagnostico/{id_consulta})
-Etapa 1 ──► Oracle (READ-ONLY): 5 SELECTs parametrizados extraem animal, espécie, raça, consulta (incl.
-             DS_TRANSCRICAO — relato bruto do veterinário), bem-estar, predisposições genéticas (nível espécie +
+Etapa 1 ──► Oracle (READ-ONLY): 5 SELECTs parametrizados extraem animal (incl. DT_NASCIMENTO), espécie, raça,
+             consulta (incl. DS_TRANSCRICAO — relato bruto do veterinário), bem-estar, predisposições genéticas (nível espécie +
              raça exata), os últimos DIAGNOSTIC_HISTORY_LIMIT diagnósticos anteriores do animal, as últimas
              HISTORICO_CUIDADO_LIMIT prescrições (com adesão) e os eventos de cuidado preventivo
              (vacina/vermífugo/check-up, priorizando ATRASADO/PENDENTE).
@@ -235,12 +235,13 @@ A resposta é consumida pela API Java para persistência em TB_ARKIVE_DIAGNOSTIC
 
 ```
 arkive_clinical_engine/
-├── .env                        # Variáveis de ambiente
-├── requirements.txt            # Dependências com versões fixas
+├── .env                            # Variáveis de ambiente
+├── requirements.txt                # Dependências com versões fixas
+├── estruturaarkive.txt             # Dump da árvore de diretórios (tree /F)
 ├── config.py                       # Configuração centralizada + validação fail-fast
 ├── main.py                         # Ponto de entrada CLI
-├── api.py                          # Ponto de entrada API REST (FastAPI)
-├── test_clinical_summary.py        # Check offline (assert puro) da renderização do resumo clínico
+├── api.py                          # Ponto de entrada API REST (FastAPI) — inclui GET /health (liveness)
+├── test_dt_nascimento.py           # Check offline (assert puro) da idade derivada de DT_NASCIMENTO
 ├── agents/
 │   └── clinical_agent.py           # Motor principal (LangChain + Groq + heurística determinística)
 ├── database/
@@ -248,8 +249,9 @@ arkive_clinical_engine/
 │   └── queries.py                  # 5 SQLs parametrizados + dataclass ClinicalContext
 ├── prompts/
 │   └── diagnostic.py               # System prompt do Groq (histórico de versões fica no Git)
-└── schemas/
-    └── diagnostic_detalhado.py     # Pydantic v2: DiagnosticoOutputDetalhado
+├── schemas/
+    ├── diagnostic.py               # Schema v1 (DiagnosticoOutput) — legado, fora do fluxo atual
+    └── diagnostic_detalhado.py     # Pydantic v2: DiagnosticoOutputDetalhado (schema em uso)
 ```
 
 ---
@@ -334,6 +336,7 @@ python main.py 1
 ```bash
 uvicorn api:app --reload
 # GET http://localhost:8000/diagnostico/1
+# GET http://localhost:8000/health      → {"status": "ok"} (liveness)
 ```
 
 ### 6. Saída esperada
@@ -397,7 +400,7 @@ A rubrica de "sintomas" avalia a **narrativa clínica** — `DS_TRANSCRICAO` (re
 | Predisposição genética presente mas indiretamente relacionada | +10 pts |
 | Avaliação de bem-estar completa e coerente | +10 pts |
 | Peso registrado e compatível | +5 pts |
-| Dados clínicos relevantes ausentes (peso, idade ou bem-estar) | -10 pts |
+| Dados clínicos relevantes ausentes (peso, idade — `DT_NASCIMENTO` ou `NR_IDADE` — ou bem-estar) | -10 pts |
 | Narrativa clínica vaga ou genérica demais | -15 pts |
 
 > **Predisposição racial ≠ evidência principal.** O system prompt (`prompts/diagnostic.py`) só permite tratar uma predisposição genética mapeada como diferencial prioritário quando há sinal clínico compatível na narrativa (transcrição e/ou sintomas). Sem sinal clínico compatível, a predisposição entra apenas como fator de risco de fundo em `insight_predisposicao` — nunca como base de `ds_diagnostico`.
