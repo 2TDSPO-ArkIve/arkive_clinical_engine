@@ -90,6 +90,15 @@ TRUSTED_VET_DOMAINS: tuple[str, ...] = (
     "vet.ufmg.br", "dvt.ufv.br",
 )
 
+#: Subconjunto de alta cobertura/relevância clínica geral de
+#: TRUSTED_VET_DOMAINS, usado para restringir a busca com `site:` antes de
+#: cair no fallback amplo. Não substitui TRUSTED_VET_DOMAINS como filtro de
+#: segurança — apenas prioriza onde procurar primeiro.
+PRIORITY_VET_DOMAINS: tuple[str, ...] = (
+    "merckvetmanual.com", "msdvetmanual.com", "nih.gov", "avma.org",
+    "cfmv.gov.br", "scielo.br", "vin.com", "cliniciansbrief.com",
+)
+
 
 def _is_trusted_source(url: str) -> bool:
     """
@@ -285,27 +294,41 @@ class ClinicalIntelligenceEngine:
             logger.error("ddgs não instalado: pip install ddgs")
             return "", []
 
-        snippets: list[str] = []
-        urls: list[str] = []
+        site_clause = " OR ".join(f"site:{d}" for d in PRIORITY_VET_DOMAINS)
+        query_restrita = f"({site_clause}) {query}"
 
         try:
             time.sleep(2)  # Reduz chance de rate limit em execuções consecutivas
             with DDGS() as ddgs:
-                # Coleta bruta maior: só uma fração dos resultados passa pelo
-                # filtro de fonte confiável (_is_trusted_source).
+                # 1ª tentativa: restrita a PRIORITY_VET_DOMAINS via site: —
+                # maximiza a chance de já vir de fonte confiável. Se zerar
+                # (site: no ddgs pode ser frouxo/vazio), cai para a busca
+                # ampla abaixo, que ainda passa pelo filtro
+                # _is_trusted_source antes de virar contexto.
                 # backend restrito aos engines de índice geral com cobertura
                 # real de domínios de TRUSTED_VET_DOMAINS — evita gastar tempo
                 # em enciclopédia/livros (wikipedia/grokipedia/annasarchive,
                 # que nunca batem na whitelist) e em índices menores com
                 # timeout/429 frequentes neste ambiente (mojeek/brave/yandex/
-                # yahoo/startpage).
+                # yahoo/startpage/bing, que a lib ddgs não suporta mais).
                 results = list(ddgs.text(
-                    query,
+                    query_restrita,
                     max_results=20,
                     safesearch="moderate",
-                    backend="google,bing,duckduckgo",
+                    backend="google,duckduckgo",
                 ))
+                if not any(_is_trusted_source(r.get("href", "")) for r in results):
+                    logger.info("Busca restrita a PRIORITY_VET_DOMAINS não retornou fonte confiável — tentando busca ampla.")
+                    time.sleep(2)
+                    results = list(ddgs.text(
+                        query,
+                        max_results=20,
+                        safesearch="moderate",
+                        backend="google,duckduckgo",
+                    ))
 
+            snippets: list[str] = []
+            urls: list[str] = []
             descartados = 0
             for result in results:
                 href = result.get("href", "")
@@ -665,6 +688,15 @@ def _is_retryable_error(exc: Exception) -> bool:
     return any(marcador in mensagem for marcador in marcadores)
 
 
+#: Palavras de preenchimento comuns em transcrição de fala PT-BR com 4+
+#: letras — passariam pelo critério "palavra longa = sinal clínico" de
+#: _build_search_query sem filtro explícito.
+_FILLER_WORDS: frozenset[str] = frozenset({
+    "necessariamente", "normalmente", "encontramos", "geralmente",
+    "atualmente", "realmente", "basicamente", "praticamente",
+})
+
+
 def _build_search_query(ctx: ClinicalContext, sintomas: str, motivo: str) -> str:
     """
     Monta a query veterinária para o DuckDuckGo (espécie + raça + palavras-
@@ -688,11 +720,16 @@ def _build_search_query(ctx: ClinicalContext, sintomas: str, motivo: str) -> str
 
     texto = sintomas or motivo
     if texto:
-        candidatos = [p for p in re.findall(r"\b\w{4,}\b", texto.lower()) if p not in excluir]
+        brutos = re.findall(r"\b\w{4,}\b", texto.lower())
+        candidatos = list(dict.fromkeys(  # dedup preservando ordem
+            p for p in brutos if p not in excluir and p not in _FILLER_WORDS
+        ))
         # Termos clínicos específicos tendem a ser mais longos que advérbios/
         # cópulas de preenchimento da fala transcrita (ex.: "ofegante" vs.
-        # "está"), então ordenar por tamanho prioriza sinal sobre ruído sem
-        # precisar de uma lista de stopwords.
+        # "está"), então ordenar por tamanho prioriza sinal sobre ruído. O
+        # filtro de _FILLER_WORDS acima cobre os casos mais comuns de
+        # preenchimento com 4+ letras que o critério de tamanho sozinho
+        # deixaria passar (ex.: "normalmente", "encontramos").
         candidatos.sort(key=len, reverse=True)
         parts.extend(candidatos[:4])
 
