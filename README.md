@@ -24,9 +24,8 @@
 
 ## Demonstração em Vídeo
 
-> Apresentação do projeto, explicação da arquitetura e testes (gravação das Sprints 1 e 2).
-
-[![Assistir no YouTube](https://img.shields.io/badge/YouTube-Assistir%20Apresentação-red?style=for-the-badge&logo=youtube)](https://www.youtube.com/watch?v=zWqLgywXfv4)
+[![YouTube: Assistir Sprint 1 e 2](https://img.shields.io/badge/YouTube-Assistir%20Sprint%201%20e%202-red?style=for-the-badge&logo=youtube)](https://www.youtube.com/watch?v=zWqLgywXfv4)  
+[![YouTube: Assistir Sprint 3](https://img.shields.io/badge/YouTube-Assistir%20Sprint%203-red?style=for-the-badge&logo=youtube)](https://youtu.be/WguMNFGqEAs)
 
 ---
 
