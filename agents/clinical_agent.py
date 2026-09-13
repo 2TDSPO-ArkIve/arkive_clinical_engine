@@ -293,7 +293,18 @@ class ClinicalIntelligenceEngine:
             with DDGS() as ddgs:
                 # Coleta bruta maior: só uma fração dos resultados passa pelo
                 # filtro de fonte confiável (_is_trusted_source).
-                results = list(ddgs.text(query, max_results=20, safesearch="moderate"))
+                # backend restrito aos engines de índice geral com cobertura
+                # real de domínios de TRUSTED_VET_DOMAINS — evita gastar tempo
+                # em enciclopédia/livros (wikipedia/grokipedia/annasarchive,
+                # que nunca batem na whitelist) e em índices menores com
+                # timeout/429 frequentes neste ambiente (mojeek/brave/yandex/
+                # yahoo/startpage).
+                results = list(ddgs.text(
+                    query,
+                    max_results=20,
+                    safesearch="moderate",
+                    backend="google,bing,duckduckgo",
+                ))
 
             descartados = 0
             for result in results:
@@ -664,15 +675,26 @@ def _build_search_query(ctx: ClinicalContext, sintomas: str, motivo: str) -> str
     _is_trusted_source() em _perform_web_search().
     """
     parts: list[str] = []
+    excluir: set[str] = set()
 
     if ctx.nm_especie:
         parts.append(ctx.nm_especie.lower())
+        excluir.update(re.findall(r"\b\w{4,}\b", ctx.nm_especie.lower()))
     if ctx.nm_raca:
         parts.append(ctx.nm_raca.lower())
+        excluir.update(re.findall(r"\b\w{4,}\b", ctx.nm_raca.lower()))
+    if ctx.nm_animal:
+        excluir.update(re.findall(r"\b\w{4,}\b", ctx.nm_animal.lower()))
 
     texto = sintomas or motivo
     if texto:
-        parts.extend(re.findall(r"\b\w{4,}\b", texto)[:4])
+        candidatos = [p for p in re.findall(r"\b\w{4,}\b", texto.lower()) if p not in excluir]
+        # Termos clínicos específicos tendem a ser mais longos que advérbios/
+        # cópulas de preenchimento da fala transcrita (ex.: "ofegante" vs.
+        # "está"), então ordenar por tamanho prioriza sinal sobre ruído sem
+        # precisar de uma lista de stopwords.
+        candidatos.sort(key=len, reverse=True)
+        parts.extend(candidatos[:4])
 
     parts.append("veterinary clinical diagnosis peer-reviewed")
 
