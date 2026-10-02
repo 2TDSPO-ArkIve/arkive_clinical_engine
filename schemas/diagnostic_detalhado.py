@@ -48,6 +48,7 @@ class DiagnosticoOutputDetalhado(BaseModel):
     │ insight_limitacoes     │ ┘                                              │
     │ pc_confianca           │ PC_CONFIANCA    NUMBER(3) CHECK (0..100)       │
     │ fontes_pesquisadas     │ (não persistido — informativo ao chamador)     │
+    │ fontes_rag             │ (não persistido — informativo ao chamador)     │
     └────────────────────────┴───────────────────────────────────────────────┘
     """
 
@@ -119,6 +120,14 @@ class DiagnosticoOutputDetalhado(BaseModel):
             "Lista de URLs ou identificadores de fontes consultadas na internet "
             "durante a etapa de busca web. "
             "DEVE estar vazia se os dados locais do Oracle foram suficientes para o diagnóstico."
+        ),
+    )
+
+    fontes_rag: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Documentos da base de conhecimento local (RAG) enviados no contexto, "
+            "no formato 'FONTE: título'. Preenchido pelo sistema — deixe como lista vazia []."
         ),
     )
 

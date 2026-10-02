@@ -293,6 +293,15 @@ pip install -r requirements.txt
 > pip install oracledb==2.3.0 --only-binary=:all:
 > ```
 
+**RAG (opcional):** descompacte o `rag_index.zip` gerado por `rag/build_index.ipynb` em `rag/index/` e baixe o modelo de embedding (~130 MB, fica em `rag/model_cache/`):
+
+```bash
+python -m rag.retriever --download
+python -m rag.retriever            # teste com relato de exemplo
+```
+
+Sem `rag/index/` a API sobe normalmente e só registra `RAG indisponível` no log. No Render, use como Build Command: `pip install -r requirements.txt && python -m rag.retriever --download`.
+
 ### 4. Configurar as variáveis de ambiente
 
 Edite o `.env`:
@@ -316,6 +325,8 @@ AMBIGUITY_THRESHOLD=60
 DIAGNOSTIC_HISTORY_LIMIT=5
 HISTORICO_CUIDADO_LIMIT=5
 MAX_TRANSCRICAO_CHARS=6000
+RAG_TOP_K=3          # documentos do RAG enviados ao LLM
+RAG_MAX_CHARS=3000   # tamanho do bloco RAG (dividido entre os documentos)
 ```
 
 ### 5. Executar
@@ -350,7 +361,8 @@ uvicorn api:app --reload
   "insight_limitacoes": "Recomenda-se exame de fezes e hemograma completo...",
   "ds_insight_ia": "Paciente Rex, canino, macho...\n\nVômito frequente...\n\nNenhuma predisposição...\n\nRecomenda-se...",
   "pc_confianca": 55,
-  "fontes_pesquisadas": []
+  "fontes_pesquisadas": [],
+  "fontes_rag": ["ESCCAP: Worm Control in Dogs and Cats"]
 }
 ```
 
@@ -436,6 +448,7 @@ Cada execução recomeça pelo modelo primário — não há memória de qual mo
 | `insight_predisposicao` | `str` (mín. 20 chars) | Papel das predisposições genéticas no raciocínio |
 | `insight_limitacoes` | `str` (mín. 20 chars) | Limitações do diagnóstico e exames complementares sugeridos |
 | `pc_confianca` | `int` (0–100) | Grau de certeza calculado deterministicamente em Python |
+| `fontes_rag` | `list[str]` | Documentos do RAG enviados ao LLM (`"FONTE: título"`), preenchido pelo sistema |
 | `fontes_pesquisadas` | `list[str]` | URLs consultadas (lista vazia se busca web não foi acionada) |
 
 O payload final também inclui `ds_insight_ia`, composto a partir dos 4 campos de insight acima, para compatibilidade com a coluna única `DS_INSIGHT_IA` (CLOB) do banco.
