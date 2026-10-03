@@ -2,7 +2,7 @@
 rag/retriever.py
 ================
 Busca semântica na base de conhecimento veterinária (fichas WOAH, AAZV,
-CFSPH, CAPC, ABCD, ESCCAP) indexada por rag/build_index.ipynb.
+CFSPH, CAPC, ABCD, ESCCAP, USGS, ARWH, WHA) indexada por rag/build_index.ipynb.
 
 Mesma lógica da seção "11. Busca" do notebook — qualquer mudança em
 embedding, MAPA_ESPECIE ou agregação deve ser feita nos dois lugares.
@@ -53,6 +53,15 @@ MAPA_ESPECIE = {
     "morcego": {"Chiroptera"},
     "elefant": {"Elephantidae"},
     "canguru": {"Macropodidae"}, "walab": {"Macropodidae"},
+    "wombat": {"Vombatidae"}, "vombat": {"Vombatidae"},
+    "equidna": {"Tachyglossidae"},
+    "possum": {"Phalangeridae", "Pseudocheiridae"}, "falanger": {"Phalangeridae"}, "cuscus": {"Phalangeridae"},
+    "marsupia": {"Macropodidae", "Vombatidae", "Phalangeridae", "Pseudocheiridae",
+                 "Phascolarctidae", "Dasyuridae", "Peramelidae"},
+    "koala": {"Phascolarctidae"}, "coala": {"Phascolarctidae"},
+    "diabo": {"Dasyuridae"}, "dasyur": {"Dasyuridae"},
+    "bandicoot": {"Peramelidae"},
+    "ornitorrinco": {"Ornithorhynchidae"}, "platypus": {"Ornithorhynchidae"},
     "golfinho": {"Marine Mammals"}, "foca": {"Marine Mammals"}, "baleia": {"Marine Mammals"},
     "furao": {"Mustelidae"}, "mustel": {"Mustelidae"},
     "primata": {"Primates"}, "macaco": {"Primates"}, "sagui": {"Primates"},
@@ -120,7 +129,7 @@ def montar_contexto_rag(top: list[dict], max_chars: int = 3000) -> str:
     if not top:
         return ""
     por_doc = max_chars // len(top)
-    partes = ["BASE DE CONHECIMENTO VETERINÁRIA (RAG — WOAH, AAZV, CFSPH, CAPC, ABCD, ESCCAP; em inglês). "
+    partes = ["BASE DE CONHECIMENTO VETERINÁRIA (RAG — WOAH, AAZV, CFSPH, CAPC, ABCD, ESCCAP, USGS, ARWH, WHA; em inglês). "
               "Documentos mais relevantes para o relato (fichas de doença ou guias clínicos), "
               "por similaridade semântica (não é probabilidade):"]
     for n, d in enumerate(top, 1):

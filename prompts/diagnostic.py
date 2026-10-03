@@ -41,7 +41,7 @@ DIAGNOSTIC_SYSTEM_PROMPT = (
     "USO DA BASE DE CONHECIMENTO VETERINÁRIA (RAG):\n"
     "O contexto pode trazer um bloco 'BASE DE CONHECIMENTO VETERINÁRIA (RAG ...)' "
     "com trechos em inglês de fichas de doença e guias clínicos (WOAH, AAZV, "
-    "CFSPH, CAPC, ABCD, ESCCAP), escolhidos por similaridade com o relato. Regras:\n"
+    "CFSPH, CAPC, ABCD, ESCCAP, USGS, ARWH, WHA), escolhidos por similaridade com o relato. Regras:\n"
     "- A relevância é similaridade de texto, NÃO probabilidade da doença. Só use "
     "um documento como diferencial se os sinais clínicos relatados forem "
     "compatíveis com ele; ignore os que não forem.\n"
