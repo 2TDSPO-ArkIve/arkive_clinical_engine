@@ -30,6 +30,7 @@ from config import (
     GROQ_TEMPERATURE,
     RAG_INDEX_DIR,
     RAG_MAX_CHARS,
+    RAG_MIN_SCORE,
     RAG_TOP_K,
 )
 from database.connection import get_connection
@@ -240,8 +241,11 @@ class ClinicalIntelligenceEngine:
         if self._rag and texto_rag:
             try:
                 rag_context, rag_docs = self._rag.contexto(
-                    texto_rag, ctx.nm_especie, RAG_TOP_K, RAG_MAX_CHARS)
-                logger.info("RAG | documentos: %s", rag_docs)
+                    texto_rag, ctx.nm_especie, RAG_TOP_K, RAG_MAX_CHARS, RAG_MIN_SCORE)
+                if rag_docs:
+                    logger.info("RAG | documentos: %s", rag_docs)
+                else:
+                    logger.info("RAG | nenhum documento acima de %.2f", RAG_MIN_SCORE)
             except Exception as exc:
                 logger.warning("Busca RAG falhou: %s. Prosseguindo sem base de conhecimento local.", exc)
 

@@ -348,6 +348,7 @@ HISTORICO_CUIDADO_LIMIT=5
 MAX_TRANSCRICAO_CHARS=6000
 RAG_TOP_K=3          # documentos do RAG enviados ao LLM
 RAG_MAX_CHARS=3000   # tamanho do bloco RAG (dividido entre os documentos)
+RAG_MIN_SCORE=0.84   # similaridade mínima para um documento do RAG ir ao LLM
 ```
 
 ### 5. Executar
@@ -442,9 +443,11 @@ Diferente da busca web, o RAG roda **em toda consulta com relato clínico**. É 
    O tokenizer multilíngue completo (250k peças) ocupa ~250 MB e não cabe nos 512 MB do Render; o build
    (`--download`) grava uma versão podada às peças com caracteres latinos/gregos/símbolos e do corpus (~80 MB em memória),
    com tokenização idêntica à original em todos os 15.183 trechos.
-3. Resultados filtrados pela espécie do animal (`MAPA_ESPECIE`). Fichas multiespécie sempre entram; espécie não mapeada = sem filtro.
-4. Trechos agrupados por documento (fonte + título). Os `RAG_TOP_K` melhores documentos vão ao prompt com resumo + trechos, limitados a `RAG_MAX_CHARS` caracteres.
-5. O system prompt avisa que relevância é similaridade de texto, não probabilidade da doença: o LLM só usa um documento se os sinais clínicos forem compatíveis. Os documentos enviados voltam em `fontes_rag`.
+3. Resultados filtrados pela espécie do animal (`MAPA_ESPECIE`). Fichas multiespécie sempre entram, mas perdem 0.01 de score (`PENALIDADE_GENERICA`) para não lotar o top-k; espécie não mapeada = sem filtro.
+4. Trechos agrupados por documento (fonte + título). Documentos abaixo de `RAG_MIN_SCORE` são descartados; os `RAG_TOP_K` melhores restantes vão ao prompt com resumo + trechos, limitados a `RAG_MAX_CHARS` caracteres. Se nada passar do corte, o RAG fica vazio.
+5. O system prompt avisa que relevância é similaridade de texto, não probabilidade da doença: o LLM só usa um documento se os sinais clínicos e a epidemiologia (idade, espécie, exposição) forem compatíveis, e nunca o põe no `ds_diagnostico` com base só em sintoma genérico. Os documentos enviados voltam em `fontes_rag`.
+
+> **Limite conhecido:** os scores do e5 ficam numa faixa estreita (~0.82–0.87), e ruído e documento relevante se sobrepõem perto de 0.84. O corte só elimina a cauda claramente fraca; a trava principal é o prompt. A base cobre doenças infecciosas e parasitárias: quadros como pica, corpo estranho ou doença renal não têm ficha compatível.
 
 Falha no RAG (índice ausente, modelo não baixado, erro na busca) **não derruba a análise**: o motor registra o aviso no log e segue com Oracle + web.
 
@@ -452,6 +455,7 @@ Falha no RAG (índice ausente, modelo não baixado, erro na busca) **não derrub
 |---|---|---|
 | `RAG_TOP_K` | `3` | Quantos documentos vão ao LLM |
 | `RAG_MAX_CHARS` | `3000` | Tamanho máximo do bloco RAG no prompt |
+| `RAG_MIN_SCORE` | `0.84` | Similaridade mínima (0–1) para um documento ir ao LLM |
 | `RAG_INDEX_DIR` | `rag/index` | Pasta do índice |
 | `RAG_MODEL_DIR` | `rag/model_cache` | Cache do modelo de embedding |
 
