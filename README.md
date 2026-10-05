@@ -86,7 +86,12 @@ estruturada validada**. Como cada parte é usada:
   explicável, sobre contexto heterogêneo (perfil + sintomas + transcrição + bem-estar + histórico
   + medicações + status preventivo + literatura web opcional). Saída **validada por Pydantic v2**
   (`DiagnosticoOutputDetalhado`), `temperature=0.10`, com fallback automático entre modelos.
-- **Busca web condicional (DuckDuckGo, `ddgs`):** enriquecimento tipo-RAG quando a confiança é
+- **RAG local (`fastembed` + FAISS):** sempre que há relato clínico, busca semântica numa base
+  curada de ~830 fichas veterinárias (WOAH, AAZV, CFSPH, CAPC, ABCD, ESCCAP, USGS, ARWH, WHA),
+  filtrada pela espécie do animal. Os `RAG_TOP_K` documentos mais relevantes entram no prompt e
+  seus nomes voltam em `fontes_rag`. Roda localmente, sem custo de API e independe do
+  `pc_confianca` (ver [RAG — Base de Conhecimento Local](#rag--base-de-conhecimento-local)).
+- **Busca web condicional (DuckDuckGo, `ddgs`):** complemento ao RAG quando a confiança é
   baixa, restrito a uma lista curada de fontes veterinárias confiáveis (ver
   [Fluxo de Decisão — Busca Web](#fluxo-de-decisão--busca-web)).
 - **Prompt engineering:** system prompt com travas anti-alucinação explícitas
@@ -141,7 +146,8 @@ em `TB_ARKIVE_DIAGNOSTICO`: ver [Schema de Saída](#schema-de-saída-pydantic-v2
    (`python main.py <id>`) ou REST (`GET /diagnostico/{id_consulta}`).
 4. O motor **lê o Oracle em modo read-only** (5 consultas: dados clínicos, predisposições,
    histórico de diagnósticos, prescrições, cuidado preventivo), calcula o `pc_confianca`,
-   opcionalmente consulta o **DuckDuckGo**, e chama a **Groq API**.
+   consulta a **base local RAG** (fichas veterinárias indexadas), opcionalmente consulta o
+   **DuckDuckGo**, e chama a **Groq API**.
 5. O motor devolve um **JSON estruturado** (`DiagnosticoOutputDetalhado` + `ds_insight_ia`).
 6. A **API Java grava** o resultado em `TB_ARKIVE_DIAGNOSTICO`.
 7. A aplicação **exibe a hipótese** ao veterinário, que a valida (`ST_VALIDACAO_VET`) — e essa
@@ -160,10 +166,13 @@ graph TD
         direction TB
         E1["1. Extração clínica<br/>5 SELECTs parametrizados"]
         E2["2. pc_confianca<br/>rubrica determinística (Python puro)"]
+        E2b["2b. RAG local<br/>busca semântica filtrada por espécie"]
         E3["3. Decisão de busca web<br/>pc_confianca &lt; AMBIGUITY_THRESHOLD?"]
         E4["4. Busca web (condicional)"]
-        E5["5. Síntese clínica (LLM)<br/>saída validada por Pydantic v2"]
-        E1 --> E2 --> E3 --> E4 --> E5
+        E5["5. Síntese clínica (LLM)<br/>resumo + RAG + web<br/>saída validada por Pydantic v2"]
+        E1 --> E2 --> E2b --> E3 --> E4 --> E5
+        IDX[("rag/index<br/>FAISS + chunks<br/>WOAH, AAZV, CFSPH, CAPC, ESCCAP…")]
+        IDX -.->|"carregado no boot · fastembed e5-small"| E2b
     end
 
     DDG["DuckDuckGo<br/>fontes veterinárias confiáveis<br/>(PubMed, Merck/MSD, WSAVA, SciELO…)"]
@@ -194,6 +203,7 @@ A fronteira do motor com o banco é **somente leitura** em três camadas (privil
 | Integração LLM | `langchain-groq` + `langchain-core` · `ChatGroq.with_structured_output()` | Conecta ao Groq e garante saída JSON validada pelo Pydantic; sem chains ou pipelines LCEL |
 | Banco de Dados | Oracle via `oracledb` (modo Thin) | Fonte de dados clínicos — somente leitura |
 | Validação de Schema | Pydantic v2 | Valida e tipifica a saída da IA |
+| RAG local | `fastembed` (`Xenova/multilingual-e5-small`, ONNX quantizado) + `faiss-cpu` | Busca semântica na base de fichas veterinárias (`rag/index/`), sem chamada externa |
 | Busca Web (fallback) | `ddgs` (DuckDuckGo Search) | Literatura veterinária complementar — só resultados de uma lista curada de fontes confiáveis são aproveitados |
 | API REST | FastAPI + Uvicorn | Endpoint HTTP alternativo ao CLI (`GET /diagnostico/{id_consulta}`) + `GET /health` (liveness) |
 | Variáveis de Ambiente | `python-dotenv` | Isola credenciais do código-fonte |
@@ -216,15 +226,19 @@ Etapa 1 ──► Oracle (READ-ONLY): 5 SELECTs parametrizados extraem animal (i
 Etapa 2 ──► Python puro (sem LLM): _calculate_confidence() calcula pc_confianca com rubrica fixa baseada na
              narrativa clínica (DS_TRANSCRICAO + DS_SINTOMAS combinados) e nos demais dados reais do Oracle
              (inclui match de predisposição via nome da doença e DS_SINTOMAS catalogado).
+Etapa 2b ─► RAG local (sempre que há relato): DS_MOTIVO + narrativa clínica viram consulta semântica (expandida
+             com glossário PT→EN) no índice FAISS; resultados filtrados pela espécie e agregados por documento;
+             top RAG_TOP_K vão ao prompt (bloco de até RAG_MAX_CHARS caracteres).
 Etapa 3 ──► Python puro (sem LLM): _decide_web_search() aciona busca web se pc_confianca < AMBIGUITY_THRESHOLD —
              mesma métrica usada em toda a decisão, sem heurística paralela.
 Etapa 4 ──► DuckDuckGo (condicional): busca literatura veterinária; um pós-filtro descarta todo resultado
              que não seja de uma lista curada de fontes confiáveis (PubMed/PMC, Merck & MSD Vet Manual,
              WSAVA, AVMA, periódicos peer-reviewed, SciELO, CFMV…).
 Etapa 5 ──► Groq API (com fallback + retry entre modelos — ver seção dedicada): recebe resumo clínico
-             (incl. medicações vigentes e status de cuidado preventivo) + pc_confianca pronto e gera
-             DiagnosticoOutputDetalhado (4 campos de raciocínio clínico), validado pelo Pydantic v2.
-Saída: JSON ──► {ds_diagnostico, tp_severidade, ds_insight_ia, pc_confianca, fontes_pesquisadas, + campos de
+             (incl. medicações vigentes e status de cuidado preventivo) + pc_confianca pronto + bloco RAG +
+             contexto web (se houver) e gera DiagnosticoOutputDetalhado (4 campos de raciocínio clínico),
+             validado pelo Pydantic v2.
+Saída: JSON ──► {ds_diagnostico, tp_severidade, ds_insight_ia, pc_confianca, fontes_rag, fontes_pesquisadas, + campos de
              insight individuais (insight_perfil, insight_correlacao, insight_predisposicao, insight_limitacoes)}
 
 A resposta é consumida pela API Java para persistência em TB_ARKIVE_DIAGNOSTICO.
@@ -248,7 +262,12 @@ arkive_clinical_engine/
 │   └── queries.py                  # 5 SQLs parametrizados + dataclass ClinicalContext
 ├── prompts/
 │   └── diagnostic.py               # System prompt do Groq (histórico de versões fica no Git)
-├── schemas/
+├── rag/
+│   ├── build_index.ipynb           # Gera o índice (Colab): chunking, filtros de seção, embeddings
+│   ├── retriever.py                # RagRetriever: busca semântica + bloco de contexto para o prompt
+│   ├── index/                      # faiss.index + chunks.jsonl + manifest.json (versionado)
+│   └── model_cache/                # Modelo de embedding baixado (ignorado no Git)
+└── schemas/
     ├── diagnostic.py               # Schema v1 (DiagnosticoOutput) — legado, fora do fluxo atual
     └── diagnostic_detalhado.py     # Pydantic v2: DiagnosticoOutputDetalhado (schema em uso)
 ```
@@ -293,14 +312,16 @@ pip install -r requirements.txt
 > pip install oracledb==2.3.0 --only-binary=:all:
 > ```
 
-**RAG (opcional):** descompacte o `rag_index.zip` gerado por `rag/build_index.ipynb` em `rag/index/` e baixe o modelo de embedding (~130 MB, fica em `rag/model_cache/`):
+**RAG:** o índice já vem pronto em `rag/index/` (para regerar, rode `rag/build_index.ipynb` no Colab). Falta só baixar o modelo de embedding (~130 MB, fica em `rag/model_cache/`):
 
 ```bash
 python -m rag.retriever --download
 python -m rag.retriever            # teste com relato de exemplo
 ```
 
-Sem `rag/index/` a API sobe normalmente e só registra `RAG indisponível` no log. No Render, use como Build Command: `pip install -r requirements.txt && python -m rag.retriever --download`.
+Se o RAG não carregar, a API sobe normalmente e só registra `RAG indisponível` no log. No Render, use como Build Command: `pip install -r requirements.txt && python -m rag.retriever --download`.
+
+> **Windows com Smart App Control:** o Windows pode bloquear a DLL do `faiss` (`DLL load failed while importing _swigfaiss: Uma política de Controle de Aplicativo bloqueou este arquivo`). O motor segue funcionando sem RAG; para testar o RAG, use Linux/WSL ou o deploy no Render.
 
 ### 4. Configurar as variáveis de ambiente
 
@@ -396,6 +417,43 @@ Qualquer outro domínio é descartado (inclusive `scholar.google` e landing page
 
 ---
 
+## RAG — Base de Conhecimento Local
+
+Diferente da busca web, o RAG roda **em toda consulta com relato clínico**. É local, barato e não depende do `pc_confianca`.
+
+**Base indexada** (`rag/index/`, gerada por `rag/build_index.ipynb`): 830 fichas em inglês, 15.183 trechos.
+
+| Fonte | Conteúdo | Trechos |
+|---|---|---|
+| WOAH | Manuais terrestre e aquático: doenças de notificação obrigatória, diagnóstico e vacinas | 4.501 |
+| WHA | Wildlife Health Australia: fichas de doenças da fauna | 2.121 |
+| ESCCAP | Guias de parasitas de cães, gatos, equinos e pequenos mamíferos | 1.926 |
+| CFSPH | Fichas de doenças infecciosas e zoonoses (Iowa State) | 1.756 |
+| ABCD | Doenças infecciosas felinas | 1.560 |
+| AAZV | Fichas de doenças de animais de zoológico e silvestres | 1.499 |
+| CAPC | Parasitas de animais de companhia | 865 |
+| USGS | Doenças de aves silvestres | 613 |
+| ARWH | Australian Registry of Wildlife Health: fauna silvestre | 342 |
+
+**Como a busca funciona** (`rag/retriever.py`):
+
+1. A consulta é `DS_MOTIVO` + narrativa clínica, fatiada em janelas e expandida com um glossário PT→EN (a base está em inglês).
+2. Embedding com `Xenova/multilingual-e5-small` (fastembed, ONNX) e busca por similaridade de cosseno no FAISS.
+3. Resultados filtrados pela espécie do animal (`MAPA_ESPECIE`). Fichas multiespécie sempre entram; espécie não mapeada = sem filtro.
+4. Trechos agrupados por documento (fonte + título). Os `RAG_TOP_K` melhores documentos vão ao prompt com resumo + trechos, limitados a `RAG_MAX_CHARS` caracteres.
+5. O system prompt avisa que relevância é similaridade de texto, não probabilidade da doença: o LLM só usa um documento se os sinais clínicos forem compatíveis. Os documentos enviados voltam em `fontes_rag`.
+
+Falha no RAG (índice ausente, modelo não baixado, erro na busca) **não derruba a análise**: o motor registra o aviso no log e segue com Oracle + web.
+
+| Variável | Padrão | Papel |
+|---|---|---|
+| `RAG_TOP_K` | `3` | Quantos documentos vão ao LLM |
+| `RAG_MAX_CHARS` | `3000` | Tamanho máximo do bloco RAG no prompt |
+| `RAG_INDEX_DIR` | `rag/index` | Pasta do índice |
+| `RAG_MODEL_DIR` | `rag/model_cache` | Cache do modelo de embedding |
+
+---
+
 ## Cálculo de Confiança (pc_confianca)
 
 O grau de confiança é calculado **deterministicamente em Python** com base nos dados reais do Oracle, antes de chamar a LLM. O modelo recebe o valor pronto e apenas o utiliza — nunca recalcula. Esse mesmo valor decide se a busca web é acionada (ver seção anterior).
@@ -477,6 +535,7 @@ Nenhum `INSERT`, `UPDATE`, `DELETE` ou `MERGE` existe em qualquer arquivo do pro
 | `Erro de configuração` ao subir `api.py`/`main.py` | Variável obrigatória ausente ou malformada no `.env` | Ler a mensagem impressa (lista exatamente o que falhou) e corrigir o `.env` |
 | `ModuleNotFoundError` | Dependência não instalada | Rodar `pip install -r requirements.txt` com o venv ativo |
 | `Nenhuma consulta encontrada` | ID inexistente no banco | Verificar se o ID existe em `TB_ARKIVE_CONSULTA` |
+| `RAG indisponível (...)` no log | Índice ausente em `rag/index/`, modelo não baixado ou `faiss` bloqueado pelo Windows | Rodar `python -m rag.retriever --download`; no Windows com Smart App Control, testar no Linux/WSL ou Render |
 | `Ratelimit` no DuckDuckGo | Muitas buscas em sequência | O sistema continua sem contexto web; aguarde alguns segundos entre execuções |
 
 ---
@@ -488,6 +547,8 @@ oracledb>=2.3.0,<3.0.0
 langchain-core>=0.3.0,<0.4.0
 langchain-groq>=0.2.0,<1.0.0
 ddgs>=0.1.0
+fastembed==0.8.1
+faiss-cpu==1.15.1
 pydantic>=2.7.0,<3.0.0
 python-dotenv>=1.0.0,<2.0.0
 fastapi>=0.110.0
