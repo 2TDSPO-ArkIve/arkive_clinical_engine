@@ -109,6 +109,11 @@ _RAG_MAX_CHARS_RAW: str = os.getenv("RAG_MAX_CHARS", "3000")
 #: (o orçamento é dividido igualmente entre os documentos).
 _RAG_TOP_K_RAW: str = os.getenv("RAG_TOP_K", "3")
 
+#: Similaridade mínima (0–1) para um documento do RAG ir ao LLM. Abaixo disso
+#: o RAG fica vazio em vez de mandar ruído. Os scores do e5 vivem numa faixa
+#: estreita (~0.82–0.87): o corte só tira a cauda fraca, não separa tudo.
+_RAG_MIN_SCORE_RAW: str = os.getenv("RAG_MIN_SCORE", "0.84")
+
 # ── Parsing seguro de inteiros vindos do .env ─────────────────────────────────
 #
 # int(os.getenv(...)) direto no nível de módulo derruba o processo com um
@@ -160,6 +165,14 @@ if _err:
 RAG_TOP_K, _err = _parse_positive_int(_RAG_TOP_K_RAW, "RAG_TOP_K", 3)
 if _err:
     _config_errors.append(_err)
+
+try:
+    RAG_MIN_SCORE: float = float(_RAG_MIN_SCORE_RAW)
+    if not 0 <= RAG_MIN_SCORE <= 1:
+        raise ValueError
+except ValueError:
+    RAG_MIN_SCORE = 0.84
+    _config_errors.append(f"RAG_MIN_SCORE deve ser um número entre 0 e 1 (valor recebido: '{_RAG_MIN_SCORE_RAW}').")
 
 GROQ_MAX_RETRIES_PER_MODEL, _err = _parse_positive_int(
     _GROQ_MAX_RETRIES_PER_MODEL_RAW, "GROQ_MAX_RETRIES_PER_MODEL", 2

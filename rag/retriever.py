@@ -32,6 +32,9 @@ DIM = 384
 QUERY_WINDOW_CHARS = 1500
 
 CATEGORIAS_SEMPRE = {"Multiple Species", "Other Diseases"}
+# Fichas genéricas passam em qualquer filtro de espécie e lotavam o top-k com ruído
+# (ex.: micobactéria de ungulados num cão). Com espécie conhecida, perdem um pouco de score.
+PENALIDADE_GENERICA = 0.01
 MAPA_ESPECIE = {
     "bovin": {"Bovinae"}, "vaca": {"Bovinae"}, "bufal": {"Bovinae"},
     "ovin": {"Caprinae"}, "ovelha": {"Caprinae"}, "caprin": {"Caprinae"}, "cabra": {"Caprinae"},
@@ -264,8 +267,10 @@ class RagRetriever:
         lote de janelas de 512 tokens soma ~100 MB de ativações (limite 512 MB do Render)."""
         return np.concatenate([self.modelo.embed([t]) for t in textos])
 
-    def buscar(self, texto: str, especie: str | None = None, k: int = 3, k_chunks: int = 100) -> list[dict]:
-        """Top-k documentos distintos (fonte + título). Score = maior similaridade chunk × janela do relato."""
+    def buscar(self, texto: str, especie: str | None = None, k: int = 3, k_chunks: int = 100,
+               min_score: float = 0.0) -> list[dict]:
+        """Top-k documentos distintos (fonte + título) com score >= min_score; pode voltar vazio.
+        Score = maior similaridade chunk × janela do relato (menos PENALIDADE_GENERICA)."""
         janelas = [expandir(j) for j in fatiar(texto, QUERY_WINDOW_CHARS) or [texto]]
         scores, ids = self.index.search(self.embed([f"query: {j}" for j in janelas]),
                                         min(k_chunks, self.index.ntotal))
@@ -276,11 +281,15 @@ class RagRetriever:
             for s, i in zip(linha_s, linha_i):
                 if i != -1 and s > melhor_por_chunk.get(int(i), -1):
                     melhor_por_chunk[int(i)] = float(s)
+        if permitidas is not None:
+            for i in melhor_por_chunk:
+                if self.chunks[i]["categoria"] in CATEGORIAS_SEMPRE:
+                    melhor_por_chunk[i] -= PENALIDADE_GENERICA
 
         docs: dict[tuple[str, str], dict] = {}
         for i, s in sorted(melhor_por_chunk.items(), key=lambda x: -x[1]):
             c = self.chunks[i]
-            if permitidas is not None and c["categoria"] not in permitidas:
+            if s < min_score or (permitidas is not None and c["categoria"] not in permitidas):
                 continue
             # (fonte, titulo): guias ESCCAP repetidos em Canidae/Felidae contam uma vez só
             d = docs.setdefault((c["fonte"], c["titulo"]), {"titulo": c["titulo"], "categoria": c["categoria"],
@@ -295,9 +304,9 @@ class RagRetriever:
         return top
 
     def contexto(self, texto: str, especie: str | None = None, k: int = 3,
-                 max_chars: int = 3000) -> tuple[str, list[str]]:
-        """(bloco para o prompt, ["fonte: título", ...] para log)."""
-        top = self.buscar(texto, especie, k)
+                 max_chars: int = 3000, min_score: float = 0.0) -> tuple[str, list[str]]:
+        """(bloco para o prompt, ["fonte: título", ...] para log). ("", []) se nada passar do corte."""
+        top = self.buscar(texto, especie, k, min_score=min_score)
         return montar_contexto_rag(top, max_chars), [f"{d['fonte']}: {d['titulo']}" for d in top]
 
 
@@ -319,6 +328,15 @@ if __name__ == "__main__":
     linha = {int(i): n for n, i in enumerate(faiss.vector_to_array(rag.index.id_map))}
     ref = np.stack([rag.index.index.reconstruct(linha[c["id"]]) for c in amostra])
     assert (vet * ref).sum(1).min() > 0.995, (vet * ref).sum(1)
+    # corte de score e penalidade multiespécie (RAG_MIN_SCORE do config)
+    from config import RAG_MIN_SCORE
+    assert rag.buscar("Cão mancando da pata traseira direita após correr no parque, sem febre.",
+                      "Cão", min_score=RAG_MIN_SCORE) == []
+    gato = rag.buscar("Gato com espirros, secreção nasal e ocular, úlceras na língua e febre há 4 dias.",
+                      "Gato", min_score=RAG_MIN_SCORE)
+    assert {"Feline Herpesvirus infection", "Feline calicivirus infection"} & {d["titulo"] for d in gato}, gato
+    pica = rag.buscar("Vômitos frequentes após ingerir plantas ou objetos, lambe móveis, sem apetite.", "Cão")
+    assert all(d["categoria"] == "Canidae" for d in pica), [(d["titulo"], d["categoria"]) for d in pica]
     assert categorias_da_especie("Cão") >= {"Canidae"} and categorias_da_especie("Xyz") is None
     assert expandir("Febre e vômito") == "Febre e vômito | fever vomiting" and expandir("ok") == "ok"
     assert expandir("Sem urina escura") == "Sem urina escura"
