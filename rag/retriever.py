@@ -9,7 +9,7 @@ embedding, MAPA_ESPECIE ou agregação deve ser feita nos dois lugares.
 
 Uso:
     python -m rag.retriever             # teste com um relato de exemplo
-    python -m rag.retriever --download  # só baixa o modelo (build do Render)
+    python -m rag.retriever --download  # baixa o modelo + grava tokenizer podado (build do Render)
 """
 
 from __future__ import annotations
@@ -22,8 +22,6 @@ from pathlib import Path
 
 import faiss
 import numpy as np
-from fastembed import TextEmbedding
-from fastembed.common.model_description import ModelSource, PoolingType
 
 from config import RAG_INDEX_DIR, RAG_MODEL_DIR
 
@@ -118,20 +116,73 @@ _GLOSSARIO_RE = [(re.compile(rf"\b{re.escape(k)}"), v) for k, v in GLOSSARIO.ite
 _NEGACAO = re.compile(r"\b(sem|nao|nega|negou|ausencia de)\b[^.,;]{0,20}$")
 
 
-# Registro único por processo (registrar de novo levanta ValueError).
-TextEmbedding.add_custom_model(
-    model=MODEL_NAME,
-    pooling=PoolingType.MEAN,
-    normalization=True,
-    sources=ModelSource(hf=MODEL_NAME),
-    dim=DIM,
-    model_file=MODEL_FILE,
-)
+# Embedding sem fastembed: o tokenizer.json completo do e5 (250k peças, todos os
+# alfabetos) ocupa ~250 MB no `tokenizers` e estoura os 512 MB do Render. O build
+# grava uma versão podada às peças com caracteres do corpus/latinos (~80 MB, mesmos
+# ids após remapear) e a busca roda ONNX direto, mean pooling + L2 como o fastembed.
+TOKENIZER_RAG = RAG_MODEL_DIR / "tokenizer_rag.json"
+IDS_RAG = RAG_MODEL_DIR / "ids_rag.npy"
+MAX_TOKENS = 512  # model_max_length do tokenizer_config.json
 
 
-def carregar_modelo(cache_dir: Path = RAG_MODEL_DIR) -> TextEmbedding:
-    """Modelo e5 int8. cache_dir fixo no projeto para o build do Render deixá-lo pronto."""
-    return TextEmbedding(model_name=MODEL_NAME, cache_dir=str(cache_dir))
+def preparar_modelo(index_dir: Path = RAG_INDEX_DIR, cache_dir: Path = RAG_MODEL_DIR) -> None:
+    """Baixa o modelo e grava o tokenizer podado (build do Render; precisa do índice)."""
+    from huggingface_hub import snapshot_download
+    from tokenizers import Tokenizer
+
+    snap = Path(snapshot_download(MODEL_NAME, cache_dir=str(cache_dir),
+                                  allow_patterns=[MODEL_FILE, "tokenizer.json"]))
+    cfg = json.loads((snap / "tokenizer.json").read_text(encoding="utf-8"))
+    # só o normalizador (vocab de 1 peça): o tokenizer inteiro custaria ~250 MB também no build
+    vazio = {**cfg, "added_tokens": [], "post_processor": None,
+             "model": {**cfg["model"], "vocab": [["<unk>", 0.0]], "unk_id": 0}}
+    norm = Tokenizer.from_str(json.dumps(vazio)).normalizer
+    # latim, grego (α, µ), pontuação tipográfica (— “ ”), moedas, setas e símbolos matemáticos
+    faixas = [(0, 0x250), (0x370, 0x400), (0x1E00, 0x1F00), (0x2000, 0x2300)]
+    chars = {chr(i) for a, b in faixas for i in range(a, b)} | {"▁"}
+    with open(index_dir / "chunks.jsonl", encoding="utf-8") as f:
+        for c in map(json.loads, f):
+            chars.update(norm.normalize_str(c["texto"]))
+    vocab = cfg["model"]["vocab"]
+    manter = [i for i, (peca, _) in enumerate(vocab) if i < 4 or set(peca) <= chars]
+    novo = {antigo: n for n, antigo in enumerate(manter)}
+    cfg["model"]["vocab"] = [vocab[i] for i in manter]
+    cfg["model"]["unk_id"] = novo[cfg["model"]["unk_id"]]
+    for t in cfg["added_tokens"]:
+        t["id"] = novo[t["id"]]
+    for t in cfg["post_processor"]["special_tokens"].values():
+        t["ids"] = [novo[i] for i in t["ids"]]
+    TOKENIZER_RAG.write_text(json.dumps(cfg, ensure_ascii=False), encoding="utf-8")
+    np.save(IDS_RAG, np.array(manter, dtype=np.int64))
+
+
+class Embedder:
+    """e5 int8 via onnxruntime + tokenizer podado. Mesmo vetor do fastembed do notebook."""
+
+    def __init__(self, cache_dir: Path = RAG_MODEL_DIR) -> None:
+        import onnxruntime as ort
+        from huggingface_hub import hf_hub_download
+        from tokenizers import Tokenizer
+
+        if not TOKENIZER_RAG.exists():
+            raise RuntimeError("tokenizer podado ausente — rode `python -m rag.retriever --download`")
+        self.tok = Tokenizer.from_file(str(TOKENIZER_RAG))
+        self.tok.enable_truncation(MAX_TOKENS)
+        self.tok.enable_padding(pad_id=1, pad_token="<pad>")  # <pad> = id 1 nos dois vocabulários
+        self.ids = np.load(IDS_RAG)
+        so = ort.SessionOptions()
+        so.enable_cpu_mem_arena = False  # arena guarda ~120 MB após a 1ª inferência
+        onnx = hf_hub_download(MODEL_NAME, MODEL_FILE, cache_dir=str(cache_dir), local_files_only=True)
+        self.sessao = ort.InferenceSession(onnx, so, providers=["CPUExecutionProvider"])
+
+    def embed(self, textos: list[str]) -> np.ndarray:
+        enc = self.tok.encode_batch(textos)
+        ids = self.ids[np.array([e.ids for e in enc])]
+        mask = np.array([e.attention_mask for e in enc], dtype=np.int64)
+        saida = self.sessao.run(None, {"input_ids": ids, "attention_mask": mask,
+                                       "token_type_ids": np.zeros_like(ids)})[0]
+        v = (saida * mask[..., None]).sum(1) / np.maximum(mask.sum(1, keepdims=True), 1e-9)
+        return (v / np.maximum(np.linalg.norm(v, axis=1, keepdims=True), 1e-12)).astype("float32")
 
 
 def fatiar(texto: str, tam: int, overlap: int = 200) -> list[str]:
@@ -200,16 +251,18 @@ class RagRetriever:
         manifest = json.loads((index_dir / "manifest.json").read_text(encoding="utf-8"))
         if manifest["config"]["model"] != MODEL_NAME:
             raise RuntimeError(f"Índice gerado com {manifest['config']['model']}, esperado {MODEL_NAME}")
+        # modelo primeiro: o pico transitório da sessão ONNX (~80 MB) não soma com chunks/índice
+        self.modelo = Embedder()
         self.index = faiss.read_index(str(index_dir / "faiss.index"))
         with open(index_dir / "chunks.jsonl", encoding="utf-8") as f:
             self.chunks = {c["id"]: c for c in map(json.loads, f)}
         # resumo = primeiro chunk do arquivo (SUMMARY / Scope)
         self.resumos = {c["arquivo"]: c for c in self.chunks.values() if c["ordem"] == 0}
-        self.modelo = carregar_modelo()
 
     def embed(self, textos: list[str]) -> np.ndarray:
-        """Vetores float32 normalizados (produto interno = cosseno)."""
-        return np.array(list(self.modelo.embed(textos)), dtype="float32")
+        """Vetores float32 normalizados (produto interno = cosseno). Um texto por vez:
+        lote de janelas de 512 tokens soma ~100 MB de ativações (limite 512 MB do Render)."""
+        return np.concatenate([self.modelo.embed([t]) for t in textos])
 
     def buscar(self, texto: str, especie: str | None = None, k: int = 3, k_chunks: int = 100) -> list[dict]:
         """Top-k documentos distintos (fonte + título). Score = maior similaridade chunk × janela do relato."""
@@ -250,7 +303,7 @@ class RagRetriever:
 
 if __name__ == "__main__":
     if "--download" in sys.argv:
-        carregar_modelo()
+        preparar_modelo()
         print(f"Modelo pronto em {RAG_MODEL_DIR}")
         sys.exit(0)
 
@@ -259,6 +312,13 @@ if __name__ == "__main__":
               "fraqueza, perda de peso e muitos carrapatos no rebanho. Sem urina escura.")
     bloco, docs = rag.contexto(relato, "Bovino")
     assert docs and bloco.startswith("BASE DE CONHECIMENTO"), docs
+    # embedding daqui ≈ embedding do notebook (fastembed) que gerou o índice. Não é 1.0:
+    # o modelo int8 quantiza ativações por lote, e o notebook embutiu em lotes (~0.998).
+    amostra = list(rag.chunks.values())[::750]
+    vet = rag.embed([f"passage: {c['titulo']} — {c['secao']}\n{c['texto']}" for c in amostra])
+    linha = {int(i): n for n, i in enumerate(faiss.vector_to_array(rag.index.id_map))}
+    ref = np.stack([rag.index.index.reconstruct(linha[c["id"]]) for c in amostra])
+    assert (vet * ref).sum(1).min() > 0.995, (vet * ref).sum(1)
     assert categorias_da_especie("Cão") >= {"Canidae"} and categorias_da_especie("Xyz") is None
     assert expandir("Febre e vômito") == "Febre e vômito | fever vomiting" and expandir("ok") == "ok"
     assert expandir("Sem urina escura") == "Sem urina escura"
