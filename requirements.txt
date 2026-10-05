@@ -12,8 +12,10 @@ langchain-groq>=0.2.0,<1.0.0
 # DuckDuckGo search
 ddgs>=0.1.0
 
-# RAG local (mesmas versões de rag/build_index.ipynb)
-fastembed==0.8.1
+# RAG local: embedding via onnxruntime + tokenizer podado (sem fastembed, ver rag/retriever.py)
+onnxruntime==1.30.0
+tokenizers==0.23.2
+huggingface_hub==1.33.0
 faiss-cpu==1.15.1
 
 # Pydantic v2

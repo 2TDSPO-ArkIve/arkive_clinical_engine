@@ -86,7 +86,7 @@ estruturada validada**. Como cada parte é usada:
   explicável, sobre contexto heterogêneo (perfil + sintomas + transcrição + bem-estar + histórico
   + medicações + status preventivo + literatura web opcional). Saída **validada por Pydantic v2**
   (`DiagnosticoOutputDetalhado`), `temperature=0.10`, com fallback automático entre modelos.
-- **RAG local (`fastembed` + FAISS):** sempre que há relato clínico, busca semântica numa base
+- **RAG local (ONNX + FAISS):** sempre que há relato clínico, busca semântica numa base
   curada de ~830 fichas veterinárias (WOAH, AAZV, CFSPH, CAPC, ABCD, ESCCAP, USGS, ARWH, WHA),
   filtrada pela espécie do animal. Os `RAG_TOP_K` documentos mais relevantes entram no prompt e
   seus nomes voltam em `fontes_rag`. Roda localmente, sem custo de API e independe do
@@ -172,7 +172,7 @@ graph TD
         E5["5. Síntese clínica (LLM)<br/>resumo + RAG + web<br/>saída validada por Pydantic v2"]
         E1 --> E2 --> E2b --> E3 --> E4 --> E5
         IDX[("rag/index<br/>FAISS + chunks<br/>WOAH, AAZV, CFSPH, CAPC, ESCCAP…")]
-        IDX -.->|"carregado no boot · fastembed e5-small"| E2b
+        IDX -.->|"carregado no boot · e5-small ONNX"| E2b
     end
 
     DDG["DuckDuckGo<br/>fontes veterinárias confiáveis<br/>(PubMed, Merck/MSD, WSAVA, SciELO…)"]
@@ -203,7 +203,7 @@ A fronteira do motor com o banco é **somente leitura** em três camadas (privil
 | Integração LLM | `langchain-groq` + `langchain-core` · `ChatGroq.with_structured_output()` | Conecta ao Groq e garante saída JSON validada pelo Pydantic; sem chains ou pipelines LCEL |
 | Banco de Dados | Oracle via `oracledb` (modo Thin) | Fonte de dados clínicos — somente leitura |
 | Validação de Schema | Pydantic v2 | Valida e tipifica a saída da IA |
-| RAG local | `fastembed` (`Xenova/multilingual-e5-small`, ONNX quantizado) + `faiss-cpu` | Busca semântica na base de fichas veterinárias (`rag/index/`), sem chamada externa |
+| RAG local | `onnxruntime` + `tokenizers` (`Xenova/multilingual-e5-small`, int8) + `faiss-cpu` | Busca semântica na base de fichas veterinárias (`rag/index/`), sem chamada externa |
 | Busca Web (fallback) | `ddgs` (DuckDuckGo Search) | Literatura veterinária complementar — só resultados de uma lista curada de fontes confiáveis são aproveitados |
 | API REST | FastAPI + Uvicorn | Endpoint HTTP alternativo ao CLI (`GET /diagnostico/{id_consulta}`) + `GET /health` (liveness) |
 | Variáveis de Ambiente | `python-dotenv` | Isola credenciais do código-fonte |
@@ -312,7 +312,7 @@ pip install -r requirements.txt
 > pip install oracledb==2.3.0 --only-binary=:all:
 > ```
 
-**RAG:** o índice já vem pronto em `rag/index/` (para regerar, rode `rag/build_index.ipynb` no Colab). Falta só baixar o modelo de embedding (~130 MB, fica em `rag/model_cache/`):
+**RAG:** o índice já vem pronto em `rag/index/` (para regerar, rode `rag/build_index.ipynb` no Colab). Falta baixar o modelo de embedding (~130 MB) e gerar o tokenizer podado, ambos em `rag/model_cache/`:
 
 ```bash
 python -m rag.retriever --download
@@ -438,7 +438,10 @@ Diferente da busca web, o RAG roda **em toda consulta com relato clínico**. É 
 **Como a busca funciona** (`rag/retriever.py`):
 
 1. A consulta é `DS_MOTIVO` + narrativa clínica, fatiada em janelas e expandida com um glossário PT→EN (a base está em inglês).
-2. Embedding com `Xenova/multilingual-e5-small` (fastembed, ONNX) e busca por similaridade de cosseno no FAISS.
+2. Embedding com `Xenova/multilingual-e5-small` (ONNX int8 via `onnxruntime`) e busca por similaridade de cosseno no FAISS.
+   O tokenizer multilíngue completo (250k peças) ocupa ~250 MB e não cabe nos 512 MB do Render; o build
+   (`--download`) grava uma versão podada às peças com caracteres latinos/gregos/símbolos e do corpus (~80 MB em memória),
+   com tokenização idêntica à original em todos os 15.183 trechos.
 3. Resultados filtrados pela espécie do animal (`MAPA_ESPECIE`). Fichas multiespécie sempre entram; espécie não mapeada = sem filtro.
 4. Trechos agrupados por documento (fonte + título). Os `RAG_TOP_K` melhores documentos vão ao prompt com resumo + trechos, limitados a `RAG_MAX_CHARS` caracteres.
 5. O system prompt avisa que relevância é similaridade de texto, não probabilidade da doença: o LLM só usa um documento se os sinais clínicos forem compatíveis. Os documentos enviados voltam em `fontes_rag`.
@@ -547,7 +550,9 @@ oracledb>=2.3.0,<3.0.0
 langchain-core>=0.3.0,<0.4.0
 langchain-groq>=0.2.0,<1.0.0
 ddgs>=0.1.0
-fastembed==0.8.1
+onnxruntime==1.30.0
+tokenizers==0.23.2
+huggingface_hub==1.33.0
 faiss-cpu==1.15.1
 pydantic>=2.7.0,<3.0.0
 python-dotenv>=1.0.0,<2.0.0
