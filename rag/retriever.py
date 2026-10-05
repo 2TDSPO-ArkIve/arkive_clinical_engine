@@ -71,6 +71,52 @@ MAPA_ESPECIE = {
     "chinchila": {"Rodentia"}, "porquinho": {"Rodentia"},
 }
 
+# Sinais clínicos/histórico PT (sem acento) -> termos EN anexados à consulta.
+# e5-small alinha PT↔EN mal; os documentos são em inglês. Só sinais, nunca diagnósticos.
+GLOSSARIO = {
+    "febre": "fever", "hipertermia": "hyperthermia", "hipotermia": "hypothermia",
+    "apatia": "lethargy depression", "prostracao": "lethargy prostration", "fraqueza": "weakness",
+    "letargia": "lethargy", "anorexia": "anorexia", "inapetencia": "inappetence anorexia",
+    "sem apetite": "inappetence anorexia", "perda de peso": "weight loss", "emagrecimento": "weight loss emaciation",
+    "caquexia": "cachexia emaciation", "desidratacao": "dehydration",
+    "vomito": "vomiting", "diarreia": "diarrhea", "diarreia com sangue": "bloody diarrhea",
+    "fezes com sangue": "bloody feces", "constipacao": "constipation", "colica": "colic abdominal pain",
+    "dor abdominal": "abdominal pain", "distensao abdominal": "abdominal distension", "timpanismo": "bloat",
+    "ictericia": "jaundice icterus", "amarelad": "jaundice icterus", "mucosas palidas": "pale mucous membranes anemia",
+    "palidez": "pallor anemia", "anemia": "anemia", "urina escura": "dark urine hemoglobinuria",
+    "sangue na urina": "hematuria", "hematuria": "hematuria", "poliuria": "polyuria", "polidipsia": "polydipsia",
+    "bebe muita agua": "polydipsia", "urina muito": "polyuria",
+    "tosse": "cough", "espirro": "sneezing", "secrecao nasal": "nasal discharge", "corrimento nasal": "nasal discharge",
+    "dispneia": "dyspnea", "dificuldade respiratoria": "dyspnea respiratory distress", "respiracao ofegante": "dyspnea",
+    "secrecao ocular": "ocular discharge", "conjuntivite": "conjunctivitis", "lacrimejamento": "lacrimation",
+    "salivacao": "salivation hypersalivation", "baba": "drooling salivation", "dificuldade para engolir": "dysphagia",
+    "lesoes na boca": "oral lesions", "ulceras": "ulcers", "vesiculas": "vesicles",
+    "convulsao": "seizures", "convulsoes": "seizures", "tremor": "tremors", "ataxia": "ataxia",
+    "incoordenacao": "incoordination ataxia", "andar cambaleante": "ataxia", "paralisia": "paralysis",
+    "paresia": "paresis", "patas traseiras": "hind limbs", "membros posteriores": "hind limbs",
+    "cegueira": "blindness", "andar em circulo": "circling", "inclinacao da cabeca": "head tilt",
+    "mudanca de comportamento": "behavior change", "agressiv": "aggression", "agitacao": "agitation",
+    "claudicacao": "lameness", "manqueira": "lameness", "mancando": "lameness", "rigidez": "stiffness",
+    "dor articular": "joint pain arthritis", "inchaco": "swelling edema", "edema": "edema",
+    "linfonodos aumentados": "lymphadenopathy", "ingua": "lymphadenopathy",
+    "coceira": "pruritus itching", "prurido": "pruritus", "queda de pelo": "alopecia hair loss",
+    "alopecia": "alopecia", "pelagem opaca": "dull coat", "crostas": "crusts", "descamacao": "scaling",
+    "feridas": "skin lesions wounds", "nodulos": "nodules", "abscesso": "abscess",
+    "aborto": "abortion", "natimorto": "stillbirth", "retencao de placenta": "retained placenta",
+    "infertilidade": "infertility", "mastite": "mastitis", "queda na producao de leite": "drop in milk production",
+    "producao de leite": "milk production", "queda na postura": "drop in egg production",
+    "ovos": "eggs", "casca fina": "thin eggshell", "casca deformada": "misshapen eggs",
+    "mortalidade": "mortality", "morte subita": "sudden death", "morreram": "deaths mortality",
+    "carrapato": "ticks", "pulga": "fleas", "piolho": "lice", "verme": "worms helminths", "sarna": "mange mites",
+    "mordid": "bite", "morcego": "bat", "rato": "rodents", "caca": "hunting predation",
+    "carne crua": "raw meat", "agua parada": "stagnant water", "contato com": "contact with",
+    "rebanho": "herd", "plantel": "flock", "filhote": "puppy kitten young", "pintinho": "chicks",
+    "bezerro": "calf", "leitao": "piglet", "potro": "foal",
+}
+_GLOSSARIO_RE = [(re.compile(rf"\b{re.escape(k)}"), v) for k, v in GLOSSARIO.items()]
+# "sem urina escura", "nega vômito": negação na mesma oração, logo antes do termo.
+_NEGACAO = re.compile(r"\b(sem|nao|nega|negou|ausencia de)\b[^.,;]{0,20}$")
+
 
 # Registro único por processo (registrar de novo levanta ValueError).
 TextEmbedding.add_custom_model(
@@ -108,6 +154,14 @@ def fatiar(texto: str, tam: int, overlap: int = 200) -> list[str]:
 
 def _norm(s: str) -> str:
     return unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode().lower()
+
+
+def expandir(texto: str) -> str:
+    """Relato PT + termos EN do GLOSSARIO encontrados (aproxima a consulta dos documentos em inglês)."""
+    n = _norm(texto)
+    termos = list(dict.fromkeys(v for r, v in _GLOSSARIO_RE
+                                if any(not _NEGACAO.search(n[:m.start()]) for m in r.finditer(n))))
+    return f"{texto} | {' '.join(termos)}" if termos else texto
 
 
 def categorias_da_especie(especie: str | None) -> set[str] | None:
@@ -159,7 +213,7 @@ class RagRetriever:
 
     def buscar(self, texto: str, especie: str | None = None, k: int = 3, k_chunks: int = 100) -> list[dict]:
         """Top-k documentos distintos (fonte + título). Score = maior similaridade chunk × janela do relato."""
-        janelas = fatiar(texto, QUERY_WINDOW_CHARS) or [texto]
+        janelas = [expandir(j) for j in fatiar(texto, QUERY_WINDOW_CHARS) or [texto]]
         scores, ids = self.index.search(self.embed([f"query: {j}" for j in janelas]),
                                         min(k_chunks, self.index.ntotal))
         permitidas = categorias_da_especie(especie)
@@ -206,4 +260,8 @@ if __name__ == "__main__":
     bloco, docs = rag.contexto(relato, "Bovino")
     assert docs and bloco.startswith("BASE DE CONHECIMENTO"), docs
     assert categorias_da_especie("Cão") >= {"Canidae"} and categorias_da_especie("Xyz") is None
+    assert expandir("Febre e vômito") == "Febre e vômito | fever vomiting" and expandir("ok") == "ok"
+    assert expandir("Sem urina escura") == "Sem urina escura"
+    assert expandir("Febre, sem vômito. Vômito ontem") == "Febre, sem vômito. Vômito ontem | fever vomiting"
+    assert expandir("Febre, sem vômito") == "Febre, sem vômito | fever"
     print("\n".join(docs), "\n\n", bloco, sep="")
