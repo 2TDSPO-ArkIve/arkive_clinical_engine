@@ -92,6 +92,23 @@ _HISTORICO_CUIDADO_LIMIT_RAW: str = os.getenv("HISTORICO_CUIDADO_LIMIT", "5")
 #: com uma consulta muito longa.
 _MAX_TRANSCRICAO_CHARS_RAW: str = os.getenv("MAX_TRANSCRICAO_CHARS", "6000")
 
+# ── RAG (base de conhecimento veterinária local) ──────────────────────────────
+
+#: Índice gerado por rag/build_index.ipynb (conteúdo de rag_index.zip).
+#: Opcional: sem ele o motor segue sem RAG (ver agents/clinical_agent.py).
+RAG_INDEX_DIR: Path = Path(os.getenv("RAG_INDEX_DIR", str(Path(__file__).parent / "rag" / "index")))
+
+#: Cache do modelo de embedding (~118 MB). Fica dentro do projeto para o
+#: build do Render baixá-lo uma vez (`python -m rag.retriever --download`).
+RAG_MODEL_DIR: Path = Path(os.getenv("RAG_MODEL_DIR", str(Path(__file__).parent / "rag" / "model_cache")))
+
+#: Tamanho máximo (em caracteres) do bloco RAG enviado ao LLM.
+_RAG_MAX_CHARS_RAW: str = os.getenv("RAG_MAX_CHARS", "3000")
+
+#: Quantos documentos do RAG vão para o LLM. Aumentar junto com RAG_MAX_CHARS
+#: (o orçamento é dividido igualmente entre os documentos).
+_RAG_TOP_K_RAW: str = os.getenv("RAG_TOP_K", "3")
+
 # ── Parsing seguro de inteiros vindos do .env ─────────────────────────────────
 #
 # int(os.getenv(...)) direto no nível de módulo derruba o processo com um
@@ -133,6 +150,14 @@ if _err:
     _config_errors.append(_err)
 
 MAX_TRANSCRICAO_CHARS, _err = _parse_positive_int(_MAX_TRANSCRICAO_CHARS_RAW, "MAX_TRANSCRICAO_CHARS", 6000)
+if _err:
+    _config_errors.append(_err)
+
+RAG_MAX_CHARS, _err = _parse_positive_int(_RAG_MAX_CHARS_RAW, "RAG_MAX_CHARS", 3000)
+if _err:
+    _config_errors.append(_err)
+
+RAG_TOP_K, _err = _parse_positive_int(_RAG_TOP_K_RAW, "RAG_TOP_K", 3)
 if _err:
     _config_errors.append(_err)
 

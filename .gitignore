@@ -22,3 +22,9 @@ ENV/
 # Logs e arquivos temporários
 *.log
 .DS_Store
+
+# Cache do modelo de embedding do RAG (baixado no build)
+rag/model_cache/
+
+# Arquivos temporários
+temp/

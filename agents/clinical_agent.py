@@ -28,6 +28,9 @@ from config import (
     GROQ_MODELS,
     GROQ_RETRY_BACKOFF_SECONDS,
     GROQ_TEMPERATURE,
+    RAG_INDEX_DIR,
+    RAG_MAX_CHARS,
+    RAG_TOP_K,
 )
 from database.connection import get_connection
 from database.queries import ClinicalContext, fetch_clinical_data
@@ -163,6 +166,16 @@ class ClinicalIntelligenceEngine:
         )
         self._chains: dict[str, Any] = {}
 
+        # RAG local: carregado uma vez no boot. Opcional — sem índice (ou sem
+        # fastembed/faiss instalados) o motor segue só com Oracle + web.
+        try:
+            from rag.retriever import RagRetriever
+            self._rag = RagRetriever(RAG_INDEX_DIR)
+            logger.info("RAG carregado | %d chunks | %s", len(self._rag.chunks), RAG_INDEX_DIR)
+        except Exception as exc:
+            logger.warning("RAG indisponível (%s) — seguindo sem base de conhecimento local.", exc)
+            self._rag = None
+
     def _get_chain(self, model: str) -> Any:
         """
         Retorna a chain de diagnóstico estruturado para `model`, criando e
@@ -220,6 +233,18 @@ class ClinicalIntelligenceEngine:
         confianca_calculada = _calculate_confidence(ctx, narrativa_clinica)
         logger.info("Confiança calculada deterministicamente: %d%%", confianca_calculada)
 
+        # Etapa 2b: RAG local — sempre que houver relato (não depende do
+        # pc_confianca; é local e barato). Falha não derruba a análise.
+        rag_context, rag_docs = "", []
+        texto_rag = f"{(ctx.ds_motivo or '').strip()} {narrativa_clinica}".strip()
+        if self._rag and texto_rag:
+            try:
+                rag_context, rag_docs = self._rag.contexto(
+                    texto_rag, ctx.nm_especie, RAG_TOP_K, RAG_MAX_CHARS)
+                logger.info("RAG | documentos: %s", rag_docs)
+            except Exception as exc:
+                logger.warning("Busca RAG falhou: %s. Prosseguindo sem base de conhecimento local.", exc)
+
         # Etapa 3: Decisão de busca web — compara o MESMO pc_confianca
         # calculado acima contra AMBIGUITY_THRESHOLD. Evita manter duas
         # rubricas de score independentes (uma para "ambiguidade" e outra
@@ -252,7 +277,10 @@ class ClinicalIntelligenceEngine:
             sources=sources,
             ctx=ctx,
             confianca_calculada=confianca_calculada,
+            rag_context=rag_context,
         )
+        # Determinístico, como pc_confianca: o sistema sabe o que foi enviado ao LLM.
+        diagnostic.fontes_rag = rag_docs
 
         logger.info(
             "Diagnóstico gerado | '%s' | Severidade: %s | Confiança: %d%%",
@@ -371,6 +399,7 @@ class ClinicalIntelligenceEngine:
         sources: list[str],
         ctx: ClinicalContext,
         confianca_calculada: int,
+        rag_context: str = "",
     ) -> DiagnosticoOutputDetalhado:
         """Monta o prompt completo e faz a única chamada ao Groq. Retorna DiagnosticoOutputDetalhado validado."""
         parts = [
@@ -382,6 +411,13 @@ class ClinicalIntelligenceEngine:
             "nos dados clínicos reais. Use EXATAMENTE este número no campo "
             "pc_confianca — não recalcule, não ajuste, não arredonde.\n",
         ]
+
+        if rag_context:
+            parts.extend([
+                "\n\n" + "═" * 60 + "\n📚 ",
+                rag_context,
+                "\n" + "═" * 60,
+            ])
 
         if web_context:
             parts.extend([
