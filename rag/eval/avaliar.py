@@ -57,12 +57,13 @@ def _teste() -> None:
     print("ok")
 
 
-def main() -> None:
+def main(rag=None) -> dict:
+    """rag: retriever já montado (o notebook de fine-tuning injeta modelo e índice novos)."""
     from config import RAG_MIN_SCORE
     from rag.retriever import RagRetriever
 
     casos = [json.loads(l) for l in CASOS.read_text(encoding="utf-8").splitlines() if l.strip()]
-    rag = RagRetriever()
+    rag = rag or RagRetriever()
     titulos_indice = {c["titulo"] for c in rag.chunks.values()}
     for n, caso in enumerate(casos, 1):
         if faltam := set(caso["relevantes"] + caso["ruido"]) - titulos_indice:
@@ -92,6 +93,7 @@ def main() -> None:
         for k, v in m.items():
             if isinstance(v, float) and isinstance(base.get(k), float):
                 print(f"  {k}: {base[k]:.4f} -> {v:.4f} ({v - base[k]:+.4f})")
+    return m
 
 
 if __name__ == "__main__":
