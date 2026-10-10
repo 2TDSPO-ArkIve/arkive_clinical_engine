@@ -1,0 +1,9 @@
+{
+  "recall@3": 0.3871,
+  "mrr@10": 0.3273,
+  "ruido@3": 0.3735,
+  "vazio_correto": 0.6,
+  "gap": -0.0011,
+  "n_casos": 108,
+  "min_score": 0.84
+}
