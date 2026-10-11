@@ -321,13 +321,13 @@ if __name__ == "__main__":
               "fraqueza, perda de peso e muitos carrapatos no rebanho. Sem urina escura.")
     bloco, docs = rag.contexto(relato, "Bovino")
     assert docs and bloco.startswith("BASE DE CONHECIMENTO"), docs
-    # embedding daqui ≈ embedding do notebook (fastembed) que gerou o índice. Não é 1.0:
-    # o modelo int8 quantiza ativações por lote, e o notebook embutiu em lotes (~0.998).
+    # embedding daqui ≈ embedding que gerou o índice (célula 12 do finetune_e5, lotes de 32). Não é 1.0:
+    # o int8 quantiza ativações com uma escala por lote, e aqui é um texto por vez (~0.98 no fine-tunado).
     amostra = list(rag.chunks.values())[::750]
     vet = rag.embed([f"passage: {c['titulo']} — {c['secao']}\n{c['texto']}" for c in amostra])
     linha = {int(i): n for n, i in enumerate(faiss.vector_to_array(rag.index.id_map))}
     ref = np.stack([rag.index.index.reconstruct(linha[c["id"]]) for c in amostra])
-    assert (vet * ref).sum(1).min() > 0.995, (vet * ref).sum(1)
+    assert (vet * ref).sum(1).min() > 0.97, (vet * ref).sum(1)
     # corte de score e penalidade multiespécie (RAG_MIN_SCORE do config)
     from config import RAG_MIN_SCORE
     assert rag.buscar("Cão mancando da pata traseira direita após correr no parque, sem febre.",
