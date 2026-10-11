@@ -1,6 +1,6 @@
 {
  "config": {
-  "model": "Xenova/multilingual-e5-small",
+  "model": "Sabelli/arkive-e5-vet",
   "model_file": "onnx/model_quantized.onnx",
   "dim": 384,
   "chunk_chars": 1200,

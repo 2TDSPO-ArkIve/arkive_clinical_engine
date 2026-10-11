@@ -26,7 +26,7 @@ import numpy as np
 from config import RAG_INDEX_DIR, RAG_MODEL_DIR
 
 # Precisam bater com o notebook (cell "2. Configuração") — senão o índice é inválido.
-MODEL_NAME = "Xenova/multilingual-e5-small"
+MODEL_NAME = "Sabelli/arkive-e5-vet"  # e5-small fine-tunado (rag/finetune_e5.ipynb), repo privado: HF_TOKEN no .env
 MODEL_FILE = "onnx/model_quantized.onnx"
 DIM = 384
 QUERY_WINDOW_CHARS = 1500

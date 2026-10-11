@@ -203,7 +203,7 @@ A fronteira do motor com o banco é **somente leitura** em três camadas (privil
 | Integração LLM | `langchain-groq` + `langchain-core` · `ChatGroq.with_structured_output()` | Conecta ao Groq e garante saída JSON validada pelo Pydantic; sem chains ou pipelines LCEL |
 | Banco de Dados | Oracle via `oracledb` (modo Thin) | Fonte de dados clínicos — somente leitura |
 | Validação de Schema | Pydantic v2 | Valida e tipifica a saída da IA |
-| RAG local | `onnxruntime` + `tokenizers` (`Xenova/multilingual-e5-small`, int8) + `faiss-cpu` | Busca semântica na base de fichas veterinárias (`rag/index/`), sem chamada externa |
+| RAG local | `onnxruntime` + `tokenizers` (`Sabelli/arkive-e5-vet`: e5-small fine-tunado, int8) + `faiss-cpu` | Busca semântica na base de fichas veterinárias (`rag/index/`), sem chamada externa |
 | Busca Web (fallback) | `ddgs` (DuckDuckGo Search) | Literatura veterinária complementar — só resultados de uma lista curada de fontes confiáveis são aproveitados |
 | API REST | FastAPI + Uvicorn | Endpoint HTTP alternativo ao CLI (`GET /diagnostico/{id_consulta}`) + `GET /health` (liveness) |
 | Variáveis de Ambiente | `python-dotenv` | Isola credenciais do código-fonte |
@@ -312,14 +312,14 @@ pip install -r requirements.txt
 > pip install oracledb==2.3.0 --only-binary=:all:
 > ```
 
-**RAG:** o índice já vem pronto em `rag/index/` (para regerar, rode `rag/build_index.ipynb` no Colab). Falta baixar o modelo de embedding (~130 MB) e gerar o tokenizer podado, ambos em `rag/model_cache/`:
+**RAG:** o índice já vem pronto em `rag/index/` (para regerar, rode `rag/build_index.ipynb` no Colab). Falta baixar o modelo de embedding (~113 MB) e gerar o tokenizer podado, ambos em `rag/model_cache/`. O modelo fica num repo privado do HF Hub: defina `HF_TOKEN` (token **Read**) no `.env` ou no ambiente:
 
 ```bash
 python -m rag.retriever --download
 python -m rag.retriever            # teste com relato de exemplo
 ```
 
-Se o RAG não carregar, a API sobe normalmente e só registra `RAG indisponível` no log. No Render, use como Build Command: `pip install -r requirements.txt && python -m rag.retriever --download`.
+Se o RAG não carregar, a API sobe normalmente e só registra `RAG indisponível` no log. No Render, use como Build Command: `pip install -r requirements.txt && python -m rag.retriever --download`, com `HF_TOKEN` nas variáveis de ambiente.
 
 > **Windows com Smart App Control:** o Windows pode bloquear a DLL do `faiss` (`DLL load failed while importing _swigfaiss: Uma política de Controle de Aplicativo bloqueou este arquivo`). O motor segue funcionando sem RAG; para testar o RAG, use Linux/WSL ou o deploy no Render.
 
@@ -348,7 +348,8 @@ HISTORICO_CUIDADO_LIMIT=5
 MAX_TRANSCRICAO_CHARS=6000
 RAG_TOP_K=3          # documentos do RAG enviados ao LLM
 RAG_MAX_CHARS=3000   # tamanho do bloco RAG (dividido entre os documentos)
-RAG_MIN_SCORE=0.84   # similaridade mínima para um documento do RAG ir ao LLM
+RAG_MIN_SCORE=0.48   # similaridade mínima para um documento do RAG ir ao LLM
+HF_TOKEN=<token Read do HF>  # modelo do RAG em repo privado
 ```
 
 ### 5. Executar
@@ -439,7 +440,8 @@ Diferente da busca web, o RAG roda **em toda consulta com relato clínico**. É 
 **Como a busca funciona** (`rag/retriever.py`):
 
 1. A consulta é `DS_MOTIVO` + narrativa clínica, fatiada em janelas e expandida com um glossário PT→EN (a base está em inglês).
-2. Embedding com `Xenova/multilingual-e5-small` (ONNX int8 via `onnxruntime`) e busca por similaridade de cosseno no FAISS.
+2. Embedding com `Sabelli/arkive-e5-vet` (ONNX int8 via `onnxruntime`) e busca por similaridade de cosseno no FAISS.
+   É o `multilingual-e5-small` fine-tunado em relatos sintéticos PT → fichas EN (`rag/finetune_e5.ipynb`, pares em `rag/eval/pares.jsonl`).
    O tokenizer multilíngue completo (250k peças) ocupa ~250 MB e não cabe nos 512 MB do Render; o build
    (`--download`) grava uma versão podada às peças com caracteres latinos/gregos/símbolos e do corpus (~80 MB em memória),
    com tokenização idêntica à original em todos os 15.183 trechos.
@@ -447,7 +449,18 @@ Diferente da busca web, o RAG roda **em toda consulta com relato clínico**. É 
 4. Trechos agrupados por documento (fonte + título). Documentos abaixo de `RAG_MIN_SCORE` são descartados; os `RAG_TOP_K` melhores restantes vão ao prompt com resumo + trechos, limitados a `RAG_MAX_CHARS` caracteres. Se nada passar do corte, o RAG fica vazio.
 5. O system prompt avisa que relevância é similaridade de texto, não probabilidade da doença: o LLM só usa um documento se os sinais clínicos e a epidemiologia (idade, espécie, exposição) forem compatíveis, e nunca o põe no `ds_diagnostico` com base só em sintoma genérico. Os documentos enviados voltam em `fontes_rag`.
 
-> **Limite conhecido:** os scores do e5 ficam numa faixa estreita (~0.82–0.87), e ruído e documento relevante se sobrepõem perto de 0.84. O corte só elimina a cauda claramente fraca; a trava principal é o prompt. A base cobre doenças infecciosas e parasitárias: quadros como pica, corpo estranho ou doença renal não têm ficha compatível.
+> **Fine-tuning:** no conjunto rotulado (`rag/eval/casos.jsonl`, 108 casos), o modelo próprio int8 contra o e5 genérico:
+>
+> | Métrica | e5 genérico (corte 0.84) | fine-tunado int8 (corte 0.48) |
+> |---|---|---|
+> | recall@3 | 0.376 | 0.634 |
+> | MRR@10 | 0.327 | 0.510 |
+> | recall@3 após o corte | 0.194 | 0.194 |
+> | ruído@3 | 0.330 | 0.093 |
+>
+> Detalhes em `PLANO_FINETUNING.md`.
+
+> **Limite conhecido:** ruído e documento relevante ainda se sobrepõem perto do corte. O corte reduz o ruído, mas a trava principal é o prompt. A base cobre doenças infecciosas e parasitárias: quadros como pica, corpo estranho ou doença renal não têm ficha compatível.
 
 Falha no RAG (índice ausente, modelo não baixado, erro na busca) **não derruba a análise**: o motor registra o aviso no log e segue com Oracle + web.
 
@@ -455,7 +468,8 @@ Falha no RAG (índice ausente, modelo não baixado, erro na busca) **não derrub
 |---|---|---|
 | `RAG_TOP_K` | `3` | Quantos documentos vão ao LLM |
 | `RAG_MAX_CHARS` | `3000` | Tamanho máximo do bloco RAG no prompt |
-| `RAG_MIN_SCORE` | `0.84` | Similaridade mínima (0–1) para um documento ir ao LLM |
+| `RAG_MIN_SCORE` | `0.48` | Similaridade mínima (0–1) para um documento ir ao LLM (calibrado para o modelo atual) |
+| `HF_TOKEN` | — | Token Read do HF para baixar o modelo privado (`--download`) |
 | `RAG_INDEX_DIR` | `rag/index` | Pasta do índice |
 | `RAG_MODEL_DIR` | `rag/model_cache` | Cache do modelo de embedding |
 
