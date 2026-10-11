@@ -98,7 +98,7 @@ _MAX_TRANSCRICAO_CHARS_RAW: str = os.getenv("MAX_TRANSCRICAO_CHARS", "6000")
 #: Opcional: sem ele o motor segue sem RAG (ver agents/clinical_agent.py).
 RAG_INDEX_DIR: Path = Path(os.getenv("RAG_INDEX_DIR", str(Path(__file__).parent / "rag" / "index")))
 
-#: Cache do modelo de embedding (~118 MB). Fica dentro do projeto para o
+#: Cache do modelo de embedding (~113 MB). Fica dentro do projeto para o
 #: build do Render baixá-lo uma vez (`python -m rag.retriever --download`).
 RAG_MODEL_DIR: Path = Path(os.getenv("RAG_MODEL_DIR", str(Path(__file__).parent / "rag" / "model_cache")))
 
@@ -110,9 +110,9 @@ _RAG_MAX_CHARS_RAW: str = os.getenv("RAG_MAX_CHARS", "3000")
 _RAG_TOP_K_RAW: str = os.getenv("RAG_TOP_K", "3")
 
 #: Similaridade mínima (0–1) para um documento do RAG ir ao LLM. Abaixo disso
-#: o RAG fica vazio em vez de mandar ruído. Os scores do e5 vivem numa faixa
-#: estreita (~0.82–0.87): o corte só tira a cauda fraca, não separa tudo.
-_RAG_MIN_SCORE_RAW: str = os.getenv("RAG_MIN_SCORE", "0.84")
+#: o RAG fica vazio em vez de mandar ruído. Calibrado no e5 fine-tunado int8
+#: (rag/finetune_e5.ipynb, célula 12); trocar o modelo exige recalibrar.
+_RAG_MIN_SCORE_RAW: str = os.getenv("RAG_MIN_SCORE", "0.48")
 
 # ── Parsing seguro de inteiros vindos do .env ─────────────────────────────────
 #
@@ -171,7 +171,7 @@ try:
     if not 0 <= RAG_MIN_SCORE <= 1:
         raise ValueError
 except ValueError:
-    RAG_MIN_SCORE = 0.84
+    RAG_MIN_SCORE = 0.48
     _config_errors.append(f"RAG_MIN_SCORE deve ser um número entre 0 e 1 (valor recebido: '{_RAG_MIN_SCORE_RAW}').")
 
 GROQ_MAX_RETRIES_PER_MODEL, _err = _parse_positive_int(

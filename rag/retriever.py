@@ -26,7 +26,7 @@ import numpy as np
 from config import RAG_INDEX_DIR, RAG_MODEL_DIR
 
 # Precisam bater com o notebook (cell "2. Configuração") — senão o índice é inválido.
-MODEL_NAME = "Xenova/multilingual-e5-small"
+MODEL_NAME = "Sabelli/arkive-e5-vet"  # e5-small fine-tunado (rag/finetune_e5.ipynb), repo privado: HF_TOKEN no .env
 MODEL_FILE = "onnx/model_quantized.onnx"
 DIM = 384
 QUERY_WINDOW_CHARS = 1500
@@ -321,13 +321,13 @@ if __name__ == "__main__":
               "fraqueza, perda de peso e muitos carrapatos no rebanho. Sem urina escura.")
     bloco, docs = rag.contexto(relato, "Bovino")
     assert docs and bloco.startswith("BASE DE CONHECIMENTO"), docs
-    # embedding daqui ≈ embedding do notebook (fastembed) que gerou o índice. Não é 1.0:
-    # o modelo int8 quantiza ativações por lote, e o notebook embutiu em lotes (~0.998).
+    # embedding daqui ≈ embedding que gerou o índice (célula 12 do finetune_e5, lotes de 32). Não é 1.0:
+    # o int8 quantiza ativações com uma escala por lote, e aqui é um texto por vez (~0.98 no fine-tunado).
     amostra = list(rag.chunks.values())[::750]
     vet = rag.embed([f"passage: {c['titulo']} — {c['secao']}\n{c['texto']}" for c in amostra])
     linha = {int(i): n for n, i in enumerate(faiss.vector_to_array(rag.index.id_map))}
     ref = np.stack([rag.index.index.reconstruct(linha[c["id"]]) for c in amostra])
-    assert (vet * ref).sum(1).min() > 0.995, (vet * ref).sum(1)
+    assert (vet * ref).sum(1).min() > 0.97, (vet * ref).sum(1)
     # corte de score e penalidade multiespécie (RAG_MIN_SCORE do config)
     from config import RAG_MIN_SCORE
     assert rag.buscar("Cão mancando da pata traseira direita após correr no parque, sem febre.",
@@ -336,7 +336,9 @@ if __name__ == "__main__":
                       "Gato", min_score=RAG_MIN_SCORE)
     assert {"Feline Herpesvirus infection", "Feline calicivirus infection"} & {d["titulo"] for d in gato}, gato
     pica = rag.buscar("Vômitos frequentes após ingerir plantas ou objetos, lambe móveis, sem apetite.", "Cão")
-    assert all(d["categoria"] == "Canidae" for d in pica), [(d["titulo"], d["categoria"]) for d in pica]
+    # filtro de espécie; genéricas podem entrar (PENALIDADE_GENERICA só desempata, ex.: plantas tóxicas aqui)
+    assert all(d["categoria"] in categorias_da_especie("Cão") | CATEGORIAS_SEMPRE for d in pica), \
+        [(d["titulo"], d["categoria"]) for d in pica]
     assert categorias_da_especie("Cão") >= {"Canidae"} and categorias_da_especie("Xyz") is None
     assert expandir("Febre e vômito") == "Febre e vômito | fever vomiting" and expandir("ok") == "ok"
     assert expandir("Sem urina escura") == "Sem urina escura"
