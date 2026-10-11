@@ -336,7 +336,9 @@ if __name__ == "__main__":
                       "Gato", min_score=RAG_MIN_SCORE)
     assert {"Feline Herpesvirus infection", "Feline calicivirus infection"} & {d["titulo"] for d in gato}, gato
     pica = rag.buscar("Vômitos frequentes após ingerir plantas ou objetos, lambe móveis, sem apetite.", "Cão")
-    assert all(d["categoria"] == "Canidae" for d in pica), [(d["titulo"], d["categoria"]) for d in pica]
+    # filtro de espécie; genéricas podem entrar (PENALIDADE_GENERICA só desempata, ex.: plantas tóxicas aqui)
+    assert all(d["categoria"] in categorias_da_especie("Cão") | CATEGORIAS_SEMPRE for d in pica), \
+        [(d["titulo"], d["categoria"]) for d in pica]
     assert categorias_da_especie("Cão") >= {"Canidae"} and categorias_da_especie("Xyz") is None
     assert expandir("Febre e vômito") == "Febre e vômito | fever vomiting" and expandir("ok") == "ok"
     assert expandir("Sem urina escura") == "Sem urina escura"
