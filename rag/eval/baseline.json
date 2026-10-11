@@ -1,5 +1,6 @@
 {
   "recall@3": 0.3763,
+  "recall@3_corte": 0.1935,
   "mrr@10": 0.3267,
   "ruido@3": 0.3302,
   "vazio_correto": 0.7333,
