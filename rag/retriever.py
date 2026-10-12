@@ -353,4 +353,4 @@ if __name__ == "__main__":
     assert expandir("Sem urina escura") == "Sem urina escura"
     assert expandir("Febre, sem vômito. Vômito ontem") == "Febre, sem vômito. Vômito ontem | fever vomiting"
     assert expandir("Febre, sem vômito") == "Febre, sem vômito | fever"
-    print("\n".join(docs), "\n\n", bloco, sep="")
+    print("\n".join(f"{d['fonte']}: {d['titulo']}" for d in docs), "\n\n", bloco, sep="")
