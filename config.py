@@ -52,10 +52,10 @@ RAG_INDEX_DIR: Path = Path(os.getenv("RAG_INDEX_DIR", str(Path(__file__).parent 
 #: Modelo de embedding (~113 MB), baixado no build por `python -m rag.retriever --download`.
 RAG_MODEL_DIR: Path = Path(os.getenv("RAG_MODEL_DIR", str(Path(__file__).parent / "rag" / "model_cache")))
 #: Orçamento do bloco RAG, dividido igualmente entre os documentos.
-_RAG_MAX_CHARS_RAW: str = os.getenv("RAG_MAX_CHARS", "3000")
+_RAG_MAX_CHARS_RAW: str = os.getenv("RAG_MAX_CHARS", "4500")
 _RAG_TOP_K_RAW: str = os.getenv("RAG_TOP_K", "3")
 #: Calibrado no e5 fine-tunado int8 (rag/finetune_e5.ipynb, célula 12); trocar o modelo exige recalibrar.
-_RAG_MIN_SCORE_RAW: str = os.getenv("RAG_MIN_SCORE", "0.48")
+_RAG_MIN_SCORE_RAW: str = os.getenv("RAG_MIN_SCORE", "0.45")
 
 
 def _parse_positive_int(raw: str, var_name: str, default_on_error: int) -> tuple[int, str | None]:
@@ -87,7 +87,7 @@ MAX_TRANSCRICAO_CHARS, _err = _parse_positive_int(_MAX_TRANSCRICAO_CHARS_RAW, "M
 if _err:
     _config_errors.append(_err)
 
-RAG_MAX_CHARS, _err = _parse_positive_int(_RAG_MAX_CHARS_RAW, "RAG_MAX_CHARS", 3000)
+RAG_MAX_CHARS, _err = _parse_positive_int(_RAG_MAX_CHARS_RAW, "RAG_MAX_CHARS", 4500)
 if _err:
     _config_errors.append(_err)
 
@@ -100,7 +100,7 @@ try:
     if not 0 <= RAG_MIN_SCORE <= 1:
         raise ValueError
 except ValueError:
-    RAG_MIN_SCORE = 0.48
+    RAG_MIN_SCORE = 0.45
     _config_errors.append(f"RAG_MIN_SCORE deve ser um número entre 0 e 1 (valor recebido: '{_RAG_MIN_SCORE_RAW}').")
 
 GROQ_MAX_RETRIES_PER_MODEL, _err = _parse_positive_int(

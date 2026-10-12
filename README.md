@@ -265,6 +265,7 @@ arkive_clinical_engine/
 ├── rag/
 │   ├── build_index.ipynb           # Gera o índice (Colab): chunking, filtros de seção, embeddings
 │   ├── finetune_e5.ipynb           # Fine-tuning do e5 (Colab T4), exporta ONNX int8 e publica no HF privado
+│   ├── ajuste_rag.ipynb            # Varredura de RAG_MIN_SCORE e custo de RAG_MAX_CHARS (Colab CPU, minutos)
 │   ├── retriever.py                # RagRetriever: busca semântica + bloco de contexto para o prompt
 │   ├── eval/                       # avaliar.py + casos.jsonl (108 casos rotulados), pares.jsonl, baseline.json
 │   ├── index/                      # faiss.index + chunks.jsonl + manifest.json (versionado)
@@ -349,8 +350,8 @@ DIAGNOSTIC_HISTORY_LIMIT=5
 HISTORICO_CUIDADO_LIMIT=5
 MAX_TRANSCRICAO_CHARS=6000
 RAG_TOP_K=3          # documentos do RAG enviados ao LLM
-RAG_MAX_CHARS=3000   # tamanho do bloco RAG (dividido entre os documentos)
-RAG_MIN_SCORE=0.48   # similaridade mínima para um documento do RAG ir ao LLM
+RAG_MAX_CHARS=4500   # tamanho do bloco RAG (dividido entre os documentos)
+RAG_MIN_SCORE=0.45   # similaridade mínima para um documento do RAG ir ao LLM
 HF_TOKEN=<token Read do HF>  # modelo do RAG em repo privado
 ```
 
@@ -460,6 +461,8 @@ Diferente da busca web, o RAG roda **em toda consulta com relato clínico**. É 
 > | recall@3 após o corte | 0.194 | 0.194 |
 > | ruído@3 | 0.330 | 0.093 |
 >
+> Corte atual 0.45, escolhido em `rag/ajuste_rag.ipynb` (menor corte com ruído@3 ≤ 0.15): recall@3 após o corte 0.247, ruído@3 0.142.
+>
 > Para medir de novo: `python -m rag.eval.avaliar` (compara com `rag/eval/baseline.json`; `--salvar` grava um novo baseline).
 
 > **Limite conhecido:** ruído e documento relevante ainda se sobrepõem perto do corte. O corte reduz o ruído, mas a trava principal é o prompt. A base cobre doenças infecciosas e parasitárias: quadros como pica, corpo estranho ou doença renal não têm ficha compatível.
@@ -469,8 +472,8 @@ Falha no RAG (índice ausente, modelo não baixado, erro na busca) **não derrub
 | Variável | Padrão | Papel |
 |---|---|---|
 | `RAG_TOP_K` | `3` | Quantos documentos vão ao LLM |
-| `RAG_MAX_CHARS` | `3000` | Tamanho máximo do bloco RAG no prompt |
-| `RAG_MIN_SCORE` | `0.48` | Similaridade mínima (0–1) para um documento ir ao LLM (calibrado para o modelo atual) |
+| `RAG_MAX_CHARS` | `4500` | Tamanho máximo do bloco RAG no prompt |
+| `RAG_MIN_SCORE` | `0.45` | Similaridade mínima (0–1) para um documento ir ao LLM (calibrado para o modelo atual) |
 | `HF_TOKEN` | — | Token Read do HF para baixar o modelo privado (`--download`) |
 | `RAG_INDEX_DIR` | `rag/index` | Pasta do índice |
 | `RAG_MODEL_DIR` | `rag/model_cache` | Cache do modelo de embedding |
