@@ -91,7 +91,7 @@ estruturada validada**. Como cada parte é usada:
   filtrada pela espécie do animal. Os `RAG_TOP_K` documentos mais relevantes entram no prompt e
   seus nomes voltam em `fontes_rag`. Roda localmente, sem custo de API e independe do
   `pc_confianca` (ver [RAG — Base de Conhecimento Local](#rag--base-de-conhecimento-local)).
-- **Busca web condicional (DuckDuckGo via `ddgs`, fallback PubMed):** complemento ao RAG quando a confiança é
+- **Busca web condicional (PubMed, fallback DuckDuckGo via `ddgs`):** complemento ao RAG quando a confiança é
   baixa, restrito a uma lista curada de fontes veterinárias confiáveis (ver
   [Fluxo de Decisão — Busca Web](#fluxo-de-decisão--busca-web)).
 - **Prompt engineering:** system prompt com travas anti-alucinação explícitas
@@ -233,9 +233,11 @@ Etapa 3 ──► Python puro (sem LLM): _decide_web_search() aciona busca web s
              mesma métrica usada em toda a decisão, sem heurística paralela.
 Etapa 4 ──► DuckDuckGo (condicional): busca literatura veterinária; um pós-filtro descarta todo resultado
              que não seja de uma lista curada de fontes confiáveis (PubMed/PMC, Merck & MSD Vet Manual,
-             WSAVA, AVMA, periódicos peer-reviewed, SciELO, CFMV…). Sem fonte no ddgs (Google e
-             DuckDuckGo bloqueiam IP de datacenter, como o do Render): fallback no PubMed via E-utilities,
-             com os títulos do RAG (ou os termos em inglês do glossário) como busca.
+             WSAVA, AVMA, periódicos peer-reviewed, SciELO, CFMV…). PubMed (E-utilities) roda primeiro,
+             com os títulos do RAG (ou os termos em inglês do glossário) como busca, filtrada pela espécie
+             (MeSH, ex. Felidae[mh]; sem resultado, repete sem o filtro). Vão ao LLM 3 artigos com o
+             abstract (até 700 caracteres). O ddgs só entra se o
+             PubMed voltar vazio (Google e DuckDuckGo bloqueiam IP de datacenter, como o do Render).
 Etapa 5 ──► Groq API (com fallback + retry entre modelos — ver seção dedicada): recebe resumo clínico
              (incl. medicações vigentes e status de cuidado preventivo) + pc_confianca pronto + bloco RAG +
              contexto web (se houver) e gera DiagnosticoOutputDetalhado (4 campos de raciocínio clínico),
@@ -265,6 +267,7 @@ arkive_clinical_engine/
 ├── rag/
 │   ├── build_index.ipynb           # Gera o índice (Colab): chunking, filtros de seção, embeddings
 │   ├── finetune_e5.ipynb           # Fine-tuning do e5 (Colab T4), exporta ONNX int8 e publica no HF privado
+│   ├── ajuste_rag.ipynb            # Varredura de RAG_MIN_SCORE e custo de RAG_MAX_CHARS (Colab CPU, minutos)
 │   ├── retriever.py                # RagRetriever: busca semântica + bloco de contexto para o prompt
 │   ├── eval/                       # avaliar.py + casos.jsonl (108 casos rotulados), pares.jsonl, baseline.json
 │   ├── index/                      # faiss.index + chunks.jsonl + manifest.json (versionado)
@@ -349,8 +352,8 @@ DIAGNOSTIC_HISTORY_LIMIT=5
 HISTORICO_CUIDADO_LIMIT=5
 MAX_TRANSCRICAO_CHARS=6000
 RAG_TOP_K=3          # documentos do RAG enviados ao LLM
-RAG_MAX_CHARS=3000   # tamanho do bloco RAG (dividido entre os documentos)
-RAG_MIN_SCORE=0.48   # similaridade mínima para um documento do RAG ir ao LLM
+RAG_MAX_CHARS=4500   # tamanho do bloco RAG (dividido entre os documentos)
+RAG_MIN_SCORE=0.45   # similaridade mínima para um documento do RAG ir ao LLM
 HF_TOKEN=<token Read do HF>  # modelo do RAG em repo privado
 ```
 
@@ -387,7 +390,7 @@ uvicorn api:app --reload
   "ds_insight_ia": "Paciente Rex, canino, macho...\n\nVômito frequente...\n\nNenhuma predisposição...\n\nRecomenda-se...",
   "pc_confianca": 55,
   "fontes_pesquisadas": [],
-  "fontes_rag": ["CAPC: Giardia"],
+  "fontes_rag": [{"fonte": "CAPC", "titulo": "Giardia"}],
   "tokens": {"entrada": 4810, "saida": 1320, "total": 6130}
 }
 ```
@@ -460,6 +463,8 @@ Diferente da busca web, o RAG roda **em toda consulta com relato clínico**. É 
 > | recall@3 após o corte | 0.194 | 0.194 |
 > | ruído@3 | 0.330 | 0.093 |
 >
+> Corte atual 0.45, escolhido em `rag/ajuste_rag.ipynb` (menor corte com ruído@3 ≤ 0.15): recall@3 após o corte 0.247, ruído@3 0.142.
+>
 > Para medir de novo: `python -m rag.eval.avaliar` (compara com `rag/eval/baseline.json`; `--salvar` grava um novo baseline).
 
 > **Limite conhecido:** ruído e documento relevante ainda se sobrepõem perto do corte. O corte reduz o ruído, mas a trava principal é o prompt. A base cobre doenças infecciosas e parasitárias: quadros como pica, corpo estranho ou doença renal não têm ficha compatível.
@@ -469,8 +474,8 @@ Falha no RAG (índice ausente, modelo não baixado, erro na busca) **não derrub
 | Variável | Padrão | Papel |
 |---|---|---|
 | `RAG_TOP_K` | `3` | Quantos documentos vão ao LLM |
-| `RAG_MAX_CHARS` | `3000` | Tamanho máximo do bloco RAG no prompt |
-| `RAG_MIN_SCORE` | `0.48` | Similaridade mínima (0–1) para um documento ir ao LLM (calibrado para o modelo atual) |
+| `RAG_MAX_CHARS` | `4500` | Tamanho máximo do bloco RAG no prompt |
+| `RAG_MIN_SCORE` | `0.45` | Similaridade mínima (0–1) para um documento ir ao LLM (calibrado para o modelo atual) |
 | `HF_TOKEN` | — | Token Read do HF para baixar o modelo privado (`--download`) |
 | `RAG_INDEX_DIR` | `rag/index` | Pasta do índice |
 | `RAG_MODEL_DIR` | `rag/model_cache` | Cache do modelo de embedding |
@@ -538,7 +543,7 @@ Cada análise faz uma chamada ao LLM com cerca de **6,3 mil tokens** (medido no 
 | `insight_predisposicao` | `str` (mín. 20 chars) | Papel das predisposições genéticas no raciocínio |
 | `insight_limitacoes` | `str` (mín. 20 chars) | Limitações do diagnóstico e exames complementares sugeridos |
 | `pc_confianca` | `int` (0–100) | Grau de certeza calculado deterministicamente em Python |
-| `fontes_rag` | `list[str]` | Documentos do RAG enviados ao LLM (`"FONTE: título"`), preenchido pelo sistema |
+| `fontes_rag` | `list[{fonte, titulo}]` | Documentos do RAG enviados ao LLM (organização + documento). Fora do schema do LLM: o sistema adiciona ao JSON |
 | `fontes_pesquisadas` | `list[str]` | URLs consultadas (lista vazia se busca web não foi acionada) |
 
 O payload final também inclui `ds_insight_ia`, composto a partir dos 4 campos de insight acima, para compatibilidade com a coluna única `DS_INSIGHT_IA` (CLOB) do banco. Inclui também `tokens` (`entrada`, `saida`, `total`), o consumo da chamada ao Groq, preenchido pelo sistema e não persistido.
@@ -569,7 +574,7 @@ Nenhum `INSERT`, `UPDATE`, `DELETE` ou `MERGE` existe em qualquer arquivo do pro
 | `Nenhuma consulta encontrada` | ID inexistente no banco | Verificar se o ID existe em `TB_ARKIVE_CONSULTA` |
 | `RAG indisponível (...)` no log | Índice ausente em `rag/index/`, modelo não baixado ou `faiss` bloqueado pelo Windows | Rodar `python -m rag.retriever --download`; no Windows com Smart App Control, testar no Linux/WSL ou Render |
 | `Ratelimit` no DuckDuckGo | Muitas buscas em sequência | O sistema continua sem contexto web; aguarde alguns segundos entre execuções |
-| `ddgs sem resultado` no log do Render | Google (403) e DuckDuckGo (202) bloqueiam IP de datacenter | Esperado: a busca cai no PubMed (`PubMed: N artigo(s)` no log) |
+| `ddgs sem resultado` no log do Render | PubMed voltou vazio e Google (403) / DuckDuckGo (202) bloqueiam IP de datacenter | O sistema continua sem contexto web; o RAG segue valendo |
 
 ---
 

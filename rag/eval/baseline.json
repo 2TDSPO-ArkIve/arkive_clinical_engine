@@ -1,10 +1,10 @@
 {
   "recall@3": 0.6344,
-  "recall@3_corte": 0.1935,
-  "mrr@10": 0.5099,
-  "ruido@3": 0.0926,
-  "vazio_correto": 0.6667,
-  "gap": -0.0087,
+  "recall@3_corte": 0.2473,
+  "mrr@10": 0.5128,
+  "ruido@3": 0.142,
+  "vazio_correto": 0.5333,
+  "gap": -0.0079,
   "n_casos": 108,
-  "min_score": 0.48
+  "min_score": 0.45
 }
