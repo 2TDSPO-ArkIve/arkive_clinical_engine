@@ -236,7 +236,7 @@ Etapa 4 ──► DuckDuckGo (condicional): busca literatura veterinária; um p�
              WSAVA, AVMA, periódicos peer-reviewed, SciELO, CFMV…). PubMed (E-utilities) roda primeiro,
              com os títulos do RAG (ou os termos em inglês do glossário) como busca, filtrada pela espécie
              (MeSH, ex. Felidae[mh]; sem resultado, repete sem o filtro). Vão ao LLM 3 artigos com o
-             abstract (até 700 caracteres). O ddgs só entra se o
+             abstract (até `PUBMED_ABSTRACT_CHARS`, 700). O ddgs só entra se o
              PubMed voltar vazio (Google e DuckDuckGo bloqueiam IP de datacenter, como o do Render).
 Etapa 5 ──► Groq API (com fallback + retry entre modelos — ver seção dedicada): recebe resumo clínico
              (incl. medicações vigentes e status de cuidado preventivo) + pc_confianca pronto + bloco RAG +
@@ -351,6 +351,7 @@ AMBIGUITY_THRESHOLD=60
 DIAGNOSTIC_HISTORY_LIMIT=5
 HISTORICO_CUIDADO_LIMIT=5
 MAX_TRANSCRICAO_CHARS=6000
+PUBMED_ABSTRACT_CHARS=700
 RAG_TOP_K=3          # documentos do RAG enviados ao LLM
 RAG_MAX_CHARS=4500   # tamanho do bloco RAG (dividido entre os documentos)
 RAG_MIN_SCORE=0.45   # similaridade mínima para um documento do RAG ir ao LLM
@@ -383,14 +384,14 @@ uvicorn api:app --reload
 {
   "ds_diagnostico": "Suspeita de Gastroenterite Infecciosa Canina",
   "tp_severidade": "MODERADA",
+  "pc_confianca": 55,
   "insight_perfil": "Paciente Rex, canino, macho...",
-  "insight_correlacao": "Vômito frequente e fezes moles correlacionam-se com...",
+  "insight_correlacao": "Mais provável: giardíase (fezes moles...); depois parvovirose (...); por último...",
   "insight_predisposicao": "Nenhuma predisposição mapeada localmente; limitação de dado...",
   "insight_limitacoes": "Recomenda-se exame de fezes e hemograma completo...",
-  "ds_insight_ia": "Paciente Rex, canino, macho...\n\nVômito frequente...\n\nNenhuma predisposição...\n\nRecomenda-se...",
-  "pc_confianca": 55,
-  "fontes_pesquisadas": [],
+  "ds_insight_ia": "Paciente Rex, canino, macho...\n\nMais provável...\n\nNenhuma predisposição...\n\nRecomenda-se...",
   "fontes_rag": [{"fonte": "CAPC", "titulo": "Giardia"}],
+  "fontes_pesquisadas": [],
   "tokens": {"entrada": 4810, "saida": 1320, "total": 6130}
 }
 ```
@@ -475,6 +476,7 @@ Falha no RAG (índice ausente, modelo não baixado, erro na busca) **não derrub
 |---|---|---|
 | `RAG_TOP_K` | `3` | Quantos documentos vão ao LLM |
 | `RAG_MAX_CHARS` | `4500` | Tamanho máximo do bloco RAG no prompt |
+| `PUBMED_ABSTRACT_CHARS` | `700` | Corte do abstract de cada artigo PubMed (3 artigos) |
 | `RAG_MIN_SCORE` | `0.45` | Similaridade mínima (0–1) para um documento ir ao LLM (calibrado para o modelo atual) |
 | `HF_TOKEN` | — | Token Read do HF para baixar o modelo privado (`--download`) |
 | `RAG_INDEX_DIR` | `rag/index` | Pasta do índice |

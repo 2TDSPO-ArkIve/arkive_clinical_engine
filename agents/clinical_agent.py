@@ -27,6 +27,7 @@ from config import (
     GROQ_REASONING_EFFORT,
     GROQ_RETRY_BACKOFF_SECONDS,
     GROQ_TEMPERATURE,
+    PUBMED_ABSTRACT_CHARS,
     RAG_INDEX_DIR,
     RAG_MAX_CHARS,
     RAG_MIN_SCORE,
@@ -218,14 +219,24 @@ class ClinicalIntelligenceEngine:
             diagnostic.pc_confianca,
         )
 
-        # ds_insight_ia: os 4 insights juntos, para a coluna única DS_INSIGHT_IA do serviço Java
-        result = diagnostic.model_dump()
-        result["ds_insight_ia"] = diagnostic.to_ds_insight_ia()
-        # fora do schema: o LLM não preenche, e o serviço Java não persiste
-        result["tokens"] = tokens
-        # determinístico, como pc_confianca: o sistema sabe o que foi enviado ao LLM
-        result["fontes_rag"] = rag_docs
-        return result
+        d = diagnostic.model_dump()
+        # ordem de leitura: resultado, texto, fontes, custo. Chaves no topo: o serviço Java lê por nome
+        return {
+            "ds_diagnostico": d["ds_diagnostico"],
+            "tp_severidade": d["tp_severidade"],
+            "pc_confianca": d["pc_confianca"],
+            "insight_perfil": d["insight_perfil"],
+            "insight_correlacao": d["insight_correlacao"],
+            "insight_predisposicao": d["insight_predisposicao"],
+            "insight_limitacoes": d["insight_limitacoes"],
+            # os 4 insights juntos, para a coluna única DS_INSIGHT_IA do serviço Java
+            "ds_insight_ia": diagnostic.to_ds_insight_ia(),
+            # determinístico, como pc_confianca: o sistema sabe o que foi enviado ao LLM
+            "fontes_rag": rag_docs,
+            "fontes_pesquisadas": d["fontes_pesquisadas"],
+            # fora do schema: o LLM não preenche, e o serviço Java não persiste
+            "tokens": tokens,
+        }
 
     def _fetch_oracle_data(self, id_consulta: int) -> ClinicalContext:
         logger.info("Conectando ao Oracle (Thin mode)...")
@@ -625,14 +636,12 @@ def _build_search_query(ctx: ClinicalContext, sintomas: str, motivo: str) -> str
     return " ".join(parts)[:200]
 
 _EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
-#: 3 abstracts de ~700 chars cabem nos 8K tokens/min do Groq junto com o RAG
-PUBMED_ABSTRACT_CHARS = 700
 
 
 def _pubmed_term(rag_docs: list[dict], sintomas: str) -> str:
     """Termo PubMed em inglês: títulos do RAG ({"fonte", "titulo"}) ou termos do glossário do relato."""
-    # títulos AAZV ("134_Herpesviridae_..._1 2018"): underscore e número solto viram AND sem resultado
-    termos = [" ".join(re.sub(r"\b\d+\b", " ", d["titulo"].replace("_", " ")).split()) for d in rag_docs]
+    # títulos AAZV ("Herpesviridae · ... · Felid alphaherpesvirus 1"): "·" e número solto viram AND sem resultado
+    termos = [" ".join(re.sub(r"\b\d+\b|·", " ", d["titulo"]).split()) for d in rag_docs]
     if not termos:
         try:
             from rag.retriever import termos_en

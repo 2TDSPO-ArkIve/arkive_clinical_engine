@@ -217,6 +217,15 @@ def expandir(texto: str) -> str:
     return f"{texto} | {' '.join(termos)}" if termos else texto
 
 
+def titulo_legivel(fonte: str, titulo: str) -> str:
+    """Título do índice (nome de arquivo) para exibir no front.
+    AAZV "134_Herpesviridae_Alpha_Varicellovirus_Felid alphaherpesvirus 1 2018" vira
+    "Herpesviridae · Alpha · Varicellovirus · Felid alphaherpesvirus 1"; CFSPH "avian_pox" vira "Avian pox"."""
+    t = re.sub(r"[ _.]\d{4}$", "",re.sub(r"^(\d+[a-z]?_)+", "", titulo))
+    t = t.replace("_", " · " if fonte == "AAZV" else " ").strip()
+    return t[:1].upper() + t[1:]
+
+
 def categorias_da_especie(especie: str | None) -> set[str] | None:
     """None = sem filtro (espécie vazia ou desconhecida)."""
     if not especie:
@@ -305,7 +314,8 @@ class RagRetriever:
                  max_chars: int = 3000, min_score: float = 0.0) -> tuple[str, list[dict]]:
         """(bloco para o prompt, [{"fonte", "titulo"}, ...] para o front). ("", []) se nada passar do corte."""
         top = self.buscar(texto, especie, k, min_score=min_score)
-        return montar_contexto_rag(top, max_chars), [{"fonte": d["fonte"], "titulo": d["titulo"]} for d in top]
+        return montar_contexto_rag(top, max_chars), [
+            {"fonte": d["fonte"], "titulo": titulo_legivel(d["fonte"], d["titulo"])} for d in top]
 
 
 if __name__ == "__main__":
@@ -336,6 +346,9 @@ if __name__ == "__main__":
     assert all(d["categoria"] in categorias_da_especie("Cão") | CATEGORIAS_SEMPRE for d in pica), \
         [(d["titulo"], d["categoria"]) for d in pica]
     assert categorias_da_especie("Cão") >= {"Canidae"} and categorias_da_especie("Xyz") is None
+    assert titulo_legivel("AAZV", "165_166_Virus_Poxviridae_Yatapoxvirus") == "Virus · Poxviridae · Yatapoxvirus"
+    assert titulo_legivel("AAZV", "97_Toxoplasma gondii_2022") == "Toxoplasma gondii"
+    assert titulo_legivel("CFSPH", "brucellosis_suis") == "Brucellosis suis"
     assert expandir("Febre e vômito") == "Febre e vômito | fever vomiting" and expandir("ok") == "ok"
     assert expandir("Sem urina escura") == "Sem urina escura"
     assert expandir("Febre, sem vômito. Vômito ontem") == "Febre, sem vômito. Vômito ontem | fever vomiting"
