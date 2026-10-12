@@ -204,11 +204,16 @@ def _norm(s: str) -> str:
     return unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode().lower()
 
 
+def termos_en(texto: str) -> list[str]:
+    """Termos EN do GLOSSARIO presentes no relato, fora de negação."""
+    n = _norm(texto)
+    return list(dict.fromkeys(v for r, v in _GLOSSARIO_RE
+                              if any(not _NEGACAO.search(n[:m.start()]) for m in r.finditer(n))))
+
+
 def expandir(texto: str) -> str:
     """Relato PT + termos EN do GLOSSARIO encontrados (aproxima a consulta dos documentos em inglês)."""
-    n = _norm(texto)
-    termos = list(dict.fromkeys(v for r, v in _GLOSSARIO_RE
-                                if any(not _NEGACAO.search(n[:m.start()]) for m in r.finditer(n))))
+    termos = termos_en(texto)
     return f"{texto} | {' '.join(termos)}" if termos else texto
 
 
