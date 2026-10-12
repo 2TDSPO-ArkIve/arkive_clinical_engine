@@ -107,6 +107,7 @@ O `pc_confianca` também é personalizado: é calculado sobre os dados **daquele
 | Banco de Dados | Oracle via `oracledb` (modo Thin) | Fonte de dados clínicos — somente leitura |
 | Validação de Schema | Pydantic v2 | Valida e tipifica a saída da IA |
 | RAG local | `onnxruntime` + `tokenizers` + `faiss-cpu` · modelo `Sabelli/arkive-e5-vet` (e5-small fine-tunado, int8) | Busca semântica na base de fichas veterinárias, sem chamada externa |
+| Ingestão da base | `docling` (Colab) | Converte os PDFs das fontes em Markdown estruturado |
 | Busca Web | PubMed E-utilities · fallback `ddgs` | Literatura veterinária complementar de fontes confiáveis |
 | API REST | FastAPI + Uvicorn | `GET /diagnostico/{id_consulta}` e `GET /health` |
 | Configuração | `python-dotenv` | Parâmetros e credenciais via `.env` |
@@ -187,6 +188,7 @@ arkive_clinical_engine/
 ├── prompts/
 │   └── diagnostic.py               # System prompt
 ├── rag/
+│   ├── PDFtoMD.ipynb               # Converte os PDFs das fontes em .md (Colab, Docling + OCR)
 │   ├── build_index.ipynb           # Gera o índice (Colab): chunking e embeddings
 │   ├── finetune_e5.ipynb           # Fine-tuning do e5 (Colab T4), exporta ONNX int8
 │   ├── ajuste_rag.ipynb            # Calibração de RAG_MIN_SCORE e RAG_MAX_CHARS
@@ -336,6 +338,11 @@ Diferente da busca web, o RAG roda **em toda consulta com relato clínico**. É 
 | CAPC | Parasitas de animais de companhia | 865 |
 | USGS | Doenças de aves silvestres | 613 |
 | ARWH | Australian Registry of Wildlife Health: fauna silvestre | 342 |
+
+**Como a base é gerada** (Colab):
+
+1. `rag/PDFtoMD.ipynb` converte os PDFs de cada fonte em Markdown com Docling. Tabelas viram markdown, e o PDF sem texto extraível é reconvertido com OCR. O frontmatter de cada `.md` (`titulo`, `manual`, `categoria`) vem do caminho `<Manual>/<Categoria>/`, e a `fonte` vem da variável `FONTE` no topo do notebook. A `categoria` é o que o filtro de espécie usa.
+2. `rag/build_index.ipynb` limpa seções sem conteúdo clínico (referências, vacinas, tabelas numéricas), fatia os textos, gera os embeddings e grava o índice FAISS. É incremental: só os arquivos novos ou alterados são vetorizados.
 
 **Como a busca funciona** (`rag/retriever.py`):
 
