@@ -1,11 +1,4 @@
-"""
-database/connection.py
-======================
-Fábrica de conexões Oracle em modo Thin (sem Oracle Instant Client).
-
-Garante leitura segura via: autocommit=False, rollback() no finally, e
-oracledb.defaults.fetch_lobs=False (converte CLOBs em str automaticamente).
-"""
+"""Conexão Oracle Thin (sem Instant Client), só leitura: autocommit=False e rollback() no finally."""
 
 import logging
 from contextlib import contextmanager
@@ -17,18 +10,12 @@ from config import ORACLE_DSN, ORACLE_PASSWORD, ORACLE_USER
 
 logger = logging.getLogger(__name__)
 
-# Converte CLOB/BLOB para str/bytes diretamente no fetch (deve ser chamado antes da primeira conexão)
+# CLOB vira str no fetch; precisa vir antes da primeira conexão
 oracledb.defaults.fetch_lobs = False
 
 
 @contextmanager
 def get_connection() -> Generator[oracledb.Connection, None, None]:
-    """
-    Context manager que fornece conexão Oracle Thin em modo leitura.
-
-    Raises:
-        oracledb.DatabaseError: Se a conexão falhar.
-    """
     conn: oracledb.Connection | None = None
     try:
         logger.debug("Iniciando conexão Oracle Thin | DSN: %s | User: %s", ORACLE_DSN, ORACLE_USER)

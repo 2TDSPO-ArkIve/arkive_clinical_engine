@@ -1,17 +1,6 @@
 """
-main.py
-=======
-Ponto de entrada do Motor de Inteligência Clínica Veterinária ArkIve.
-
-Uso:
-    python main.py <ID_CONSULTA>
-
-Exemplo:
-    python main.py 42
-
-Saída:
-    JSON formatado com o diagnóstico clínico estruturado, impresso no stdout.
-    Erros e logs de execução são direcionados ao stdout (nível INFO por padrão).
+Uso: python main.py <ID_CONSULTA>
+Imprime o diagnóstico em JSON no stdout (erros também, com o campo "error"). Exit code 0 ou 1.
 """
 
 from __future__ import annotations
@@ -24,12 +13,6 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> int:
-    """
-    Ponto de entrada principal. Retorna 0 em sucesso, 1 em erro.
-    O exit code pode ser capturado por orquestradores (Java, Docker, CI/CD).
-    """
-
-    # ── Parsing do argumento de entrada ──────────────────────────────────────
     if len(sys.argv) < 2:
         print(
             "Uso: python main.py <ID_CONSULTA>\n"
@@ -49,16 +32,14 @@ def main() -> int:
         )
         return 1
 
-    # ── Validação de configuração (fail-fast) ────────────────────────────────
     try:
-        # O import de config configura o logging antes de qualquer outro módulo.
+        # importar config configura o logging antes dos outros módulos
         from config import validate_config
         validate_config()
     except RuntimeError as exc:
         print(f"Erro de configuração: {exc}", file=sys.stderr)
         return 1
 
-    # ── Execução do Motor de Inteligência ────────────────────────────────────
     try:
         from agents.clinical_agent import ClinicalIntelligenceEngine
 
@@ -66,7 +47,6 @@ def main() -> int:
         result: dict = engine.analyze(id_consulta=id_consulta)
 
     except ValueError as exc:
-        # Consulta não encontrada no banco
         logger.error("Consulta não encontrada: %s", exc)
         error_payload = {
             "error": "CONSULTA_NAO_ENCONTRADA",
@@ -77,7 +57,6 @@ def main() -> int:
         return 1
 
     except RuntimeError as exc:
-        # Falha irrecuperável na LLM
         logger.error("Falha no motor de IA: %s", exc)
         error_payload = {
             "error": "FALHA_MOTOR_IA",
@@ -88,7 +67,6 @@ def main() -> int:
         return 1
 
     except Exception as exc:
-        # Erro inesperado — logar com traceback completo
         logger.exception("Erro inesperado durante a análise clínica: %s", exc)
         error_payload = {
             "error": "ERRO_INESPERADO",
@@ -98,7 +76,6 @@ def main() -> int:
         print(json.dumps(error_payload, indent=2, ensure_ascii=False))
         return 1
 
-    # ── Saída do Resultado ───────────────────────────────────────────────────
     print(json.dumps(result, indent=2, ensure_ascii=False))
     logger.info("── Análise clínica concluída com sucesso. ──")
     return 0

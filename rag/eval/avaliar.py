@@ -1,7 +1,5 @@
 """
-rag/eval/avaliar.py
-===================
-Fase 0 do PLANO_FINETUNING: mede o retriever no conjunto rotulado (casos.jsonl).
+Mede o retriever no conjunto rotulado (casos.jsonl).
 
 - recall@3 e MRR@10: ranking bruto (qualidade do modelo, sem corte de score);
 - recall@3_corte, ruído@3 e vazio correto: top-3 após RAG_MIN_SCORE (o que de fato vai ao LLM);

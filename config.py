@@ -1,12 +1,4 @@
-"""
-config.py
-=========
-Centraliza o carregamento e a validação de todas as configurações do
-Motor de Inteligência Clínica Veterinária ArkIve.
-
-Lê variáveis do arquivo .env via python-dotenv; falha rapidamente
-(fail-fast) se credenciais críticas estiverem ausentes ou malformadas.
-"""
+"""Configuração do motor ArkIve lida do .env, com validação fail-fast em validate_config()."""
 
 import logging
 import os
@@ -15,11 +7,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Carrega o .env a partir do diretório do projeto (sobe um nível se necessário)
 _env_path = Path(__file__).parent / ".env"
 load_dotenv(dotenv_path=_env_path, override=False)
-
-# ── Logging ──────────────────────────────────────────────────────────────────
 
 _LOG_LEVEL_STR: str = os.getenv("LOG_LEVEL", "INFO").upper()
 _LOG_LEVEL: int = getattr(logging, _LOG_LEVEL_STR, logging.INFO)
@@ -33,104 +22,44 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# ── Oracle Database ───────────────────────────────────────────────────────────
-
 ORACLE_DSN: str = os.getenv("ORACLE_DSN", "localhost:1521/XEPDB1")
 ORACLE_USER: str = os.getenv("ORACLE_USER", "")
 ORACLE_PASSWORD: str = os.getenv("ORACLE_PASSWORD", "")
 
-# ── GROQ (Free Tier) ─────────────────────────────────────────────────
-
 GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
 GROQ_TEMPERATURE: float = 0.10
-
-#: Modelo principal. Mantido como variável de ambiente (e não mais constante
-#: fixa) para permitir troca sem alterar código — ver GROQ_MODEL_FALLBACKS
-#: para a cadeia de fallback usada quando o modelo primário falha ou estoura
-#: a cota de requisições.
 GROQ_MODEL_PRIMARY: str = os.getenv("GROQ_MODEL_PRIMARY", "openai/gpt-oss-120b")
-
-#: Lista de modelos de fallback, em ordem de tentativa, separados por vírgula.
-#: Usados quando GROQ_MODEL_PRIMARY falha (erro transitório após esgotar as
-#: tentativas) ou retorna erro de cota/indisponibilidade (429 e afins).
 _GROQ_MODEL_FALLBACKS_RAW: str = os.getenv(
-    "GROQ_MODEL_FALLBACKS", "qwen/qwen3.6-27b,openai/gpt-oss-20b"
+    "GROQ_MODEL_FALLBACKS", "qwen/qwen3.8-27b,openai/gpt-oss-20b"
 )
-
-#: Quantas tentativas fazer no MESMO modelo antes de desistir dele por erro
-#: transitório (timeout, erro de conexão, 5xx). Erros de cota (429) NÃO usam
-#: esse retry — pulam direto para o próximo modelo da lista.
+#: Só nos gpt-oss (low/medium/high). Raciocínio conta no limite de tokens por minuto da Groq.
+GROQ_REASONING_EFFORT: str = os.getenv("GROQ_REASONING_EFFORT", "low")
+#: Retry no mesmo modelo só para erro transitório; 429 pula direto para o próximo.
 _GROQ_MAX_RETRIES_PER_MODEL_RAW: str = os.getenv("GROQ_MAX_RETRIES_PER_MODEL", "2")
-
-#: Backoff base em segundos entre tentativas no mesmo modelo (exponencial:
-#: 1ª espera = valor, 2ª espera = valor*2, ...).
+#: Backoff linear: valor, valor*2, ...
 _GROQ_RETRY_BACKOFF_SECONDS_RAW: str = os.getenv("GROQ_RETRY_BACKOFF_SECONDS", "2")
 
-# ── Limiar de Ambiguidade / Confiança ─────────────────────────────────────────
-
-#: Se o pc_confianca calculado deterministicamente for menor que este valor,
-#: a busca web é acionada (ver agents/clinical_agent.py).
+#: pc_confianca abaixo disto aciona a busca web.
 _AMBIGUITY_THRESHOLD_RAW: str = os.getenv("AMBIGUITY_THRESHOLD", "60")
 
-# ── Histórico Clínico ──────────────────────────────────────────────────────────
-
-#: Quantos diagnósticos anteriores do mesmo animal (de outras consultas)
-#: são buscados no Oracle e injetados no resumo clínico enviado à IA.
+#: Limites de histórico, prescrições/preventivos e transcrição no resumo enviado ao LLM.
 _DIAGNOSTIC_HISTORY_LIMIT_RAW: str = os.getenv("DIAGNOSTIC_HISTORY_LIMIT", "5")
-
-#: Quantas prescrições recentes e quantos eventos de cuidado preventivo
-#: (vacina, vermífugo, check-up) do mesmo animal são buscados no Oracle e
-#: injetados no resumo clínico enviado à IA. Um único limite para as duas
-#: consultas, seguindo o mesmo racional de DIAGNOSTIC_HISTORY_LIMIT (não
-#: estourar a janela de contexto do LLM).
 _HISTORICO_CUIDADO_LIMIT_RAW: str = os.getenv("HISTORICO_CUIDADO_LIMIT", "5")
-
-# ── Transcrição de Voz ──────────────────────────────────────────────────────
-
-#: Tamanho máximo (em caracteres) da transcrição de voz (DS_TRANSCRICAO)
-#: exibida no resumo clínico — evita estourar a janela de contexto do LLM
-#: com uma consulta muito longa.
 _MAX_TRANSCRICAO_CHARS_RAW: str = os.getenv("MAX_TRANSCRICAO_CHARS", "6000")
 
-# ── RAG (base de conhecimento veterinária local) ──────────────────────────────
-
-#: Índice gerado por rag/build_index.ipynb (conteúdo de rag_index.zip).
-#: Opcional: sem ele o motor segue sem RAG (ver agents/clinical_agent.py).
+#: Índice de rag/build_index.ipynb. Opcional: sem ele o motor segue sem RAG.
 RAG_INDEX_DIR: Path = Path(os.getenv("RAG_INDEX_DIR", str(Path(__file__).parent / "rag" / "index")))
-
-#: Cache do modelo de embedding (~113 MB). Fica dentro do projeto para o
-#: build do Render baixá-lo uma vez (`python -m rag.retriever --download`).
+#: Modelo de embedding (~113 MB), baixado no build por `python -m rag.retriever --download`.
 RAG_MODEL_DIR: Path = Path(os.getenv("RAG_MODEL_DIR", str(Path(__file__).parent / "rag" / "model_cache")))
-
-#: Tamanho máximo (em caracteres) do bloco RAG enviado ao LLM.
+#: Orçamento do bloco RAG, dividido igualmente entre os documentos.
 _RAG_MAX_CHARS_RAW: str = os.getenv("RAG_MAX_CHARS", "3000")
-
-#: Quantos documentos do RAG vão para o LLM. Aumentar junto com RAG_MAX_CHARS
-#: (o orçamento é dividido igualmente entre os documentos).
 _RAG_TOP_K_RAW: str = os.getenv("RAG_TOP_K", "3")
-
-#: Similaridade mínima (0–1) para um documento do RAG ir ao LLM. Abaixo disso
-#: o RAG fica vazio em vez de mandar ruído. Calibrado no e5 fine-tunado int8
-#: (rag/finetune_e5.ipynb, célula 12); trocar o modelo exige recalibrar.
+#: Calibrado no e5 fine-tunado int8 (rag/finetune_e5.ipynb, célula 12); trocar o modelo exige recalibrar.
 _RAG_MIN_SCORE_RAW: str = os.getenv("RAG_MIN_SCORE", "0.48")
-
-# ── Parsing seguro de inteiros vindos do .env ─────────────────────────────────
-#
-# int(os.getenv(...)) direto no nível de módulo derruba o processo com um
-# traceback cru se alguém colocar um valor não-numérico no .env. Centra-
-# lizamos o parsing aqui para que qualquer erro vire uma mensagem clara em
-# validate_config() (fail-fast), em vez de uma exceção não tratada na
-# importação do módulo.
 
 
 def _parse_positive_int(raw: str, var_name: str, default_on_error: int) -> tuple[int, str | None]:
-    """
-    Tenta converter `raw` para int positivo.
-
-    Retorna (valor, None) em sucesso, ou (default_on_error, mensagem_de_erro)
-    em falha — o valor default só existe para permitir que o módulo termine
-    de carregar; validate_config() é quem efetivamente barra a execução.
-    """
+    """(valor, None) ou (default, erro); o erro vira mensagem em validate_config(), não traceback no import."""
     try:
         value = int(raw)
     except (TypeError, ValueError):
@@ -186,8 +115,6 @@ GROQ_RETRY_BACKOFF_SECONDS, _err = _parse_positive_int(
 if _err:
     _config_errors.append(_err)
 
-# ── Montagem da cadeia de modelos Groq ────────────────────────────────────────
-
 _GROQ_MODEL_FALLBACKS: list[str] = [
     m.strip() for m in _GROQ_MODEL_FALLBACKS_RAW.split(",") if m.strip()
 ]
@@ -195,24 +122,14 @@ _GROQ_MODEL_FALLBACKS: list[str] = [
 if not GROQ_MODEL_PRIMARY.strip():
     _config_errors.append("GROQ_MODEL_PRIMARY não pode ser vazio.")
 
-#: Lista final de modelos, na ordem em que devem ser tentados: primário
-#: primeiro, depois os fallbacks na ordem declarada em GROQ_MODEL_FALLBACKS.
-#: Usada por agents/clinical_agent.py para orquestrar retry + fallback.
+#: Ordem de tentativa: primário, depois os fallbacks.
 GROQ_MODELS: list[str] = (
     [GROQ_MODEL_PRIMARY.strip()] + _GROQ_MODEL_FALLBACKS if GROQ_MODEL_PRIMARY.strip() else _GROQ_MODEL_FALLBACKS
 )
 
-# ── Validação Fail-Fast ───────────────────────────────────────────────────────
-
 
 def validate_config() -> None:
-    """
-    Valida credenciais obrigatórias e formatos de variáveis numéricas.
-
-    Raises:
-        RuntimeError: Se alguma credencial estiver ausente ou algum valor
-            numérico do .env estiver malformado.
-    """
+    """RuntimeError se faltar credencial ou algum valor do .env estiver malformado."""
     missing: list[str] = []
     if not ORACLE_USER:
         missing.append("ORACLE_USER")

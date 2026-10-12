@@ -1,11 +1,7 @@
 """
-rag/retriever.py
-================
-Busca semântica na base de conhecimento veterinária (fichas WOAH, AAZV,
-CFSPH, CAPC, ABCD, ESCCAP, USGS, ARWH, WHA) indexada por rag/build_index.ipynb.
-
-Mesma lógica da seção "11. Busca" do notebook — qualquer mudança em
-embedding, MAPA_ESPECIE ou agregação deve ser feita nos dois lugares.
+Busca semântica nas fichas veterinárias (WOAH, AAZV, CFSPH, CAPC, ABCD, USGS, ARWH, WHA)
+indexadas por rag/build_index.ipynb. Os dois notebooks importam daqui o modelo, o fatiar e a
+busca: esta é a única cópia da lógica.
 
 Uso:
     python -m rag.retriever             # teste com um relato de exemplo
@@ -25,15 +21,14 @@ import numpy as np
 
 from config import RAG_INDEX_DIR, RAG_MODEL_DIR
 
-# Precisam bater com o notebook (cell "2. Configuração") — senão o índice é inválido.
-MODEL_NAME = "Sabelli/arkive-e5-vet"  # e5-small fine-tunado (rag/finetune_e5.ipynb), repo privado: HF_TOKEN no .env
+# Trocar o modelo invalida o índice: rode build_index.ipynb de novo.
+MODEL_NAME = "Sabelli/arkive-e5-vet"  # rag/finetune_e5.ipynb; repo privado, HF_TOKEN no .env
 MODEL_FILE = "onnx/model_quantized.onnx"
 DIM = 384
 QUERY_WINDOW_CHARS = 1500
 
 CATEGORIAS_SEMPRE = {"Multiple Species", "Other Diseases"}
-# Fichas genéricas passam em qualquer filtro de espécie e lotavam o top-k com ruído
-# (ex.: micobactéria de ungulados num cão). Com espécie conhecida, perdem um pouco de score.
+# Genéricas passam em qualquer filtro de espécie; com espécie conhecida perdem um pouco de score.
 PENALIDADE_GENERICA = 0.01
 MAPA_ESPECIE = {
     "bovin": {"Bovinae"}, "vaca": {"Bovinae"}, "bufal": {"Bovinae"},
@@ -72,8 +67,8 @@ MAPA_ESPECIE = {
     "chinchila": {"Rodentia"}, "porquinho": {"Rodentia"},
 }
 
-# Sinais clínicos/histórico PT (sem acento) -> termos EN anexados à consulta.
-# e5-small alinha PT↔EN mal; os documentos são em inglês. Só sinais, nunca diagnósticos.
+# Sinal PT (sem acento) -> termos EN anexados à consulta; os documentos são em inglês.
+# Só sinais, nunca diagnósticos.
 GLOSSARIO = {
     "febre": "fever", "hipertermia": "hyperthermia", "hipotermia": "hypothermia",
     "apatia": "lethargy depression", "prostracao": "lethargy prostration", "fraqueza": "weakness",
@@ -119,10 +114,9 @@ _GLOSSARIO_RE = [(re.compile(rf"\b{re.escape(k)}"), v) for k, v in GLOSSARIO.ite
 _NEGACAO = re.compile(r"\b(sem|nao|nega|negou|ausencia de)\b[^.,;]{0,20}$")
 
 
-# Embedding sem fastembed: o tokenizer.json completo do e5 (250k peças, todos os
-# alfabetos) ocupa ~250 MB no `tokenizers` e estoura os 512 MB do Render. O build
-# grava uma versão podada às peças com caracteres do corpus/latinos (~80 MB, mesmos
-# ids após remapear) e a busca roda ONNX direto, mean pooling + L2 como o fastembed.
+# Sem fastembed: o tokenizer.json completo (250k peças) ocupa ~250 MB e estoura os 512 MB
+# do Render. O build grava um podado aos caracteres do corpus/latinos (~80 MB, ids remapeados);
+# a busca roda ONNX direto, com mean pooling + L2 como o fastembed.
 TOKENIZER_RAG = RAG_MODEL_DIR / "tokenizer_rag.json"
 IDS_RAG = RAG_MODEL_DIR / "ids_rag.npy"
 MAX_TOKENS = 512  # model_max_length do tokenizer_config.json
@@ -160,7 +154,7 @@ def preparar_modelo(index_dir: Path = RAG_INDEX_DIR, cache_dir: Path = RAG_MODEL
 
 
 class Embedder:
-    """e5 int8 via onnxruntime + tokenizer podado. Mesmo vetor do fastembed do notebook."""
+    """e5 int8 via onnxruntime + tokenizer podado; mesmo vetor do fastembed do notebook."""
 
     def __init__(self, cache_dir: Path = RAG_MODEL_DIR) -> None:
         import onnxruntime as ort
@@ -237,7 +231,7 @@ def montar_contexto_rag(top: list[dict], max_chars: int = 3000) -> str:
     if not top:
         return ""
     por_doc = max_chars // len(top)
-    partes = ["BASE DE CONHECIMENTO VETERINÁRIA (RAG — WOAH, AAZV, CFSPH, CAPC, ABCD, ESCCAP, USGS, ARWH, WHA; em inglês). "
+    partes = ["BASE DE CONHECIMENTO VETERINÁRIA (RAG — WOAH, AAZV, CFSPH, CAPC, ABCD, USGS, ARWH, WHA; em inglês). "
               "Documentos mais relevantes para o relato (fichas de doença ou guias clínicos), "
               "por similaridade semântica (não é probabilidade):"]
     for n, d in enumerate(top, 1):
@@ -259,7 +253,6 @@ class RagRetriever:
         self.index = faiss.read_index(str(index_dir / "faiss.index"))
         with open(index_dir / "chunks.jsonl", encoding="utf-8") as f:
             self.chunks = {c["id"]: c for c in map(json.loads, f)}
-        # resumo = primeiro chunk do arquivo (SUMMARY / Scope)
         self.resumos = {c["arquivo"]: c for c in self.chunks.values() if c["ordem"] == 0}
 
     def embed(self, textos: list[str]) -> np.ndarray:
@@ -291,7 +284,7 @@ class RagRetriever:
             c = self.chunks[i]
             if s < min_score or (permitidas is not None and c["categoria"] not in permitidas):
                 continue
-            # (fonte, titulo): guias ESCCAP repetidos em Canidae/Felidae contam uma vez só
+            # (fonte, titulo): ficha repetida em mais de uma categoria conta uma vez só
             d = docs.setdefault((c["fonte"], c["titulo"]), {"titulo": c["titulo"], "categoria": c["categoria"],
                                                              "fonte": c["fonte"], "score": s, "trechos": []})
             if len(d["trechos"]) < 2:
@@ -321,14 +314,12 @@ if __name__ == "__main__":
               "fraqueza, perda de peso e muitos carrapatos no rebanho. Sem urina escura.")
     bloco, docs = rag.contexto(relato, "Bovino")
     assert docs and bloco.startswith("BASE DE CONHECIMENTO"), docs
-    # embedding daqui ≈ embedding que gerou o índice (célula 12 do finetune_e5, lotes de 32). Não é 1.0:
-    # o int8 quantiza ativações com uma escala por lote, e aqui é um texto por vez (~0.98 no fine-tunado).
+    # ~0.98, não 1.0: o índice saiu em lotes de 32 (finetune_e5, célula 12) e o int8 usa uma escala por lote
     amostra = list(rag.chunks.values())[::750]
     vet = rag.embed([f"passage: {c['titulo']} — {c['secao']}\n{c['texto']}" for c in amostra])
     linha = {int(i): n for n, i in enumerate(faiss.vector_to_array(rag.index.id_map))}
     ref = np.stack([rag.index.index.reconstruct(linha[c["id"]]) for c in amostra])
     assert (vet * ref).sum(1).min() > 0.97, (vet * ref).sum(1)
-    # corte de score e penalidade multiespécie (RAG_MIN_SCORE do config)
     from config import RAG_MIN_SCORE
     assert rag.buscar("Cão mancando da pata traseira direita após correr no parque, sem febre.",
                       "Cão", min_score=RAG_MIN_SCORE) == []
@@ -336,7 +327,7 @@ if __name__ == "__main__":
                       "Gato", min_score=RAG_MIN_SCORE)
     assert {"Feline Herpesvirus infection", "Feline calicivirus infection"} & {d["titulo"] for d in gato}, gato
     pica = rag.buscar("Vômitos frequentes após ingerir plantas ou objetos, lambe móveis, sem apetite.", "Cão")
-    # filtro de espécie; genéricas podem entrar (PENALIDADE_GENERICA só desempata, ex.: plantas tóxicas aqui)
+    # genéricas podem entrar: PENALIDADE_GENERICA só desempata
     assert all(d["categoria"] in categorias_da_especie("Cão") | CATEGORIAS_SEMPRE for d in pica), \
         [(d["titulo"], d["categoria"]) for d in pica]
     assert categorias_da_especie("Cão") >= {"Canidae"} and categorias_da_especie("Xyz") is None
