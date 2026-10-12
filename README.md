@@ -91,7 +91,7 @@ estruturada validada**. Como cada parte é usada:
   filtrada pela espécie do animal. Os `RAG_TOP_K` documentos mais relevantes entram no prompt e
   seus nomes voltam em `fontes_rag`. Roda localmente, sem custo de API e independe do
   `pc_confianca` (ver [RAG — Base de Conhecimento Local](#rag--base-de-conhecimento-local)).
-- **Busca web condicional (DuckDuckGo, `ddgs`):** complemento ao RAG quando a confiança é
+- **Busca web condicional (DuckDuckGo via `ddgs`, fallback PubMed):** complemento ao RAG quando a confiança é
   baixa, restrito a uma lista curada de fontes veterinárias confiáveis (ver
   [Fluxo de Decisão — Busca Web](#fluxo-de-decisão--busca-web)).
 - **Prompt engineering:** system prompt com travas anti-alucinação explícitas
@@ -233,7 +233,9 @@ Etapa 3 ──► Python puro (sem LLM): _decide_web_search() aciona busca web s
              mesma métrica usada em toda a decisão, sem heurística paralela.
 Etapa 4 ──► DuckDuckGo (condicional): busca literatura veterinária; um pós-filtro descarta todo resultado
              que não seja de uma lista curada de fontes confiáveis (PubMed/PMC, Merck & MSD Vet Manual,
-             WSAVA, AVMA, periódicos peer-reviewed, SciELO, CFMV…).
+             WSAVA, AVMA, periódicos peer-reviewed, SciELO, CFMV…). Sem fonte no ddgs (Google e
+             DuckDuckGo bloqueiam IP de datacenter, como o do Render): fallback no PubMed via E-utilities,
+             com os títulos do RAG (ou os termos em inglês do glossário) como busca.
 Etapa 5 ──► Groq API (com fallback + retry entre modelos — ver seção dedicada): recebe resumo clínico
              (incl. medicações vigentes e status de cuidado preventivo) + pc_confianca pronto + bloco RAG +
              contexto web (se houver) e gera DiagnosticoOutputDetalhado (4 campos de raciocínio clínico),
@@ -567,6 +569,7 @@ Nenhum `INSERT`, `UPDATE`, `DELETE` ou `MERGE` existe em qualquer arquivo do pro
 | `Nenhuma consulta encontrada` | ID inexistente no banco | Verificar se o ID existe em `TB_ARKIVE_CONSULTA` |
 | `RAG indisponível (...)` no log | Índice ausente em `rag/index/`, modelo não baixado ou `faiss` bloqueado pelo Windows | Rodar `python -m rag.retriever --download`; no Windows com Smart App Control, testar no Linux/WSL ou Render |
 | `Ratelimit` no DuckDuckGo | Muitas buscas em sequência | O sistema continua sem contexto web; aguarde alguns segundos entre execuções |
+| `ddgs sem resultado` no log do Render | Google (403) e DuckDuckGo (202) bloqueiam IP de datacenter | Esperado: a busca cai no PubMed (`PubMed: N artigo(s)` no log) |
 
 ---
 

@@ -6,12 +6,14 @@ busca web se pc_confianca < AMBIGUITY_THRESHOLD → Groq com retry e fallback.
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import time
+import urllib.request
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_groq import ChatGroq
@@ -193,8 +195,9 @@ class ClinicalIntelligenceEngine:
 
         if web_decision.needs_web_search:
             logger.info("Acionando busca web | Query: '%s'", web_decision.search_query)
-            web_context, sources = self._perform_web_search(web_decision.search_query)
-            logger.info("%d fonte(s) recuperada(s) do DuckDuckGo.", len(sources))
+            web_context, sources = self._perform_web_search(
+                web_decision.search_query, _pubmed_term(rag_docs, narrativa_clinica))
+            logger.info("%d fonte(s) recuperada(s) da busca web.", len(sources))
         else:
             logger.info("Dados locais suficientes — busca web não acionada.")
 
@@ -237,8 +240,15 @@ class ClinicalIntelligenceEngine:
         )
         return ctx
 
-    def _perform_web_search(self, query: str) -> tuple[str, list[str]]:
-        """(texto_contexto, urls) só de fontes confiáveis."""
+    def _perform_web_search(self, query: str, pubmed_term: str = "") -> tuple[str, list[str]]:
+        """(texto_contexto, urls) só de fontes confiáveis. Sem fonte no ddgs (Google e DuckDuckGo
+        bloqueiam IP de datacenter como o do Render), cai no PubMed."""
+        web_context, urls = self._ddgs_search(query)
+        if not urls and pubmed_term:
+            web_context, urls = _pubmed_search(pubmed_term)
+        return web_context, urls
+
+    def _ddgs_search(self, query: str) -> tuple[str, list[str]]:
         try:
             from ddgs import DDGS
         except ImportError:
@@ -248,26 +258,24 @@ class ClinicalIntelligenceEngine:
         site_clause = " OR ".join(f"site:{d}" for d in PRIORITY_VET_DOMAINS)
         query_restrita = f"({site_clause}) {query}"
 
+        def _texto(ddgs: Any, q: str) -> list[dict]:
+            # ddgs levanta "No results found." em vez de devolver lista vazia
+            try:
+                return list(ddgs.text(q, max_results=20, safesearch="moderate", backend="google,duckduckgo"))
+            except Exception as exc:
+                logger.info("ddgs sem resultado: %s", exc)
+                return []
+
         try:
             time.sleep(2)  # rate limit do ddgs em execuções seguidas
             with DDGS() as ddgs:
                 # Restrita a PRIORITY_VET_DOMAINS primeiro; site: no ddgs é frouxo, então cai na ampla.
                 # Só google/duckduckgo: os demais backends não trazem domínios da whitelist ou dão 429.
-                results = list(ddgs.text(
-                    query_restrita,
-                    max_results=20,
-                    safesearch="moderate",
-                    backend="google,duckduckgo",
-                ))
+                results = _texto(ddgs, query_restrita)
                 if not any(_is_trusted_source(r.get("href", "")) for r in results):
                     logger.info("Busca restrita a PRIORITY_VET_DOMAINS não retornou fonte confiável — tentando busca ampla.")
                     time.sleep(2)
-                    results = list(ddgs.text(
-                        query,
-                        max_results=20,
-                        safesearch="moderate",
-                        backend="google,duckduckgo",
-                    ))
+                    results = _texto(ddgs, query)
 
             snippets: list[str] = []
             urls: list[str] = []
@@ -607,3 +615,52 @@ def _build_search_query(ctx: ClinicalContext, sintomas: str, motivo: str) -> str
     parts.append("veterinary clinical diagnosis peer-reviewed")
 
     return " ".join(parts)[:200]
+
+_EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
+
+
+def _pubmed_term(rag_docs: list[str], sintomas: str) -> str:
+    """Termo PubMed em inglês: títulos do RAG ("fonte: título") ou termos do glossário do relato."""
+    termos = [d.split(": ", 1)[-1] for d in rag_docs]
+    if not termos:
+        try:
+            from rag.retriever import termos_en
+            termos = termos_en(sintomas)
+        except ImportError:
+            pass
+    if not termos:
+        return ""
+    # PubMed não tem mais o subset veterinary[sb]; animals NOT humans é o filtro padrão de estudo animal
+    return f"({' OR '.join(f'({t})' for t in termos)}) AND animals[mh] NOT humans[mh]"
+
+
+def _pubmed_search(term: str) -> tuple[str, list[str]]:
+    """(texto_contexto, urls) via E-utilities do NCBI: sem chave e sem bloqueio de datacenter."""
+    def _get(endpoint: str, **params: Any) -> dict:
+        url = _EUTILS + endpoint + "?" + urlencode({"db": "pubmed", "retmode": "json", "tool": "arkive", **params})
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            return json.load(resp)
+
+    try:
+        ids = _get("esearch.fcgi", term=term, retmax=5, sort="relevance")["esearchresult"]["idlist"]
+        if not ids:
+            logger.info("PubMed: nenhum artigo para '%s'.", term)
+            return "", []
+        resumo = _get("esummary.fcgi", id=",".join(ids))["result"]
+    except Exception as exc:
+        logger.warning("Busca PubMed falhou: %s. Prosseguindo sem contexto externo.", exc)
+        return "", []
+
+    snippets: list[str] = []
+    urls: list[str] = []
+    for pmid in ids:
+        art = resumo.get(pmid, {})
+        url = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
+        snippets.append(
+            f"📄 {art.get('title', '')}\n"
+            f"{art.get('fulljournalname', '')}, {art.get('pubdate', '')[:4]}\n"
+            f"Fonte: {url}"
+        )
+        urls.append(url)
+    logger.info("PubMed: %d artigo(s) | termo: '%s'", len(urls), term)
+    return "\n\n" + ("─" * 60) + "\n\n".join(snippets), urls
