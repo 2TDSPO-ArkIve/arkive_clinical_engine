@@ -234,7 +234,9 @@ Etapa 3 ──► Python puro (sem LLM): _decide_web_search() aciona busca web s
 Etapa 4 ──► DuckDuckGo (condicional): busca literatura veterinária; um pós-filtro descarta todo resultado
              que não seja de uma lista curada de fontes confiáveis (PubMed/PMC, Merck & MSD Vet Manual,
              WSAVA, AVMA, periódicos peer-reviewed, SciELO, CFMV…). PubMed (E-utilities) roda primeiro,
-             com os títulos do RAG (ou os termos em inglês do glossário) como busca; o ddgs só entra se o
+             com os títulos do RAG (ou os termos em inglês do glossário) como busca, filtrada pela espécie
+             (MeSH, ex. Felidae[mh]; sem resultado, repete sem o filtro). Vão ao LLM 3 artigos com o
+             abstract (até 700 caracteres). O ddgs só entra se o
              PubMed voltar vazio (Google e DuckDuckGo bloqueiam IP de datacenter, como o do Render).
 Etapa 5 ──► Groq API (com fallback + retry entre modelos — ver seção dedicada): recebe resumo clínico
              (incl. medicações vigentes e status de cuidado preventivo) + pc_confianca pronto + bloco RAG +
@@ -388,7 +390,7 @@ uvicorn api:app --reload
   "ds_insight_ia": "Paciente Rex, canino, macho...\n\nVômito frequente...\n\nNenhuma predisposição...\n\nRecomenda-se...",
   "pc_confianca": 55,
   "fontes_pesquisadas": [],
-  "fontes_rag": ["CAPC: Giardia"],
+  "fontes_rag": [{"fonte": "CAPC", "titulo": "Giardia"}],
   "tokens": {"entrada": 4810, "saida": 1320, "total": 6130}
 }
 ```
@@ -541,7 +543,7 @@ Cada análise faz uma chamada ao LLM com cerca de **6,3 mil tokens** (medido no 
 | `insight_predisposicao` | `str` (mín. 20 chars) | Papel das predisposições genéticas no raciocínio |
 | `insight_limitacoes` | `str` (mín. 20 chars) | Limitações do diagnóstico e exames complementares sugeridos |
 | `pc_confianca` | `int` (0–100) | Grau de certeza calculado deterministicamente em Python |
-| `fontes_rag` | `list[str]` | Documentos do RAG enviados ao LLM (`"FONTE: título"`), preenchido pelo sistema |
+| `fontes_rag` | `list[{fonte, titulo}]` | Documentos do RAG enviados ao LLM (organização + documento). Fora do schema do LLM: o sistema adiciona ao JSON |
 | `fontes_pesquisadas` | `list[str]` | URLs consultadas (lista vazia se busca web não foi acionada) |
 
 O payload final também inclui `ds_insight_ia`, composto a partir dos 4 campos de insight acima, para compatibilidade com a coluna única `DS_INSIGHT_IA` (CLOB) do banco. Inclui também `tokens` (`entrada`, `saida`, `total`), o consumo da chamada ao Groq, preenchido pelo sistema e não persistido.

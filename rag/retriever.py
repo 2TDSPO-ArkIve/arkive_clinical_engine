@@ -302,10 +302,10 @@ class RagRetriever:
         return top
 
     def contexto(self, texto: str, especie: str | None = None, k: int = 3,
-                 max_chars: int = 3000, min_score: float = 0.0) -> tuple[str, list[str]]:
-        """(bloco para o prompt, ["fonte: título", ...] para log). ("", []) se nada passar do corte."""
+                 max_chars: int = 3000, min_score: float = 0.0) -> tuple[str, list[dict]]:
+        """(bloco para o prompt, [{"fonte", "titulo"}, ...] para o front). ("", []) se nada passar do corte."""
         top = self.buscar(texto, especie, k, min_score=min_score)
-        return montar_contexto_rag(top, max_chars), [f"{d['fonte']}: {d['titulo']}" for d in top]
+        return montar_contexto_rag(top, max_chars), [{"fonte": d["fonte"], "titulo": d["titulo"]} for d in top]
 
 
 if __name__ == "__main__":

@@ -11,6 +11,7 @@ import logging
 import re
 import time
 import urllib.request
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlencode, urlparse
@@ -196,7 +197,7 @@ class ClinicalIntelligenceEngine:
         if web_decision.needs_web_search:
             logger.info("Acionando busca web | Query: '%s'", web_decision.search_query)
             web_context, sources = self._perform_web_search(
-                web_decision.search_query, _pubmed_term(rag_docs, narrativa_clinica))
+                web_decision.search_query, _pubmed_term(rag_docs, narrativa_clinica), ctx.nm_especie)
             logger.info("%d fonte(s) recuperada(s) da busca web.", len(sources))
         else:
             logger.info("Dados locais suficientes — busca web não acionada.")
@@ -210,9 +211,6 @@ class ClinicalIntelligenceEngine:
             confianca_calculada=confianca_calculada,
             rag_context=rag_context,
         )
-        # Determinístico, como pc_confianca: o sistema sabe o que foi enviado ao LLM.
-        diagnostic.fontes_rag = rag_docs
-
         logger.info(
             "Diagnóstico gerado | '%s' | Severidade: %s | Confiança: %d%%",
             diagnostic.ds_diagnostico,
@@ -225,6 +223,8 @@ class ClinicalIntelligenceEngine:
         result["ds_insight_ia"] = diagnostic.to_ds_insight_ia()
         # fora do schema: o LLM não preenche, e o serviço Java não persiste
         result["tokens"] = tokens
+        # determinístico, como pc_confianca: o sistema sabe o que foi enviado ao LLM
+        result["fontes_rag"] = rag_docs
         return result
 
     def _fetch_oracle_data(self, id_consulta: int) -> ClinicalContext:
@@ -240,10 +240,18 @@ class ClinicalIntelligenceEngine:
         )
         return ctx
 
-    def _perform_web_search(self, query: str, pubmed_term: str = "") -> tuple[str, list[str]]:
+    def _perform_web_search(self, query: str, pubmed_term: str = "",
+                            especie: str | None = None) -> tuple[str, list[str]]:
         """(texto_contexto, urls) só de fontes confiáveis. PubMed primeiro: termo em inglês vindo do
         RAG e sem bloqueio de datacenter. ddgs (Google e DuckDuckGo barram o IP do Render) é fallback."""
-        web_context, urls = _pubmed_search(pubmed_term) if pubmed_term else ("", [])
+        web_context, urls = "", []
+        if pubmed_term:
+            filtro = _pubmed_especie(especie)
+            if filtro:
+                web_context, urls = _pubmed_search(f"{pubmed_term} AND {filtro}")
+            # sem resultado com espécie (ou categoria que não é MeSH, ex. "Fish"): tenta sem
+            if not urls:
+                web_context, urls = _pubmed_search(pubmed_term)
         if not urls:
             web_context, urls = self._ddgs_search(query)
         return web_context, urls
@@ -617,12 +625,14 @@ def _build_search_query(ctx: ClinicalContext, sintomas: str, motivo: str) -> str
     return " ".join(parts)[:200]
 
 _EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
+#: 3 abstracts de ~700 chars cabem nos 8K tokens/min do Groq junto com o RAG
+PUBMED_ABSTRACT_CHARS = 700
 
 
-def _pubmed_term(rag_docs: list[str], sintomas: str) -> str:
-    """Termo PubMed em inglês: títulos do RAG ("fonte: título") ou termos do glossário do relato."""
+def _pubmed_term(rag_docs: list[dict], sintomas: str) -> str:
+    """Termo PubMed em inglês: títulos do RAG ({"fonte", "titulo"}) ou termos do glossário do relato."""
     # títulos AAZV ("134_Herpesviridae_..._1 2018"): underscore e número solto viram AND sem resultado
-    termos = [" ".join(re.sub(r"\b\d+\b", " ", d.split(": ", 1)[-1].replace("_", " ")).split()) for d in rag_docs]
+    termos = [" ".join(re.sub(r"\b\d+\b", " ", d["titulo"].replace("_", " ")).split()) for d in rag_docs]
     if not termos:
         try:
             from rag.retriever import termos_en
@@ -635,33 +645,51 @@ def _pubmed_term(rag_docs: list[str], sintomas: str) -> str:
     return f"({' OR '.join(f'({t})' for t in termos)}) AND animals[mh] NOT humans[mh]"
 
 
+def _pubmed_especie(especie: str | None) -> str:
+    """Filtro MeSH da espécie ("(Felidae[mh])"); "" sem espécie mapeada. Reusa o mapa do RAG."""
+    try:
+        from rag.retriever import CATEGORIAS_SEMPRE, categorias_da_especie
+    except ImportError:
+        return ""
+    cats = (categorias_da_especie(especie) or set()) - CATEGORIAS_SEMPRE
+    return f"({' OR '.join(f'{c}[mh]' for c in sorted(cats))})" if cats else ""
+
+
 def _pubmed_search(term: str) -> tuple[str, list[str]]:
-    """(texto_contexto, urls) via E-utilities do NCBI: sem chave e sem bloqueio de datacenter."""
-    def _get(endpoint: str, **params: Any) -> dict:
-        url = _EUTILS + endpoint + "?" + urlencode({"db": "pubmed", "retmode": "json", "tool": "arkive", **params})
-        with urllib.request.urlopen(url, timeout=10) as resp:
-            return json.load(resp)
+    """(texto_contexto, urls) via E-utilities do NCBI: sem chave e sem bloqueio de datacenter.
+    Abstract (efetch) em vez de só título: título sozinho não é evidência."""
+    def _get(endpoint: str, **params: Any):
+        return urllib.request.urlopen(
+            _EUTILS + endpoint + "?" + urlencode({"db": "pubmed", "tool": "arkive", **params}), timeout=10)
 
     try:
-        ids = _get("esearch.fcgi", term=term, retmax=5, sort="relevance")["esearchresult"]["idlist"]
+        with _get("esearch.fcgi", term=term, retmax=3, sort="relevance", retmode="json") as resp:
+            ids = json.load(resp)["esearchresult"]["idlist"]
         if not ids:
             logger.info("PubMed: nenhum artigo para '%s'.", term)
             return "", []
-        resumo = _get("esummary.fcgi", id=",".join(ids))["result"]
+        with _get("efetch.fcgi", id=",".join(ids), rettype="abstract", retmode="xml") as resp:
+            artigos = ET.parse(resp).getroot().findall("PubmedArticle")
     except Exception as exc:
         logger.warning("Busca PubMed falhou: %s. Prosseguindo sem contexto externo.", exc)
         return "", []
 
     snippets: list[str] = []
     urls: list[str] = []
-    for pmid in ids:
-        art = resumo.get(pmid, {})
-        url = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
+    for art in artigos:
+        url = f"https://pubmed.ncbi.nlm.nih.gov/{art.findtext('.//PMID')}/"
+        # itertext: título e abstract trazem <i>, <sup> no meio do texto
+        titulo = "".join(art.find(".//ArticleTitle").itertext())
+        ano = art.findtext(".//PubDate/Year") or (art.findtext(".//PubDate/MedlineDate") or "")[:4]
+        abstract = " ".join("".join(a.itertext()) for a in art.iterfind(".//Abstract/AbstractText"))
+        if len(abstract) > PUBMED_ABSTRACT_CHARS:
+            abstract = abstract[:PUBMED_ABSTRACT_CHARS].rsplit(" ", 1)[0] + "…"
         snippets.append(
-            f"📄 {art.get('title', '')}\n"
-            f"{art.get('fulljournalname', '')}, {art.get('pubdate', '')[:4]}\n"
-            f"Fonte: {url}"
+            f"📄 {titulo}\n"
+            f"{art.findtext('.//Journal/Title', '')}, {ano}\n"
+            + (f"Resumo: {abstract}\n" if abstract else "(sem abstract)\n")
+            + f"Fonte: {url}"
         )
         urls.append(url)
     logger.info("PubMed: %d artigo(s) | termo: '%s'", len(urls), term)
-    return "\n\n" + ("─" * 60) + "\n\n".join(snippets), urls
+    return "\n\n" + ("─" * 60) + "\n\n" + "\n\n".join(snippets), urls
