@@ -241,11 +241,11 @@ class ClinicalIntelligenceEngine:
         return ctx
 
     def _perform_web_search(self, query: str, pubmed_term: str = "") -> tuple[str, list[str]]:
-        """(texto_contexto, urls) só de fontes confiáveis. Sem fonte no ddgs (Google e DuckDuckGo
-        bloqueiam IP de datacenter como o do Render), cai no PubMed."""
-        web_context, urls = self._ddgs_search(query)
-        if not urls and pubmed_term:
-            web_context, urls = _pubmed_search(pubmed_term)
+        """(texto_contexto, urls) só de fontes confiáveis. PubMed primeiro: termo em inglês vindo do
+        RAG e sem bloqueio de datacenter. ddgs (Google e DuckDuckGo barram o IP do Render) é fallback."""
+        web_context, urls = _pubmed_search(pubmed_term) if pubmed_term else ("", [])
+        if not urls:
+            web_context, urls = self._ddgs_search(query)
         return web_context, urls
 
     def _ddgs_search(self, query: str) -> tuple[str, list[str]]:
@@ -621,7 +621,8 @@ _EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
 
 def _pubmed_term(rag_docs: list[str], sintomas: str) -> str:
     """Termo PubMed em inglês: títulos do RAG ("fonte: título") ou termos do glossário do relato."""
-    termos = [d.split(": ", 1)[-1] for d in rag_docs]
+    # títulos AAZV ("134_Herpesviridae_..._1 2018"): underscore e número solto viram AND sem resultado
+    termos = [" ".join(re.sub(r"\b\d+\b", " ", d.split(": ", 1)[-1].replace("_", " ")).split()) for d in rag_docs]
     if not termos:
         try:
             from rag.retriever import termos_en
