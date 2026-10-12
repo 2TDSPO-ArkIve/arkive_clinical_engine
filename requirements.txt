@@ -1,31 +1,16 @@
-#  Dependências de produção (Python 3.11+)
-
-# Oracle Database driver
+# Python 3.11+
 oracledb>=2.3.0,<3.0.0
-
-# LangChain core
 langchain-core>=0.3.0,<0.4.0
-
-# Groq via LangChain
 langchain-groq>=0.2.0,<1.0.0
-
-# DuckDuckGo search
 ddgs>=0.1.0
 
-# RAG local: embedding via onnxruntime + tokenizer podado (sem fastembed, ver rag/retriever.py)
+# RAG: onnxruntime + tokenizer podado, sem fastembed (ver rag/retriever.py)
 onnxruntime==1.30.0
 tokenizers==0.23.2
 huggingface_hub==1.33.0
 faiss-cpu==1.15.1
 
-# Pydantic v2
 pydantic>=2.7.0,<3.0.0
-
-# Variáveis de ambiente
 python-dotenv>=1.0.0,<2.0.0
-
-# FastAPI
 fastapi>=0.110.0
-
-# Uvicorn ASGI server
 uvicorn>=0.27.0

@@ -1,25 +1,4 @@
-"""
-schemas/diagnostic_detalhado.py
-================================
-Schema Pydantic v2 que define o contrato de saída estruturada da IA usado
-em conjunto com prompts/diagnostic.py (raciocínio clínico dividido em 4
-campos independentes: perfil, correlação, predisposição e limitações).
-
-Mantido em arquivo/classe separados de schemas/diagnostic.py apenas por
-organização — DiagnosticoOutput (schema com um único campo ds_insight_ia)
-permanece intacto naquele arquivo. Esta separação não representa
-versionamento (isso é responsabilidade do Git); é só uma divisão por
-responsabilidade para facilitar a manutenção de cada schema.
-
-DiagnosticoOutputDetalhado:
-    Schema principal preenchido pela IA via ChatGroq.with_structured_output().
-    Os 4 campos de insight são compostos em um único texto através de
-    to_ds_insight_ia(), preservando o contrato de uma única coluna
-    DS_INSIGHT_IA (CLOB) esperado pelo serviço Java em
-    TB_ARKIVE_DIAGNOSTICO — os campos brutos continuam disponíveis no dict
-    de saída de agents/clinical_agent.py para quem quiser consumi-los
-    granularmente, mas não são persistidos individualmente.
-"""
+"""Contrato de saída do LLM (ChatGroq.with_structured_output), com o raciocínio em 4 campos."""
 
 from __future__ import annotations
 
@@ -30,11 +9,6 @@ from pydantic import BaseModel, Field, field_validator
 
 class DiagnosticoOutputDetalhado(BaseModel):
     """
-    Saída estruturada do Motor de Inteligência Clínica Veterinária ArkIve,
-    com o raciocínio clínico dividido em 4 campos independentes (perfil,
-    correlação, predisposição, limitações), conforme instruído em
-    prompts/diagnostic.py.
-
     Mapeamento para TB_ARKIVE_DIAGNOSTICO (gravação pelo serviço Java):
     ┌────────────────────────┬───────────────────────────────────────────────┐
     │ Campo Python           │ Coluna Oracle / Tipo / Restrição               │
@@ -141,20 +115,10 @@ class DiagnosticoOutputDetalhado(BaseModel):
     )
     @classmethod
     def _strip_texto(cls, v: str) -> str:
-        """Remove espaços extras das bordas dos campos de texto."""
         return v.strip() if isinstance(v, str) else v
 
     def to_ds_insight_ia(self) -> str:
-        """
-        Compõe os 4 campos de insight em um único texto, na ordem em que
-        prompts/diagnostic.py instrui o modelo a produzi-los (perfil →
-        correlação → predisposição → limitações).
-
-        Usado por agents/clinical_agent.py para preencher o campo
-        `ds_insight_ia` do payload final, mantendo compatibilidade com o
-        contrato de coluna única (DS_INSIGHT_IA CLOB) esperado pelo serviço
-        Java em TB_ARKIVE_DIAGNOSTICO.
-        """
+        """Os 4 insights em um texto, para a coluna única DS_INSIGHT_IA (CLOB)."""
         return "\n\n".join(
             [
                 self.insight_perfil,

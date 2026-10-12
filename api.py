@@ -3,11 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import validate_config
 from agents.clinical_agent import ClinicalIntelligenceEngine
 
-# Valida as variáveis de ambiente (ORACLE_USER, GROQ_API_KEY, etc.)
-# Fail-fast: se a configuração for inválida, a API não deve subir "pela
-# metade" e quebrar de forma inesperada na primeira request (ex.: ao
-# instanciar ClinicalIntelligenceEngine sem GROQ_API_KEY). Interrompe o
-# processo aqui, com uma mensagem de erro clara.
+# fail-fast: config inválida derruba o boot, não a primeira request
 try:
     validate_config()
 except RuntimeError as exc:
@@ -16,7 +12,6 @@ except RuntimeError as exc:
 
 app = FastAPI(title="API Clínica ArkIve")
 
-# Configuração de CORS para permitir que aplicações web (HTML/JS) chamem a API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -25,16 +20,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Inicializa o motor de IA[cite: 5]
 engine = ClinicalIntelligenceEngine()
 
 @app.get("/health")
 def health():
-    """Liveness: confirma que o processo subiu e responde HTTP.
-
-    Não toca Oracle nem Groq — a config já é validada no boot (fail-fast),
-    então processo vivo implica config válida.
-    """
+    """Liveness. Não toca Oracle nem Groq: a config já foi validada no boot."""
     return {"status": "ok"}
 
 
@@ -42,11 +32,9 @@ def health():
 def gerar_diagnostico(id_consulta: int):
     if id_consulta <= 0:
         raise HTTPException(status_code=400, detail="ID deve ser um inteiro positivo.")
-        
+
     try:
-        # Aciona o fluxo: Oracle -> Heurística -> Groq[cite: 5]
-        result = engine.analyze(id_consulta=id_consulta)
-        return result
+        return engine.analyze(id_consulta=id_consulta)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except RuntimeError as exc:

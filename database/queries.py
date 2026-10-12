@@ -1,31 +1,4 @@
-"""
-database/queries.py
-===================
-SQLs parametrizados e lógica de extração de dados clínicos do Oracle.
-
-CLINICAL_DATA_QUERY:      JOIN único com avaliação de bem-estar via LATERAL
-                           JOIN (requer Oracle 12c+). Filtra espécie/raça
-                           logicamente ativas.
-PREDISPOSITION_QUERY:     busca separada de predisposições genéticas da
-                           raça/espécie (separada para evitar multiplicação
-                           de linhas). Regra de herança: uma predisposição
-                           de nível espécie (ID_RACA IS NULL) sempre se
-                           aplica; uma predisposição de raça só se aplica se
-                           o animal tiver exatamente aquela raça.
-DIAGNOSTIC_HISTORY_QUERY: busca os diagnósticos mais recentes de OUTRAS
-                           consultas do mesmo animal, para dar continuidade
-                           de cuidado ao raciocínio da IA. Quantidade
-                           configurável via DIAGNOSTIC_HISTORY_LIMIT.
-PRESCRIPTION_HISTORY_QUERY: prescrições (medicamentos/tratamentos) mais
-                           recentes do animal, com resumo de adesão
-                           terapêutica. Join via TB_ARKIVE_CONSULTA porque
-                           a prescrição referencia ID_CONSULTA, não
-                           ID_ANIMAL. Quantidade via HISTORICO_CUIDADO_LIMIT.
-PREVENTIVE_STATUS_QUERY:  eventos de cuidado preventivo (vacina, vermífugo,
-                           check-up, antiparasitário) do animal, priorizando
-                           os ATRASADO/PENDENTE. Quantidade via
-                           HISTORICO_CUIDADO_LIMIT.
-"""
+"""5 SELECTs parametrizados (somente leitura) e o ClinicalContext que os agrega."""
 
 from __future__ import annotations
 
@@ -40,31 +13,24 @@ from config import DIAGNOSTIC_HISTORY_LIMIT, HISTORICO_CUIDADO_LIMIT, MAX_TRANSC
 
 logger = logging.getLogger(__name__)
 
-#: Tamanho máximo (em caracteres) da descrição de doença exibida no resumo
-#: clínico, para não estourar a janela de contexto do LLM com CLOBs longos.
-_MAX_DOENCA_DESC_CHARS = 400
+_MAX_DOENCA_DESC_CHARS = 400  # DS_DOENCA é CLOB
 
-# SQL 1: Dados Clínicos Agregados da Consulta
-
+# LEFT JOIN LATERAL exige Oracle 12c+.
 CLINICAL_DATA_QUERY: str = """
 SELECT
-    -- Animal
     a.ID_ANIMAL,
     a.NM_ANIMAL,
     a.DS_SEXO,
     a.DS_CASTRADO,
     a.DT_NASCIMENTO,
 
-    -- Espécie
     e.ID_ESPECIE,
     e.NM_ESPECIE,
 
-    -- Raça (LEFT JOIN: pode ser nula para animais SRD)
     r.ID_RACA,
     r.NM_RACA,
     r.TP_PORTE,
 
-    -- Consulta atual
     c.ID_CONSULTA,
     c.DT_HORA,
     c.TP_MODALIDADE,
@@ -74,7 +40,6 @@ SELECT
     c.DS_TRANSCRICAO,
     c.KG_PESO          AS KG_PESO_CONSULTA,
 
-    -- Avaliação de Bem-Estar mais recente (via LATERAL JOIN)
     abe.NR_IDADE,
     abe.KG_PESO        AS KG_PESO_BEM_ESTAR,
     abe.DS_APETITE,
@@ -86,15 +51,11 @@ FROM       TB_ARKIVE_CONSULTA             c
 JOIN       TB_ARKIVE_ANIMAL               a   ON a.ID_ANIMAL  = c.ID_ANIMAL
 JOIN       TB_ARKIVE_ESPECIE              e   ON e.ID_ESPECIE = a.ID_ESPECIE
                                               AND e.ST_ATIVO   = 'S'
--- LEFT JOIN: a condição de ST_ATIVO fica no ON (não no WHERE) para não
--- transformar acidentalmente este LEFT JOIN em INNER JOIN quando a raça
--- estiver inativa ou for nula (animal SRD).
+-- ST_ATIVO no ON, não no WHERE: senão vira INNER JOIN e some o animal SRD
 LEFT JOIN  TB_ARKIVE_RACA                 r   ON r.ID_RACA    = a.ID_RACA
                                               AND r.ST_ATIVO   = 'S'
 
--- LATERAL JOIN: busca avaliação de bem-estar mais relevante para este animal.
--- ORDER BY: registros desta consulta têm prioridade 0 (sobre os demais = 1).
--- FETCH FIRST 1 ROW ONLY garante exatamente um registro por animal.
+-- avaliação desta consulta primeiro, senão a mais recente do animal
 LEFT JOIN LATERAL (
     SELECT
         NR_IDADE,
@@ -114,24 +75,7 @@ LEFT JOIN LATERAL (
 WHERE c.ID_CONSULTA = :id_consulta
 """
 
-# SQL 2: Doenças com Predisposição Genética da Raça / Espécie
-#
-# Regra de herança (confirmada com o time de negócio): uma predisposição de
-# nível espécie (P.ID_RACA IS NULL) SEMPRE se aplica, independentemente de o
-# animal ter raça definida ou ser SRD — ex.: um Labrador é sempre um Cão, e
-# herda os riscos genéticos gerais da espécie. Uma predisposição de raça
-# (P.ID_RACA preenchido) só se aplica se o animal tiver EXATAMENTE aquela
-# raça.
-#
-# ATENÇÃO — bug corrigido nesta versão: a condição antiga usava
-# ":id_raca IS NULL" dentro do OR, o que fazia com que, para animais SRD
-# (ctx.id_raca = None), TODAS as predisposições de raça (de qualquer raça)
-# fossem retornadas incorretamente, já que ":id_raca IS NULL" era sempre
-# verdadeiro nesse caso e "vazava" o filtro. A versão abaixo usa
-# ":id_raca IS NOT NULL AND p.ID_RACA = :id_raca", que exige que o animal
-# tenha uma raça E que ela bata exatamente — sem vazamento quando id_raca é
-# nulo.
-
+# Predisposição de espécie (ID_RACA nulo) vale sempre; a de raça, só para aquela raça exata.
 PREDISPOSITION_QUERY: str = """
 SELECT DISTINCT
     d.NM_DOENCA,
@@ -145,24 +89,14 @@ WHERE  d.ST_ATIVO = 'S'
     FROM   TB_ARKIVE_PREDISPOSICAO p
     WHERE  p.ID_ESPECIE = :id_especie
       AND  (
-               p.ID_RACA IS NULL                                   -- nível espécie: sempre entra
-            OR (:id_raca IS NOT NULL AND p.ID_RACA = :id_raca)     -- nível raça: só se bater exatamente
+               p.ID_RACA IS NULL
+            OR (:id_raca IS NOT NULL AND p.ID_RACA = :id_raca)
            )
 )
 ORDER BY d.NM_DOENCA
 """
 
-# SQL 3: Histórico de Diagnósticos Anteriores do Mesmo Animal
-#
-# Busca os diagnósticos mais recentes já registrados para o animal em OUTRAS
-# consultas (exclui a consulta atual), para dar continuidade do cuidado ao
-# raciocínio da IA. LEFT JOIN com TB_ARKIVE_DOENCA para trazer o nome da
-# doença catalogada quando o diagnóstico foi vinculado a uma (ID_DOENCA).
-#
-# Limitado a :limit registros mais recentes (configurável via
-# DIAGNOSTIC_HISTORY_LIMIT em config.py) para não estourar a janela de
-# contexto do LLM com um histórico muito longo.
-
+# Diagnósticos de outras consultas do mesmo animal.
 DIAGNOSTIC_HISTORY_QUERY: str = """
 SELECT
     c2.DT_HORA,
@@ -184,20 +118,7 @@ ORDER BY c2.DT_HORA DESC
 FETCH FIRST :limit ROWS ONLY
 """
 
-# SQL 4: Prescrições Recentes do Animal (Medicamentos / Tratamentos)
-#
-# A tabela TB_ARKIVE_PRESCRICAO referencia ID_CONSULTA (não ID_ANIMAL), então
-# o vínculo com o animal é feito via TB_ARKIVE_CONSULTA. Traz as prescrições
-# mais recentes por DT_INICIO, mais um resumo de adesão terapêutica: contagem
-# de registros em TB_ARKIVE_ADESAO_PRESCRICAO com ST_TOMOU = 'S' (seguiu) e
-# 'N' (não seguiu) — via subquery escalar, para não multiplicar linhas.
-# Usado pela IA para entender tratamento em curso, falha de resposta e
-# possível baixa adesão como fator de risco.
-# Limitado a :limit (HISTORICO_CUIDADO_LIMIT) para não estourar a janela de
-# contexto do LLM.
-#
-# NOTA READ-ONLY: consulta puramente SELECT, como todas as demais.
-
+# Prescrição liga em ID_CONSULTA, não em ID_ANIMAL. Adesão por subquery escalar para não multiplicar linhas.
 PRESCRIPTION_HISTORY_QUERY: str = """
 SELECT
     p.NM_MEDICAMENTO,
@@ -226,18 +147,7 @@ ORDER BY p.DT_INICIO DESC
 FETCH FIRST :limit ROWS ONLY
 """
 
-# SQL 5: Status de Cuidado Preventivo do Animal (Vacinas / Vermífugo / etc.)
-#
-# TB_ARKIVE_EVENTO_PREVENTIVO tem ID_ANIMAL direto. Join com
-# TB_ARKIVE_PROTOCOLO_PREVENTIVO para trazer o nome e o tipo do protocolo.
-# Ordena priorizando o que exige ação (ATRASADO, depois PENDENTE), depois
-# REALIZADO, e por DT_PROXIMO. A IA usa isso como fator de risco de fundo
-# (ex.: imunização em atraso) e como recomendação em insight_limitacoes —
-# nunca como hipótese diagnóstica principal.
-# Limitado a :limit (HISTORICO_CUIDADO_LIMIT).
-#
-# NOTA READ-ONLY: consulta puramente SELECT.
-
+# ATRASADO e PENDENTE primeiro.
 PREVENTIVE_STATUS_QUERY: str = """
 SELECT
     pp.NM_PROTOCOLO,
@@ -261,33 +171,23 @@ ORDER BY
 FETCH FIRST :limit ROWS ONLY
 """
 
-# Contexto Clínico Completo
-
-
 @dataclass
 class ClinicalContext:
-    """
-    Contêiner tipado com todos os dados clínicos extraídos do Oracle.
-    Serve como contrato entre a camada de banco e a camada de IA.
-    """
+    """Contrato entre a camada de banco e a de IA."""
 
-    # Animal
     id_animal: int = 0
     nm_animal: str = ""
     ds_sexo: str = ""
     ds_castrado: str = ""
     dt_nascimento: datetime | None = None
 
-    # Espécie
     id_especie: int | None = None
     nm_especie: str = ""
 
-    # Raça
     id_raca: int | None = None
     nm_raca: str = ""
     tp_porte: str = ""
 
-    # Consulta
     id_consulta: int = 0
     dt_hora: datetime | None = None
     tp_modalidade: str = ""
@@ -297,7 +197,6 @@ class ClinicalContext:
     ds_transcricao: str = ""
     kg_peso_consulta: float | None = None
 
-    # Bem-Estar
     nr_idade: float | None = None
     kg_peso_bem_estar: float | None = None
     ds_apetite: str = ""
@@ -305,44 +204,20 @@ class ClinicalContext:
     ds_comportamento: str = ""
     ds_obs_bem_estar: str = ""
 
-    # Predisposições Genéticas
-    # Cada item: {"nm_doenca": str, "ds_doenca": str, "ds_sintomas": str}
-    # "ds_sintomas" contém as palavras-chave clínicas catalogadas para a
-    # doença (TB_ARKIVE_DOENCA.DS_SINTOMAS) — usado por
-    # agents/clinical_agent.py para um match mais preciso entre sintomas
-    # relatados e predisposição, em vez de comparar só contra o nome da
-    # doença.
+    # cada lista guarda as colunas da query correspondente, em minúsculas
     predisposicoes: list[dict[str, str]] = field(default_factory=list)
-
-    # Histórico de Diagnósticos Anteriores (outras consultas do mesmo animal)
     diagnosticos_anteriores: list[dict[str, Any]] = field(default_factory=list)
-
-    # Prescrições recentes (medicamentos / tratamentos) do animal.
-    # Cada item: colunas de PRESCRIPTION_HISTORY_QUERY (nm_medicamento,
-    # ds_dosagem, ds_frequencia, tp_via_administracao, dt_inicio, dt_fim,
-    # ds_instrucoes, dt_consulta, qt_adesao_sim, qt_adesao_nao).
     prescricoes: list[dict[str, Any]] = field(default_factory=list)
-
-    # Eventos de cuidado preventivo (vacina, vermífugo, check-up) do animal.
-    # Cada item: colunas de PREVENTIVE_STATUS_QUERY (nm_protocolo,
-    # tp_protocolo, st_status, dt_aplicacao, dt_proximo).
     eventos_preventivos: list[dict[str, Any]] = field(default_factory=list)
-
-    # Propriedades derivadas
 
     @property
     def peso_efetivo_kg(self) -> float | None:
-        """Peso da consulta ou da avaliação de bem-estar como fallback."""
+        """Peso da consulta, senão o da avaliação de bem-estar."""
         return self.kg_peso_consulta or self.kg_peso_bem_estar
 
     @property
     def idade_anos(self) -> float | None:
-        """
-        Idade em anos: calculada de DT_NASCIMENTO (TB_ARKIVE_ANIMAL) até a data
-        da consulta — ou até hoje, se a consulta não tiver DT_HORA. Fallback
-        para NR_IDADE da avaliação de bem-estar quando não há data de
-        nascimento (ou ela é inconsistente, ex.: futura).
-        """
+        """DT_NASCIMENTO até a consulta (ou hoje); NR_IDADE se não houver data válida."""
         if self.dt_nascimento:
             ref = self.dt_hora or datetime.now()
             dias = (ref - self.dt_nascimento).days
@@ -351,7 +226,7 @@ class ClinicalContext:
         return self.nr_idade
 
     def to_clinical_summary(self) -> str:
-        """Renderiza resumo clínico textual para injeção no prompt da LLM."""
+        """Resumo clínico em texto para o prompt."""
         _SEXO = {"M": "Macho", "F": "Fêmea"}
         _CASTRADO = {"S": "Castrado(a)", "N": "Inteiro(a)"}
 
@@ -397,8 +272,6 @@ class ClinicalContext:
         peso_str = f"{self.peso_efetivo_kg:.2f} kg" if self.peso_efetivo_kg else "Não informado"
         dt_str = self.dt_hora.strftime("%d/%m/%Y %H:%M") if self.dt_hora else "Não informada"
 
-        # Idade: precisa (de DT_NASCIMENTO) quando há data de nascimento;
-        # estimada (de NR_IDADE) no fallback.
         nascimento_str = (
             self.dt_nascimento.strftime("%d/%m/%Y")
             if hasattr(self.dt_nascimento, "strftime")
@@ -426,12 +299,7 @@ class ClinicalContext:
                 confianca = diag.get("pc_confianca")
                 confianca_str = f"{confianca:.0f}%" if confianca is not None else "N/A"
                 status_conf = _CONFIRMADO.get(diag.get("st_confirmado"), "status desconhecido")
-                # ST_VALIDACAO_VET é nullable e semanticamente distinto de
-                # ST_CONFIRMADO: indica se o veterinário validou o INSIGHT
-                # gerado pela IA (não se o diagnóstico em si foi confirmado).
-                # O prompt instrui ceticismo redobrado para diagnósticos
-                # anteriores não validados pelo vet, então esse sinal
-                # precisa chegar ao resumo textual.
+                # ST_VALIDACAO_VET (nullable): o vet validou o insight da IA, não o diagnóstico
                 st_validacao = diag.get("st_validacao_vet")
                 status_validacao = _VALIDACAO_VET.get(
                     st_validacao, "insight de IA não avaliado pelo veterinário"
@@ -527,21 +395,14 @@ class ClinicalContext:
         )
 
 
-# Função Principal de Extração
-
-
 def fetch_clinical_data(conn: oracledb.Connection, id_consulta: int) -> ClinicalContext:
     """
-    Executa as três queries (dados clínicos, predisposições, histórico) e
-    retorna ClinicalContext populado.
-
     Raises:
         ValueError: Nenhuma consulta encontrada para o ID.
         oracledb.DatabaseError: Erro de banco de dados.
     """
     ctx = ClinicalContext(id_consulta=id_consulta)
 
-    # Query 1: Dados Clínicos Principais
     logger.info("Executando CLINICAL_DATA_QUERY para ID_CONSULTA=%d", id_consulta)
     with conn.cursor() as cur:
         cur.execute(CLINICAL_DATA_QUERY, {"id_consulta": id_consulta})
@@ -557,12 +418,11 @@ def fetch_clinical_data(conn: oracledb.Connection, id_consulta: int) -> Clinical
     row_dict: dict[str, Any] = dict(zip(columns, row))
     logger.debug("Dados clínicos retornados: %s", list(row_dict.keys()))
 
-    # Mapeamento do resultado para o dataclass
     ctx.id_animal = int(row_dict["id_animal"] or 0)
     ctx.nm_animal = str(row_dict.get("nm_animal") or "")
     ctx.ds_sexo = str(row_dict.get("ds_sexo") or "")
     ctx.ds_castrado = str(row_dict.get("ds_castrado") or "")
-    ctx.dt_nascimento = row_dict.get("dt_nascimento")  # datetime | None
+    ctx.dt_nascimento = row_dict.get("dt_nascimento")
 
     ctx.id_especie = row_dict.get("id_especie")
     ctx.nm_especie = str(row_dict.get("nm_especie") or "")
@@ -571,7 +431,7 @@ def fetch_clinical_data(conn: oracledb.Connection, id_consulta: int) -> Clinical
     ctx.nm_raca = str(row_dict.get("nm_raca") or "")
     ctx.tp_porte = str(row_dict.get("tp_porte") or "")
 
-    ctx.dt_hora = row_dict.get("dt_hora")  # datetime | None
+    ctx.dt_hora = row_dict.get("dt_hora")
     ctx.tp_modalidade = str(row_dict.get("tp_modalidade") or "")
     ctx.ds_motivo = str(row_dict.get("ds_motivo") or "")
     ctx.ds_sintomas = str(row_dict.get("ds_sintomas") or "")
@@ -586,7 +446,6 @@ def fetch_clinical_data(conn: oracledb.Connection, id_consulta: int) -> Clinical
     ctx.ds_comportamento = str(row_dict.get("ds_comportamento") or "")
     ctx.ds_obs_bem_estar = str(row_dict.get("ds_obs_bem_estar") or "")
 
-    # Query 2: Predisposições Genéticas
     if ctx.id_especie is not None:
         logger.info(
             "Executando PREDISPOSITION_QUERY | ID_ESPECIE=%s | ID_RACA=%s",
@@ -612,7 +471,6 @@ def fetch_clinical_data(conn: oracledb.Connection, id_consulta: int) -> Clinical
     else:
         logger.warning("ID_ESPECIE é NULL — pulando query de predisposições.")
 
-    # Query 3: Histórico de Diagnósticos Anteriores do Mesmo Animal
     if ctx.id_animal:
         logger.info(
             "Executando DIAGNOSTIC_HISTORY_QUERY | ID_ANIMAL=%s | limit=%d",
@@ -637,7 +495,6 @@ def fetch_clinical_data(conn: oracledb.Connection, id_consulta: int) -> Clinical
             len(ctx.diagnosticos_anteriores),
         )
 
-    # Query 4: Prescrições Recentes (Medicamentos / Tratamentos) do Animal
     if ctx.id_animal:
         logger.info(
             "Executando PRESCRIPTION_HISTORY_QUERY | ID_ANIMAL=%s | limit=%d",
@@ -658,7 +515,6 @@ def fetch_clinical_data(conn: oracledb.Connection, id_consulta: int) -> Clinical
             len(ctx.prescricoes),
         )
 
-    # Query 5: Status de Cuidado Preventivo (Vacinas / Vermífugo / Check-up)
     if ctx.id_animal:
         logger.info(
             "Executando PREVENTIVE_STATUS_QUERY | ID_ANIMAL=%s | limit=%d",
@@ -683,7 +539,6 @@ def fetch_clinical_data(conn: oracledb.Connection, id_consulta: int) -> Clinical
 
 
 def _safe_float(value: Any) -> float | None:
-    """Converte valor para float; retorna None em falha."""
     if value is None:
         return None
     try:

@@ -18,7 +18,7 @@
 
 ## Repositório
  
-[![GitHub](https://img.shields.io/badge/GitHub-Acessar%20Repositório-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/2TDSPO-1-2/arkive_clinical_engine)
+[![GitHub](https://img.shields.io/badge/GitHub-Acessar%20Repositório-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/2TDSPO-ArkIve/arkive_clinical_engine)
 
 ---
 
@@ -87,7 +87,7 @@ estruturada validada**. Como cada parte é usada:
   + medicações + status preventivo + literatura web opcional). Saída **validada por Pydantic v2**
   (`DiagnosticoOutputDetalhado`), `temperature=0.10`, com fallback automático entre modelos.
 - **RAG local (ONNX + FAISS):** sempre que há relato clínico, busca semântica numa base
-  curada de ~830 fichas veterinárias (WOAH, AAZV, CFSPH, CAPC, ABCD, ESCCAP, USGS, ARWH, WHA),
+  curada de 782 fichas veterinárias (WOAH, AAZV, CFSPH, CAPC, ABCD, USGS, ARWH, WHA),
   filtrada pela espécie do animal. Os `RAG_TOP_K` documentos mais relevantes entram no prompt e
   seus nomes voltam em `fontes_rag`. Roda localmente, sem custo de API e independe do
   `pc_confianca` (ver [RAG — Base de Conhecimento Local](#rag--base-de-conhecimento-local)).
@@ -171,7 +171,7 @@ graph TD
         E4["4. Busca web (condicional)"]
         E5["5. Síntese clínica (LLM)<br/>resumo + RAG + web<br/>saída validada por Pydantic v2"]
         E1 --> E2 --> E2b --> E3 --> E4 --> E5
-        IDX[("rag/index<br/>FAISS + chunks<br/>WOAH, AAZV, CFSPH, CAPC, ESCCAP…")]
+        IDX[("rag/index<br/>FAISS + chunks<br/>WOAH, AAZV, CFSPH, CAPC, ABCD…")]
         IDX -.->|"carregado no boot · e5-small ONNX"| E2b
     end
 
@@ -248,15 +248,13 @@ A resposta é consumida pela API Java para persistência em TB_ARKIVE_DIAGNOSTIC
 
 ```
 arkive_clinical_engine/
-├── .env                            # Variáveis de ambiente
+├── .env                            # Variáveis de ambiente (versionado; segredos ficam como <API_KEY>)
 ├── requirements.txt                # Dependências com versões fixas
-├── estruturaarkive.txt             # Dump da árvore de diretórios (tree /F)
 ├── config.py                       # Configuração centralizada + validação fail-fast
 ├── main.py                         # Ponto de entrada CLI
 ├── api.py                          # Ponto de entrada API REST (FastAPI) — inclui GET /health (liveness)
-├── test_dt_nascimento.py           # Check offline (assert puro) da idade derivada de DT_NASCIMENTO
 ├── agents/
-│   └── clinical_agent.py           # Motor principal (LangChain + Groq + heurística determinística)
+│   └── clinical_agent.py           # Motor principal (rubrica determinística + RAG + busca web + Groq)
 ├── database/
 │   ├── connection.py               # Conexão Oracle Thin mode, READ-ONLY
 │   └── queries.py                  # 5 SQLs parametrizados + dataclass ClinicalContext
@@ -264,12 +262,13 @@ arkive_clinical_engine/
 │   └── diagnostic.py               # System prompt do Groq (histórico de versões fica no Git)
 ├── rag/
 │   ├── build_index.ipynb           # Gera o índice (Colab): chunking, filtros de seção, embeddings
+│   ├── finetune_e5.ipynb           # Fine-tuning do e5 (Colab T4), exporta ONNX int8 e publica no HF privado
 │   ├── retriever.py                # RagRetriever: busca semântica + bloco de contexto para o prompt
+│   ├── eval/                       # avaliar.py + casos.jsonl (108 casos rotulados), pares.jsonl, baseline.json
 │   ├── index/                      # faiss.index + chunks.jsonl + manifest.json (versionado)
 │   └── model_cache/                # Modelo de embedding baixado (ignorado no Git)
 └── schemas/
-    ├── diagnostic.py               # Schema v1 (DiagnosticoOutput) — legado, fora do fluxo atual
-    └── diagnostic_detalhado.py     # Pydantic v2: DiagnosticoOutputDetalhado (schema em uso)
+    └── diagnostic_detalhado.py     # Pydantic v2: DiagnosticoOutputDetalhado
 ```
 
 ---
@@ -285,7 +284,7 @@ arkive_clinical_engine/
 ### 1. Clonar o repositório
 
 ```bash
-git clone https://github.com/<seu-usuario>/arkive_clinical_engine.git
+git clone https://github.com/2TDSPO-ArkIve/arkive_clinical_engine.git
 cd arkive_clinical_engine
 ```
 
@@ -385,7 +384,7 @@ uvicorn api:app --reload
   "ds_insight_ia": "Paciente Rex, canino, macho...\n\nVômito frequente...\n\nNenhuma predisposição...\n\nRecomenda-se...",
   "pc_confianca": 55,
   "fontes_pesquisadas": [],
-  "fontes_rag": ["ESCCAP: Worm Control in Dogs and Cats"]
+  "fontes_rag": ["CAPC: Giardia"]
 }
 ```
 
@@ -423,13 +422,12 @@ Qualquer outro domínio é descartado (inclusive `scholar.google` e landing page
 
 Diferente da busca web, o RAG roda **em toda consulta com relato clínico**. É local, barato e não depende do `pc_confianca`.
 
-**Base indexada** (`rag/index/`, gerada por `rag/build_index.ipynb`): 830 fichas em inglês, 15.183 trechos.
+**Base indexada** (`rag/index/`, gerada por `rag/build_index.ipynb`): 782 fichas em inglês (811 arquivos), 13.257 trechos.
 
 | Fonte | Conteúdo | Trechos |
 |---|---|---|
 | WOAH | Manuais terrestre e aquático: doenças de notificação obrigatória, diagnóstico e vacinas | 4.501 |
 | WHA | Wildlife Health Australia: fichas de doenças da fauna | 2.121 |
-| ESCCAP | Guias de parasitas de cães, gatos, equinos e pequenos mamíferos | 1.926 |
 | CFSPH | Fichas de doenças infecciosas e zoonoses (Iowa State) | 1.756 |
 | ABCD | Doenças infecciosas felinas | 1.560 |
 | AAZV | Fichas de doenças de animais de zoológico e silvestres | 1.499 |
@@ -444,7 +442,7 @@ Diferente da busca web, o RAG roda **em toda consulta com relato clínico**. É 
    É o `multilingual-e5-small` fine-tunado em relatos sintéticos PT → fichas EN (`rag/finetune_e5.ipynb`, pares em `rag/eval/pares.jsonl`).
    O tokenizer multilíngue completo (250k peças) ocupa ~250 MB e não cabe nos 512 MB do Render; o build
    (`--download`) grava uma versão podada às peças com caracteres latinos/gregos/símbolos e do corpus (~80 MB em memória),
-   com tokenização idêntica à original em todos os 15.183 trechos.
+   com tokenização idêntica à original em todos os 13.257 trechos.
 3. Resultados filtrados pela espécie do animal (`MAPA_ESPECIE`). Fichas multiespécie sempre entram, mas perdem 0.01 de score (`PENALIDADE_GENERICA`) para não lotar o top-k; espécie não mapeada = sem filtro.
 4. Trechos agrupados por documento (fonte + título). Documentos abaixo de `RAG_MIN_SCORE` são descartados; os `RAG_TOP_K` melhores restantes vão ao prompt com resumo + trechos, limitados a `RAG_MAX_CHARS` caracteres. Se nada passar do corte, o RAG fica vazio.
 5. O system prompt avisa que relevância é similaridade de texto, não probabilidade da doença: o LLM só usa um documento se os sinais clínicos e a epidemiologia (idade, espécie, exposição) forem compatíveis, e nunca o põe no `ds_diagnostico` com base só em sintoma genérico. Os documentos enviados voltam em `fontes_rag`.
@@ -458,7 +456,7 @@ Diferente da busca web, o RAG roda **em toda consulta com relato clínico**. É 
 > | recall@3 após o corte | 0.194 | 0.194 |
 > | ruído@3 | 0.330 | 0.093 |
 >
-> Detalhes em `PLANO_FINETUNING.md`.
+> Para medir de novo: `python -m rag.eval.avaliar` (compara com `rag/eval/baseline.json`; `--salvar` grava um novo baseline).
 
 > **Limite conhecido:** ruído e documento relevante ainda se sobrepõem perto do corte. O corte reduz o ruído, mas a trava principal é o prompt. A base cobre doenças infecciosas e parasitárias: quadros como pica, corpo estranho ou doença renal não têm ficha compatível.
 
@@ -508,9 +506,17 @@ O motor tenta os modelos na ordem `GROQ_MODEL_PRIMARY` → `GROQ_MODEL_FALLBACKS
 | `GROQ_MODEL_PRIMARY` | `openai/gpt-oss-120b` | Modelo tentado primeiro |
 | `GROQ_MODEL_FALLBACKS` | `qwen/qwen3.6-27b,openai/gpt-oss-20b` | Modelos seguintes, em ordem |
 | `GROQ_MAX_RETRIES_PER_MODEL` | `2` | Tentativas no mesmo modelo para erro transitório |
-| `GROQ_RETRY_BACKOFF_SECONDS` | `2` | Backoff exponencial entre tentativas (2s, 4s, ...) |
+| `GROQ_RETRY_BACKOFF_SECONDS` | `2` | Espera entre tentativas, crescente (2s, 4s, ...) |
 
 Cada execução recomeça pelo modelo primário — não há memória de qual modelo foi usado na execução anterior.
+
+---
+
+## Custo por Análise (Groq)
+
+Cada análise faz uma chamada ao LLM com cerca de **6,3 mil tokens** (medido no painel do Groq: system prompt, resumo clínico, bloco RAG e resposta com raciocínio). No plano gratuito, o `openai/gpt-oss-120b` tem 8 mil tokens por minuto e 200 mil por dia, o que dá cerca de **1 análise por minuto e 30 por dia**. Acima disso, o fallback troca de modelo.
+
+`RAG_MAX_CHARS` e `RAG_TOP_K` mexem direto nesse custo: cada 1.000 caracteres a mais no bloco RAG somam cerca de 250 tokens.
 
 ---
 
