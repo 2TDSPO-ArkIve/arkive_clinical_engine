@@ -1,7 +1,7 @@
 """
 Busca semântica nas fichas veterinárias (WOAH, AAZV, CFSPH, CAPC, ABCD, USGS, ARWH, WHA)
-indexadas por rag/build_index.ipynb. A seção "11. Busca" do notebook repete esta lógica:
-mudança em embedding, MAPA_ESPECIE ou agregação vai nos dois lugares.
+indexadas por rag/build_index.ipynb. Os dois notebooks importam daqui o modelo, o fatiar e a
+busca: esta é a única cópia da lógica.
 
 Uso:
     python -m rag.retriever             # teste com um relato de exemplo
@@ -21,7 +21,7 @@ import numpy as np
 
 from config import RAG_INDEX_DIR, RAG_MODEL_DIR
 
-# Iguais à célula "2. Configuração" do notebook, senão o índice é inválido.
+# Trocar o modelo invalida o índice: rode build_index.ipynb de novo.
 MODEL_NAME = "Sabelli/arkive-e5-vet"  # rag/finetune_e5.ipynb; repo privado, HF_TOKEN no .env
 MODEL_FILE = "onnx/model_quantized.onnx"
 DIM = 384

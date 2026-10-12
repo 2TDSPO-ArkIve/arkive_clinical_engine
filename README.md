@@ -238,7 +238,7 @@ Etapa 5 ──► Groq API (com fallback + retry entre modelos — ver seção d
              (incl. medicações vigentes e status de cuidado preventivo) + pc_confianca pronto + bloco RAG +
              contexto web (se houver) e gera DiagnosticoOutputDetalhado (4 campos de raciocínio clínico),
              validado pelo Pydantic v2.
-Saída: JSON ──► {ds_diagnostico, tp_severidade, ds_insight_ia, pc_confianca, fontes_rag, fontes_pesquisadas, + campos de
+Saída: JSON ──► {ds_diagnostico, tp_severidade, ds_insight_ia, pc_confianca, fontes_rag, fontes_pesquisadas, tokens, + campos de
              insight individuais (insight_perfil, insight_correlacao, insight_predisposicao, insight_limitacoes)}
 
 A resposta é consumida pela API Java para persistência em TB_ARKIVE_DIAGNOSTICO.
@@ -335,7 +335,8 @@ ORACLE_PASSWORD=sua_senha_fiap
 # Groq (obtenha em https://console.groq.com → API Keys)
 GROQ_API_KEY=gsk_sua_chave_aqui
 GROQ_MODEL_PRIMARY=openai/gpt-oss-120b
-GROQ_MODEL_FALLBACKS=qwen/qwen3.6-27b,openai/gpt-oss-20b
+GROQ_MODEL_FALLBACKS=qwen/qwen3.8-27b,openai/gpt-oss-20b
+GROQ_REASONING_EFFORT=low   # só nos gpt-oss: low, medium ou high
 GROQ_MAX_RETRIES_PER_MODEL=2
 GROQ_RETRY_BACKOFF_SECONDS=2
 
@@ -368,7 +369,7 @@ python main.py 1
 ```bash
 uvicorn api:app --reload
 # GET http://localhost:8000/diagnostico/1
-# GET http://localhost:8000/health      → {"status": "ok"} (liveness)
+# GET http://localhost:8000/health      → {"status": "ok", "rag": true} (liveness + RAG carregado)
 ```
 
 ### 6. Saída esperada
@@ -384,11 +385,12 @@ uvicorn api:app --reload
   "ds_insight_ia": "Paciente Rex, canino, macho...\n\nVômito frequente...\n\nNenhuma predisposição...\n\nRecomenda-se...",
   "pc_confianca": 55,
   "fontes_pesquisadas": [],
-  "fontes_rag": ["CAPC: Giardia"]
+  "fontes_rag": ["CAPC: Giardia"],
+  "tokens": {"entrada": 4810, "saida": 1320, "total": 6130}
 }
 ```
 
-`ds_insight_ia` é a composição textual dos 4 campos de insight (perfil + correlação + predisposição + limitações), mantida para compatibilidade com a coluna única `DS_INSIGHT_IA` (CLOB) esperada pelo serviço Java.
+`tokens` traz o consumo da chamada ao Groq (entrada, saída e total); não faz parte do schema e não é persistido. `ds_insight_ia` é a composição textual dos 4 campos de insight (perfil + correlação + predisposição + limitações), mantida para compatibilidade com a coluna única `DS_INSIGHT_IA` (CLOB) esperada pelo serviço Java.
 
 Logs de execução são exibidos no terminal. Em caso de erro, o JSON de saída conterá o campo `"error"` com a causa.
 
@@ -504,7 +506,8 @@ O motor tenta os modelos na ordem `GROQ_MODEL_PRIMARY` → `GROQ_MODEL_FALLBACKS
 | Variável | Padrão | Papel |
 |---|---|---|
 | `GROQ_MODEL_PRIMARY` | `openai/gpt-oss-120b` | Modelo tentado primeiro |
-| `GROQ_MODEL_FALLBACKS` | `qwen/qwen3.6-27b,openai/gpt-oss-20b` | Modelos seguintes, em ordem |
+| `GROQ_MODEL_FALLBACKS` | `qwen/qwen3.8-27b,openai/gpt-oss-20b` | Modelos seguintes, em ordem |
+| `GROQ_REASONING_EFFORT` | `low` | Esforço de raciocínio dos gpt-oss (`low`/`medium`/`high`); ignorado nos outros modelos |
 | `GROQ_MAX_RETRIES_PER_MODEL` | `2` | Tentativas no mesmo modelo para erro transitório |
 | `GROQ_RETRY_BACKOFF_SECONDS` | `2` | Espera entre tentativas, crescente (2s, 4s, ...) |
 
@@ -514,7 +517,7 @@ Cada execução recomeça pelo modelo primário — não há memória de qual mo
 
 ## Custo por Análise (Groq)
 
-Cada análise faz uma chamada ao LLM com cerca de **6,3 mil tokens** (medido no painel do Groq: system prompt, resumo clínico, bloco RAG e resposta com raciocínio). No plano gratuito, o `openai/gpt-oss-120b` tem 8 mil tokens por minuto e 200 mil por dia, o que dá cerca de **1 análise por minuto e 30 por dia**. Acima disso, o fallback troca de modelo.
+Cada análise faz uma chamada ao LLM com cerca de **6,3 mil tokens** (medido no painel do Groq com raciocínio `medium`: system prompt, resumo clínico, bloco RAG e resposta). O consumo real de cada análise volta no campo `tokens` do JSON e aparece no log; `GROQ_REASONING_EFFORT=low` reduz a parte do raciocínio. No plano gratuito, o `openai/gpt-oss-120b` tem 8 mil tokens por minuto e 200 mil por dia, o que dá cerca de **1 análise por minuto e 30 por dia**. Acima disso, o fallback troca de modelo.
 
 `RAG_MAX_CHARS` e `RAG_TOP_K` mexem direto nesse custo: cada 1.000 caracteres a mais no bloco RAG somam cerca de 250 tokens.
 
@@ -536,7 +539,7 @@ Cada análise faz uma chamada ao LLM com cerca de **6,3 mil tokens** (medido no 
 | `fontes_rag` | `list[str]` | Documentos do RAG enviados ao LLM (`"FONTE: título"`), preenchido pelo sistema |
 | `fontes_pesquisadas` | `list[str]` | URLs consultadas (lista vazia se busca web não foi acionada) |
 
-O payload final também inclui `ds_insight_ia`, composto a partir dos 4 campos de insight acima, para compatibilidade com a coluna única `DS_INSIGHT_IA` (CLOB) do banco.
+O payload final também inclui `ds_insight_ia`, composto a partir dos 4 campos de insight acima, para compatibilidade com a coluna única `DS_INSIGHT_IA` (CLOB) do banco. Inclui também `tokens` (`entrada`, `saida`, `total`), o consumo da chamada ao Groq, preenchido pelo sistema e não persistido.
 
 ---
 

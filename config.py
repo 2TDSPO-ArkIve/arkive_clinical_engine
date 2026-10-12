@@ -30,8 +30,10 @@ GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
 GROQ_TEMPERATURE: float = 0.10
 GROQ_MODEL_PRIMARY: str = os.getenv("GROQ_MODEL_PRIMARY", "openai/gpt-oss-120b")
 _GROQ_MODEL_FALLBACKS_RAW: str = os.getenv(
-    "GROQ_MODEL_FALLBACKS", "qwen/qwen3.6-27b,openai/gpt-oss-20b"
+    "GROQ_MODEL_FALLBACKS", "qwen/qwen3.8-27b,openai/gpt-oss-20b"
 )
+#: Só nos gpt-oss (low/medium/high). Raciocínio conta no limite de tokens por minuto da Groq.
+GROQ_REASONING_EFFORT: str = os.getenv("GROQ_REASONING_EFFORT", "low")
 #: Retry no mesmo modelo só para erro transitório; 429 pula direto para o próximo.
 _GROQ_MAX_RETRIES_PER_MODEL_RAW: str = os.getenv("GROQ_MAX_RETRIES_PER_MODEL", "2")
 #: Backoff linear: valor, valor*2, ...

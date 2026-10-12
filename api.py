@@ -15,7 +15,7 @@ app = FastAPI(title="API Clínica ArkIve")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,  # sem cookie; "*" com credentials o navegador rejeita
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -25,7 +25,7 @@ engine = ClinicalIntelligenceEngine()
 @app.get("/health")
 def health():
     """Liveness. Não toca Oracle nem Groq: a config já foi validada no boot."""
-    return {"status": "ok"}
+    return {"status": "ok", "rag": engine._rag is not None}
 
 
 @app.get("/diagnostico/{id_consulta}")

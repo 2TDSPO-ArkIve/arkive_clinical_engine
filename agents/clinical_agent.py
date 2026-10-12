@@ -21,6 +21,7 @@ from config import (
     GROQ_API_KEY,
     GROQ_MAX_RETRIES_PER_MODEL,
     GROQ_MODELS,
+    GROQ_REASONING_EFFORT,
     GROQ_RETRY_BACKOFF_SECONDS,
     GROQ_TEMPERATURE,
     RAG_INDEX_DIR,
@@ -134,10 +135,13 @@ class ClinicalIntelligenceEngine:
         pseudo-tool "json" e dão 400 "tool 'json' which was not in request.tools"."""
         if model not in self._chains:
             logger.debug("Criando client ChatGroq para o modelo '%s' (primeiro uso).", model)
-            llm = ChatGroq(model=model, api_key=GROQ_API_KEY, temperature=GROQ_TEMPERATURE)
+            extra = {"reasoning_effort": GROQ_REASONING_EFFORT} if "gpt-oss" in model else {}
+            llm = ChatGroq(model=model, api_key=GROQ_API_KEY, temperature=GROQ_TEMPERATURE, **extra)
+            # include_raw: usage_metadata para o log de tokens; o erro de parse vem no dict, não levanta
             self._chains[model] = llm.with_structured_output(
                 DiagnosticoOutputDetalhado,
                 method="json_schema",
+                include_raw=True,
             )
         return self._chains[model]
 
@@ -195,7 +199,7 @@ class ClinicalIntelligenceEngine:
             logger.info("Dados locais suficientes — busca web não acionada.")
 
         logger.info("Enviando requisição ao Groq...")
-        diagnostic: DiagnosticoOutputDetalhado = self._generate_diagnostic(
+        diagnostic, tokens = self._generate_diagnostic(
             clinical_summary=clinical_summary,
             web_context=web_context,
             sources=sources,
@@ -216,6 +220,8 @@ class ClinicalIntelligenceEngine:
         # ds_insight_ia: os 4 insights juntos, para a coluna única DS_INSIGHT_IA do serviço Java
         result = diagnostic.model_dump()
         result["ds_insight_ia"] = diagnostic.to_ds_insight_ia()
+        # fora do schema: o LLM não preenche, e o serviço Java não persiste
+        result["tokens"] = tokens
         return result
 
     def _fetch_oracle_data(self, id_consulta: int) -> ClinicalContext:
@@ -308,7 +314,7 @@ class ClinicalIntelligenceEngine:
         ctx: ClinicalContext,
         confianca_calculada: int,
         rag_context: str = "",
-    ) -> DiagnosticoOutputDetalhado:
+    ) -> tuple[DiagnosticoOutputDetalhado, dict[str, Any]]:
         parts = [
             "Analise os seguintes dados clínicos veterinários e gere o "
             "diagnóstico estruturado:\n\n",
@@ -348,15 +354,15 @@ class ClinicalIntelligenceEngine:
             HumanMessage(content="".join(parts)),
         ]
 
-        diagnostic: DiagnosticoOutputDetalhado = self._invoke_with_fallback(messages)
+        diagnostic, tokens = self._invoke_with_fallback(messages)
 
         diagnostic.pc_confianca = confianca_calculada
         if sources and not diagnostic.fontes_pesquisadas:
             diagnostic.fontes_pesquisadas = sources
 
-        return diagnostic
+        return diagnostic, tokens
 
-    def _invoke_with_fallback(self, messages: list[Any]) -> DiagnosticoOutputDetalhado:
+    def _invoke_with_fallback(self, messages: list[Any]) -> tuple[DiagnosticoOutputDetalhado, dict[str, Any]]:
         """Percorre GROQ_MODELS a partir do primário em toda chamada. Erro transitório: retry
         com backoff no mesmo modelo. Cota/indisponível: próximo modelo direto.
         RuntimeError se todos falharem."""
@@ -367,14 +373,20 @@ class ClinicalIntelligenceEngine:
 
             for tentativa in range(1, GROQ_MAX_RETRIES_PER_MODEL + 1):
                 try:
-                    diagnostic: DiagnosticoOutputDetalhado = chain.invoke(messages)
+                    saida = chain.invoke(messages)
+                    if saida["parsing_error"]:
+                        raise saida["parsing_error"]
+                    uso = getattr(saida["raw"], "usage_metadata", None) or {}
+                    tokens = {"entrada": uso.get("input_tokens"), "saida": uso.get("output_tokens"),
+                              "total": uso.get("total_tokens")}
                     logger.info(
-                        "Diagnóstico gerado usando modelo: %s (tentativa %d/%d)",
+                        "Diagnóstico gerado usando modelo: %s (tentativa %d/%d) | tokens: %s",
                         model,
                         tentativa,
                         GROQ_MAX_RETRIES_PER_MODEL,
+                        tokens,
                     )
-                    return diagnostic
+                    return saida["parsed"], tokens
 
                 except Exception as exc:
                     ultima_excecao = exc
@@ -523,9 +535,10 @@ def _is_quota_or_unavailable_error(exc: Exception) -> bool:
     """Cota (429) ou modelo indisponível/descontinuado: retry no mesmo modelo não ajuda.
     Olha a mensagem também, porque o tipo da exceção muda entre versões das libs."""
     status_code = getattr(exc, "status_code", None)
-    if status_code == 429:
+    if status_code in (404, 429):
         return True
 
+    # sem "unavailable": 503 "service unavailable" é transitório e merece retry
     mensagem = str(exc).lower()
     marcadores = (
         "rate limit",
@@ -535,8 +548,6 @@ def _is_quota_or_unavailable_error(exc: Exception) -> bool:
         "decommissioned",
         "does not exist",
         "model_not_found",
-        "not found",
-        "unavailable",
     )
     return any(marcador in mensagem for marcador in marcadores)
 
