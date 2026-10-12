@@ -46,6 +46,8 @@ _AMBIGUITY_THRESHOLD_RAW: str = os.getenv("AMBIGUITY_THRESHOLD", "60")
 _DIAGNOSTIC_HISTORY_LIMIT_RAW: str = os.getenv("DIAGNOSTIC_HISTORY_LIMIT", "5")
 _HISTORICO_CUIDADO_LIMIT_RAW: str = os.getenv("HISTORICO_CUIDADO_LIMIT", "5")
 _MAX_TRANSCRICAO_CHARS_RAW: str = os.getenv("MAX_TRANSCRICAO_CHARS", "6000")
+#: Corte do abstract de cada artigo PubMed (3 artigos) no contexto da busca web.
+_PUBMED_ABSTRACT_CHARS_RAW: str = os.getenv("PUBMED_ABSTRACT_CHARS", "700")
 
 #: Índice de rag/build_index.ipynb. Opcional: sem ele o motor segue sem RAG.
 RAG_INDEX_DIR: Path = Path(os.getenv("RAG_INDEX_DIR", str(Path(__file__).parent / "rag" / "index")))
@@ -84,6 +86,10 @@ if _err:
     _config_errors.append(_err)
 
 MAX_TRANSCRICAO_CHARS, _err = _parse_positive_int(_MAX_TRANSCRICAO_CHARS_RAW, "MAX_TRANSCRICAO_CHARS", 6000)
+if _err:
+    _config_errors.append(_err)
+
+PUBMED_ABSTRACT_CHARS, _err = _parse_positive_int(_PUBMED_ABSTRACT_CHARS_RAW, "PUBMED_ABSTRACT_CHARS", 700)
 if _err:
     _config_errors.append(_err)
 
