@@ -27,8 +27,8 @@ from config import (
     GROQ_REASONING_EFFORT,
     GROQ_RETRY_BACKOFF_SECONDS,
     GROQ_TEMPERATURE,
-    PREDISPOSICAO_DESC_CHARS,
     PREDISPOSICAO_LIMIT,
+    PREDISPOSICAO_RANK_TIMEOUT_S,
     PUBMED_ABSTRACT_CHARS,
     RAG_INDEX_DIR,
     RAG_MAX_CHARS,
@@ -248,7 +248,8 @@ class ClinicalIntelligenceEngine:
     def _rank_predisposicoes(self, predisposicoes: list[dict[str, str]], texto: str,
                              n: int) -> list[dict[str, str]]:
         """Top-n por similaridade e5 com o relato, reusando o modelo do RAG já carregado (sem RAM extra
-        relevante). Cada doença é embedada uma vez por processo. Sem RAG ou com erro: ranking lexical."""
+        relevante). Cada doença é embedada uma vez por processo. Sem RAG, com erro ou estourando
+        PREDISPOSICAO_RANK_TIMEOUT_S: ranking lexical; o que já foi embedado fica no cache."""
         if len(predisposicoes) <= n:
             return predisposicoes
         inicio, metodo = time.perf_counter(), "lexical"
@@ -256,18 +257,26 @@ class ClinicalIntelligenceEngine:
         if self._rag and texto:
             try:
                 from rag.retriever import QUERY_WINDOW_CHARS
-                consulta = self._rag.embed([f"query: {texto[:QUERY_WINDOW_CHARS]}"])[0]
-                passagens = [
-                    f"passage: {d.get('nm_doenca', '')} — {d.get('ds_sintomas', '')} "
-                    f"{(d.get('ds_doenca') or '')[:PREDISPOSICAO_DESC_CHARS]}"
-                    for d in predisposicoes
-                ]
+                # só nome + sintomas: ~3x menos tokens que com DS_DOENCA, e é o que casa com o relato
+                passagens = [f"passage: {d.get('nm_doenca', '')} — {d.get('ds_sintomas', '')}"
+                             for d in predisposicoes]
                 novas = [p for p in dict.fromkeys(passagens) if p not in self._vetores_doenca]
-                for p in novas:  # um por vez, como RagRetriever.embed: limita o pico de ativação
-                    self._vetores_doenca[p] = self._rag.embed([p])[0]
-                scores = [float(consulta @ self._vetores_doenca[p]) for p in passagens]
-                ordem = sorted(range(len(predisposicoes)), key=lambda i: -scores[i])
-                top, metodo = [predisposicoes[i] for i in ordem[:n]], f"semântico, {len(novas)} embed(s) novo(s)"
+                if novas:
+                    logger.info("Embedando %d predisposição(ões) nova(s) para o ranking semântico...", len(novas))
+                prazo = inicio + PREDISPOSICAO_RANK_TIMEOUT_S
+                # lote de textos curtos: menos overhead por chamada ONNX, pico de ativação de poucos MB
+                for i in range(0, len(novas), 16):
+                    if time.perf_counter() > prazo:
+                        metodo = f"lexical, timeout de {PREDISPOSICAO_RANK_TIMEOUT_S}s no embed"
+                        break
+                    lote = novas[i:i + 16]
+                    self._vetores_doenca.update(zip(lote, self._rag.modelo.embed(lote)))
+                else:
+                    consulta = self._rag.embed([f"query: {texto[:QUERY_WINDOW_CHARS]}"])[0]
+                    scores = [float(consulta @ self._vetores_doenca[p]) for p in passagens]
+                    ordem = sorted(range(len(predisposicoes)), key=lambda i: -scores[i])
+                    top = [predisposicoes[i] for i in ordem[:n]]
+                    metodo = f"semântico, {len(novas)} embed(s) novo(s)"
             except Exception as exc:
                 logger.warning("Ranking semântico das predisposições falhou (%s) — usando lexical.", exc)
         if top is None:

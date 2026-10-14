@@ -51,6 +51,8 @@ _PUBMED_ABSTRACT_CHARS_RAW: str = os.getenv("PUBMED_ABSTRACT_CHARS", "700")
 #: Predisposições (TB_ARKIVE_DOENCA) no prompt: cada uma custa ~150 tokens, e a tabela só cresce.
 _PREDISPOSICAO_LIMIT_RAW: str = os.getenv("PREDISPOSICAO_LIMIT", "5")
 _PREDISPOSICAO_DESC_CHARS_RAW: str = os.getenv("PREDISPOSICAO_DESC_CHARS", "400")
+#: Teto do ranking semântico das predisposições (embed das doenças novas); estourou, cai no lexical.
+_PREDISPOSICAO_RANK_TIMEOUT_S_RAW: str = os.getenv("PREDISPOSICAO_RANK_TIMEOUT_S", "10")
 
 #: Índice de rag/build_index.ipynb. Opcional: sem ele o motor segue sem RAG.
 RAG_INDEX_DIR: Path = Path(os.getenv("RAG_INDEX_DIR", str(Path(__file__).parent / "rag" / "index")))
@@ -101,6 +103,12 @@ if _err:
     _config_errors.append(_err)
 
 PREDISPOSICAO_DESC_CHARS, _err = _parse_positive_int(_PREDISPOSICAO_DESC_CHARS_RAW, "PREDISPOSICAO_DESC_CHARS", 400)
+if _err:
+    _config_errors.append(_err)
+
+PREDISPOSICAO_RANK_TIMEOUT_S, _err = _parse_positive_int(
+    _PREDISPOSICAO_RANK_TIMEOUT_S_RAW, "PREDISPOSICAO_RANK_TIMEOUT_S", 10
+)
 if _err:
     _config_errors.append(_err)
 
