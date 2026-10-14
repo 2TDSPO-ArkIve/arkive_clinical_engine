@@ -9,11 +9,14 @@ from typing import Any
 
 import oracledb
 
-from config import DIAGNOSTIC_HISTORY_LIMIT, HISTORICO_CUIDADO_LIMIT, MAX_TRANSCRICAO_CHARS
+from config import (
+    DIAGNOSTIC_HISTORY_LIMIT,
+    HISTORICO_CUIDADO_LIMIT,
+    MAX_TRANSCRICAO_CHARS,
+    PREDISPOSICAO_DESC_CHARS,
+)
 
 logger = logging.getLogger(__name__)
-
-_MAX_DOENCA_DESC_CHARS = 400  # DS_DOENCA é CLOB
 
 # LEFT JOIN LATERAL exige Oracle 12c+.
 CLINICAL_DATA_QUERY: str = """
@@ -235,16 +238,12 @@ class ClinicalContext:
             for doenca in self.predisposicoes:
                 nm = doenca.get("nm_doenca", "Desconhecida")
                 ds = doenca.get("ds_doenca") or "Sem descrição disponível."
-                ds_truncated = (
-                    ds[:_MAX_DOENCA_DESC_CHARS] + "..."
-                    if len(ds) > _MAX_DOENCA_DESC_CHARS
-                    else ds
-                )
-                pred_lines.append(f"  • {nm}: {ds_truncated}")
+                pred_lines.append(f"  • {nm}: {_cortar(ds, PREDISPOSICAO_DESC_CHARS)}")
                 sintomas_doenca = (doenca.get("ds_sintomas") or "").strip()
                 if sintomas_doenca:
                     pred_lines.append(
-                        f"      Palavras-chave clínicas associadas: {sintomas_doenca}"
+                        "      Palavras-chave clínicas associadas: "
+                        f"{_cortar(sintomas_doenca, PREDISPOSICAO_DESC_CHARS)}"
                     )
             predisposicoes_block = "\n".join(pred_lines)
         else:
@@ -536,6 +535,11 @@ def fetch_clinical_data(conn: oracledb.Connection, id_consulta: int) -> Clinical
         )
 
     return ctx
+
+
+def _cortar(texto: str, limite: int) -> str:
+    """DS_DOENCA é CLOB e DS_SINTOMAS não tem limite: sem corte, cada doença pesa no prompt."""
+    return texto[:limite] + "..." if len(texto) > limite else texto
 
 
 def _safe_float(value: Any) -> float | None:

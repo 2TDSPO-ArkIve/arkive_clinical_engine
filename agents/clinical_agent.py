@@ -27,6 +27,8 @@ from config import (
     GROQ_REASONING_EFFORT,
     GROQ_RETRY_BACKOFF_SECONDS,
     GROQ_TEMPERATURE,
+    PREDISPOSICAO_DESC_CHARS,
+    PREDISPOSICAO_LIMIT,
     PUBMED_ABSTRACT_CHARS,
     RAG_INDEX_DIR,
     RAG_MAX_CHARS,
@@ -124,6 +126,8 @@ class ClinicalIntelligenceEngine:
             GROQ_MODELS[1:],
         )
         self._chains: dict[str, Any] = {}  # um ChatGroq por modelo, criado no primeiro uso
+        # ponytail: cache sem limite, ~1,5 KB por doença; LRU se a tabela passar de dezenas de milhares
+        self._vetores_doenca: dict[str, Any] = {}  # texto "passage: ..." -> vetor e5
 
         # Opcional: sem índice, modelo ou faiss, o motor segue só com Oracle + web.
         try:
@@ -160,18 +164,21 @@ class ClinicalIntelligenceEngine:
         logger.info("── Iniciando análise clínica | ID_CONSULTA=%d ──", id_consulta)
 
         ctx: ClinicalContext = self._fetch_oracle_data(id_consulta)
-        clinical_summary: str = ctx.to_clinical_summary()
 
         # transcrição + sintomas, só em memória: nunca gravada em ctx.ds_sintomas
         narrativa_clinica = " ".join(
             p for p in ((ctx.ds_transcricao or "").strip(), (ctx.ds_sintomas or "").strip()) if p
         )
+        # lista completa: o pc_confianca não depende do corte nem do ranking
         confianca_calculada = _calculate_confidence(ctx, narrativa_clinica)
         logger.info("Confiança calculada deterministicamente: %d%%", confianca_calculada)
 
+        texto_rag = f"{(ctx.ds_motivo or '').strip()} {narrativa_clinica}".strip()
+        ctx.predisposicoes = self._rank_predisposicoes(ctx.predisposicoes, texto_rag, PREDISPOSICAO_LIMIT)
+        clinical_summary: str = ctx.to_clinical_summary()
+
         # RAG roda sempre que há relato; falha não derruba a análise
         rag_context, rag_docs = "", []
-        texto_rag = f"{(ctx.ds_motivo or '').strip()} {narrativa_clinica}".strip()
         if self._rag and texto_rag:
             try:
                 rag_context, rag_docs = self._rag.contexto(
@@ -237,6 +244,37 @@ class ClinicalIntelligenceEngine:
             # fora do schema: o LLM não preenche, e o serviço Java não persiste
             "tokens": tokens,
         }
+
+    def _rank_predisposicoes(self, predisposicoes: list[dict[str, str]], texto: str,
+                             n: int) -> list[dict[str, str]]:
+        """Top-n por similaridade e5 com o relato, reusando o modelo do RAG já carregado (sem RAM extra
+        relevante). Cada doença é embedada uma vez por processo. Sem RAG ou com erro: ranking lexical."""
+        if len(predisposicoes) <= n:
+            return predisposicoes
+        inicio, metodo = time.perf_counter(), "lexical"
+        top = None
+        if self._rag and texto:
+            try:
+                from rag.retriever import QUERY_WINDOW_CHARS
+                consulta = self._rag.embed([f"query: {texto[:QUERY_WINDOW_CHARS]}"])[0]
+                passagens = [
+                    f"passage: {d.get('nm_doenca', '')} — {d.get('ds_sintomas', '')} "
+                    f"{(d.get('ds_doenca') or '')[:PREDISPOSICAO_DESC_CHARS]}"
+                    for d in predisposicoes
+                ]
+                novas = [p for p in dict.fromkeys(passagens) if p not in self._vetores_doenca]
+                for p in novas:  # um por vez, como RagRetriever.embed: limita o pico de ativação
+                    self._vetores_doenca[p] = self._rag.embed([p])[0]
+                scores = [float(consulta @ self._vetores_doenca[p]) for p in passagens]
+                ordem = sorted(range(len(predisposicoes)), key=lambda i: -scores[i])
+                top, metodo = [predisposicoes[i] for i in ordem[:n]], f"semântico, {len(novas)} embed(s) novo(s)"
+            except Exception as exc:
+                logger.warning("Ranking semântico das predisposições falhou (%s) — usando lexical.", exc)
+        if top is None:
+            top = _top_predisposicoes(predisposicoes, texto, n)
+        logger.info("%d de %d predisposição(ões) enviada(s) ao LLM (ranking %s, %.0f ms).",
+                    len(top), len(predisposicoes), metodo, (time.perf_counter() - inicio) * 1000)
+        return top
 
     def _fetch_oracle_data(self, id_consulta: int) -> ClinicalContext:
         logger.info("Conectando ao Oracle (Thin mode)...")
@@ -466,6 +504,13 @@ def _termos_doenca(doenca: dict[str, str]) -> set[str]:
     """Palavras de 4+ letras do nome da doença e de DS_SINTOMAS (TB_ARKIVE_DOENCA)."""
     texto = f"{doenca.get('nm_doenca', '')} {doenca.get('ds_sintomas', '')}"
     return set(re.findall(r"\b\w{4,}\b", texto.lower()))
+
+
+def _top_predisposicoes(predisposicoes: list[dict[str, str]], sintomas: str, n: int) -> list[dict[str, str]]:
+    """Fallback sem RAG: as n doenças com mais termos em comum com o relato; empate mantém a
+    ordem da query (alfabética)."""
+    palavras = set(re.findall(r"\b\w{4,}\b", sintomas.lower()))
+    return sorted(predisposicoes, key=lambda d: -len(_termos_doenca(d) & palavras))[:n]
 
 
 def _calculate_confidence(ctx: ClinicalContext, sintomas: str) -> int:

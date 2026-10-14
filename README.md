@@ -164,7 +164,7 @@ graph TD
 
 | Etapa | O que faz |
 |---|---|
-| 1. Extração | 5 SELECTs parametrizados: animal, consulta, bem-estar, predisposições (espécie + raça), últimos `DIAGNOSTIC_HISTORY_LIMIT` diagnósticos, últimas `HISTORICO_CUIDADO_LIMIT` prescrições (com adesão) e eventos preventivos |
+| 1. Extração | 5 SELECTs parametrizados: animal, consulta, bem-estar, predisposições (espécie + raça; só as `PREDISPOSICAO_LIMIT` mais ligadas ao relato vão ao LLM, com descrição e sintomas cortados em `PREDISPOSICAO_DESC_CHARS` caracteres), últimos `DIAGNOSTIC_HISTORY_LIMIT` diagnósticos, últimas `HISTORICO_CUIDADO_LIMIT` prescrições (com adesão) e eventos preventivos |
 | 2. Confiança | `_calculate_confidence()` aplica a rubrica (ver [Cálculo de Confiança](#cálculo-de-confiança-pc_confianca)) |
 | 2b. RAG | `DS_MOTIVO` + narrativa clínica viram consulta semântica; os `RAG_TOP_K` documentos acima de `RAG_MIN_SCORE` vão ao prompt |
 | 3. Decisão | Busca web se `pc_confianca < AMBIGUITY_THRESHOLD` |
@@ -268,6 +268,8 @@ DIAGNOSTIC_HISTORY_LIMIT=5
 HISTORICO_CUIDADO_LIMIT=5
 MAX_TRANSCRICAO_CHARS=6000
 PUBMED_ABSTRACT_CHARS=700
+PREDISPOSICAO_LIMIT=5
+PREDISPOSICAO_DESC_CHARS=400
 RAG_TOP_K=3
 RAG_MAX_CHARS=4500
 RAG_MIN_SCORE=0.45

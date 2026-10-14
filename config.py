@@ -48,6 +48,9 @@ _HISTORICO_CUIDADO_LIMIT_RAW: str = os.getenv("HISTORICO_CUIDADO_LIMIT", "5")
 _MAX_TRANSCRICAO_CHARS_RAW: str = os.getenv("MAX_TRANSCRICAO_CHARS", "6000")
 #: Corte do abstract de cada artigo PubMed (3 artigos) no contexto da busca web.
 _PUBMED_ABSTRACT_CHARS_RAW: str = os.getenv("PUBMED_ABSTRACT_CHARS", "700")
+#: Predisposições (TB_ARKIVE_DOENCA) no prompt: cada uma custa ~150 tokens, e a tabela só cresce.
+_PREDISPOSICAO_LIMIT_RAW: str = os.getenv("PREDISPOSICAO_LIMIT", "5")
+_PREDISPOSICAO_DESC_CHARS_RAW: str = os.getenv("PREDISPOSICAO_DESC_CHARS", "400")
 
 #: Índice de rag/build_index.ipynb. Opcional: sem ele o motor segue sem RAG.
 RAG_INDEX_DIR: Path = Path(os.getenv("RAG_INDEX_DIR", str(Path(__file__).parent / "rag" / "index")))
@@ -90,6 +93,14 @@ if _err:
     _config_errors.append(_err)
 
 PUBMED_ABSTRACT_CHARS, _err = _parse_positive_int(_PUBMED_ABSTRACT_CHARS_RAW, "PUBMED_ABSTRACT_CHARS", 700)
+if _err:
+    _config_errors.append(_err)
+
+PREDISPOSICAO_LIMIT, _err = _parse_positive_int(_PREDISPOSICAO_LIMIT_RAW, "PREDISPOSICAO_LIMIT", 5)
+if _err:
+    _config_errors.append(_err)
+
+PREDISPOSICAO_DESC_CHARS, _err = _parse_positive_int(_PREDISPOSICAO_DESC_CHARS_RAW, "PREDISPOSICAO_DESC_CHARS", 400)
 if _err:
     _config_errors.append(_err)
 
