@@ -86,7 +86,8 @@ A personalização é **por animal**, não por um perfil genérico de espécie/r
 | Fonte | Colunas-chave | Uso pela IA |
 |---|---|---|
 | `TB_ARKIVE_ANIMAL` + `TB_ARKIVE_ESPECIE` + `TB_ARKIVE_RACA` | `NM_ANIMAL`, `DS_SEXO`, `DS_CASTRADO`, `DT_NASCIMENTO`; `NM_ESPECIE`; `NM_RACA`, `TP_PORTE` | perfil do paciente: espécie, raça, porte, sexo, status reprodutivo, idade |
-| `TB_ARKIVE_CONSULTA` | `DS_MOTIVO`, `DS_SINTOMAS`, `DS_OBSERVACAO`, `DS_TRANSCRICAO`, `KG_PESO` | quadro clínico atual; `DS_TRANSCRICAO` é o relato bruto (voz) do veterinário |
+| `TB_ARKIVE_CONSULTA` | `DS_MOTIVO`, `DS_SINTOMAS`, `DS_OBSERVACAO`, `DS_TRANSCRICAO`, `DS_OBS_RESPONSAVEL`, `KG_PESO` | quadro clínico atual; `DS_TRANSCRICAO` é o relato bruto (voz) do veterinário; `DS_OBS_RESPONSAVEL` é a observação do tutor para esta consulta |
+| `TB_ARKIVE_RELATO_ANIMAL` + `TB_ARKIVE_RESPONSAVEL` | `DS_RELATO`, `DT_OCORRENCIA`, `DT_CRIACAO`, `ST_ORIGEM_TRANSCRICAO`; `NM_RESPONSAVEL` | histórico de relatos do tutor (texto ou áudio transcrito), com data e autor; percepção do responsável, não diagnóstico |
 | `TB_ARKIVE_AVALIACAO_BEM_ESTAR` | `NR_IDADE`, `KG_PESO`, `DS_APETITE`, `DS_ATIVIDADE`, `DS_COMPORTAMENTO` | indicadores sistêmicos ao longo do tempo |
 | `TB_ARKIVE_PREDISPOSICAO` + `TB_ARKIVE_DOENCA` | `ID_ESPECIE`, `ID_RACA`; `NM_DOENCA`, `DS_SINTOMAS` | predisposições da espécie (sempre) e da raça exata |
 | `TB_ARKIVE_DIAGNOSTICO` (outras consultas) | `DS_DIAGNOSTICO`, `TP_SEVERIDADE`, `PC_CONFIANCA`, `ST_VALIDACAO_VET` | recorrência, progressão de severidade, ceticismo com o não validado |
@@ -119,7 +120,7 @@ O `pc_confianca` também é personalizado: é calculado sobre os dados **daquele
 1. O **veterinário** usa a aplicação (app/web) para registrar animal, consulta, bem-estar, prescrições e eventos preventivos.
 2. A **API Java** faz o CRUD e persiste tudo no **Oracle** (`TB_ARKIVE_*`).
 3. Ao concluir uma consulta, a API Java aciona o **Motor ArkIve** por `ID_CONSULTA`, via CLI (`python main.py <id>`) ou REST (`GET /diagnostico/{id_consulta}`).
-4. O motor lê o Oracle (5 SELECTs), calcula o `pc_confianca`, consulta o **RAG local**, busca no **PubMed** se a confiança for baixa e chama a **Groq API**.
+4. O motor lê o Oracle (6 SELECTs), calcula o `pc_confianca`, consulta o **RAG local**, busca no **PubMed** se a confiança for baixa e chama a **Groq API**.
 5. O motor devolve um **JSON estruturado** (`DiagnosticoOutputDetalhado` + `ds_insight_ia`).
 6. A **API Java grava** o resultado em `TB_ARKIVE_DIAGNOSTICO`.
 7. A aplicação **exibe a hipótese** ao veterinário, que a valida (`ST_VALIDACAO_VET`). Essa validação entra no histórico da próxima consulta.
@@ -135,7 +136,7 @@ graph TD
 
     subgraph Motor["Motor de Inteligência Clínica ArkIve — Python (READ-ONLY no banco)"]
         direction TB
-        E1["1. Extração clínica<br/>5 SELECTs parametrizados"]
+        E1["1. Extração clínica<br/>6 SELECTs parametrizados"]
         E2["2. pc_confianca<br/>rubrica determinística (Python puro)"]
         E2b["2b. RAG local<br/>busca semântica filtrada por espécie"]
         E3["3. Decisão de busca web<br/>pc_confianca &lt; AMBIGUITY_THRESHOLD?"]
@@ -164,7 +165,7 @@ graph TD
 
 | Etapa | O que faz |
 |---|---|
-| 1. Extração | 5 SELECTs parametrizados: animal, consulta, bem-estar, predisposições (espécie + raça; só as `PREDISPOSICAO_LIMIT` mais ligadas ao relato vão ao LLM, com descrição e sintomas cortados em `PREDISPOSICAO_DESC_CHARS` caracteres), últimos `DIAGNOSTIC_HISTORY_LIMIT` diagnósticos, últimas `HISTORICO_CUIDADO_LIMIT` prescrições (com adesão) e eventos preventivos |
+| 1. Extração | 6 SELECTs parametrizados: animal, consulta, bem-estar, predisposições (espécie + raça; só as `PREDISPOSICAO_LIMIT` mais ligadas ao relato vão ao LLM, com descrição e sintomas cortados em `PREDISPOSICAO_DESC_CHARS` caracteres), últimos `DIAGNOSTIC_HISTORY_LIMIT` diagnósticos, últimas `HISTORICO_CUIDADO_LIMIT` prescrições (com adesão), eventos preventivos e os `RELATO_RESPONSAVEL_LIMIT` relatos do responsável mais recentes (cada um cortado em `RELATO_RESPONSAVEL_CHARS` caracteres; o relato igual à observação da consulta é descartado) |
 | 2. Confiança | `_calculate_confidence()` aplica a rubrica (ver [Cálculo de Confiança](#cálculo-de-confiança-pc_confianca)) |
 | 2b. RAG | `DS_MOTIVO` + narrativa clínica viram consulta semântica; os `RAG_TOP_K` documentos acima de `RAG_MIN_SCORE` vão ao prompt |
 | 3. Decisão | Busca web se `pc_confianca < AMBIGUITY_THRESHOLD` |
@@ -184,7 +185,7 @@ arkive_clinical_engine/
 │   └── clinical_agent.py           # Motor principal (rubrica + RAG + busca web + Groq)
 ├── database/
 │   ├── connection.py               # Conexão Oracle Thin, READ-ONLY
-│   └── queries.py                  # 5 SQLs parametrizados + dataclass ClinicalContext
+│   └── queries.py                  # 6 SQLs parametrizados + dataclass ClinicalContext
 ├── prompts/
 │   └── diagnostic.py               # System prompt
 ├── rag/
@@ -271,6 +272,8 @@ PUBMED_ABSTRACT_CHARS=700
 PREDISPOSICAO_LIMIT=5
 PREDISPOSICAO_DESC_CHARS=400
 PREDISPOSICAO_RANK_TIMEOUT_S=10
+RELATO_RESPONSAVEL_LIMIT=5
+RELATO_RESPONSAVEL_CHARS=600
 RAG_TOP_K=3
 RAG_MAX_CHARS=4500
 RAG_MIN_SCORE=0.45
@@ -442,6 +445,8 @@ O microsserviço garante a imutabilidade do banco em três camadas:
 3. **`rollback()` no finally:** desfaz qualquer transação pendente antes de fechar a conexão.
 
 Nenhum `INSERT`, `UPDATE`, `DELETE` ou `MERGE` existe no código do motor.
+
+Texto livre do tutor (`TB_ARKIVE_RELATO_ANIMAL`, `DS_OBS_RESPONSAVEL`) vai ao LLM entre os marcadores `<<<RELATO>>>` e `<<<FIM_RELATO>>>`. O motor tira esses marcadores de dentro do texto e junta o relato numa linha. O system prompt manda tratar esse conteúdo como dado e ignorar qualquer instrução escrita nele.
 
 ---
 

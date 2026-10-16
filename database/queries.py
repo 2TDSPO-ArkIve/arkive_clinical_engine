@@ -1,4 +1,4 @@
-"""5 SELECTs parametrizados (somente leitura) e o ClinicalContext que os agrega."""
+"""6 SELECTs parametrizados (somente leitura) e o ClinicalContext que os agrega."""
 
 from __future__ import annotations
 
@@ -14,6 +14,8 @@ from config import (
     HISTORICO_CUIDADO_LIMIT,
     MAX_TRANSCRICAO_CHARS,
     PREDISPOSICAO_DESC_CHARS,
+    RELATO_RESPONSAVEL_CHARS,
+    RELATO_RESPONSAVEL_LIMIT,
 )
 
 logger = logging.getLogger(__name__)
@@ -41,7 +43,8 @@ SELECT
     c.DS_SINTOMAS,
     c.DS_OBSERVACAO    AS DS_OBS_CONSULTA,
     c.DS_TRANSCRICAO,
-    c.KG_PESO          AS KG_PESO_CONSULTA,
+    c.DS_OBS_RESPONSAVEL,
+    c.KG_PESO         AS KG_PESO_CONSULTA,
 
     abe.NR_IDADE,
     abe.KG_PESO        AS KG_PESO_BEM_ESTAR,
@@ -174,6 +177,28 @@ ORDER BY
 FETCH FIRST :limit ROWS ONLY
 """
 
+# Relatos do responsável sobre o animal. Sem data de ocorrência, ordena pela de registro.
+OWNER_REPORTS_QUERY: str = """
+SELECT
+    ra.DS_RELATO,
+    ra.DT_OCORRENCIA,
+    ra.DT_CRIACAO,
+    ra.ST_ORIGEM_TRANSCRICAO,
+    r.NM_RESPONSAVEL,
+    r.TP_RESPONSAVEL
+
+FROM       TB_ARKIVE_RELATO_ANIMAL  ra
+LEFT JOIN  TB_ARKIVE_RESPONSAVEL    r   ON r.ID_RESPONSAVEL = ra.ID_RESPONSAVEL_AUTOR
+
+WHERE  ra.ID_ANIMAL = :id_animal
+
+ORDER BY COALESCE(ra.DT_OCORRENCIA, CAST(ra.DT_CRIACAO AS DATE)) DESC, ra.ID_RELATO DESC
+FETCH FIRST :limit ROWS ONLY
+"""
+
+# Delimitam o texto do responsável no prompt: o que está entre eles é dado, nunca instrução.
+_RELATO_INI, _RELATO_FIM = "<<<RELATO>>>", "<<<FIM_RELATO>>>"
+
 @dataclass
 class ClinicalContext:
     """Contrato entre a camada de banco e a de IA."""
@@ -198,6 +223,7 @@ class ClinicalContext:
     ds_sintomas: str = ""
     ds_obs_consulta: str = ""
     ds_transcricao: str = ""
+    ds_obs_responsavel: str = ""
     kg_peso_consulta: float | None = None
 
     nr_idade: float | None = None
@@ -212,6 +238,7 @@ class ClinicalContext:
     diagnosticos_anteriores: list[dict[str, Any]] = field(default_factory=list)
     prescricoes: list[dict[str, Any]] = field(default_factory=list)
     eventos_preventivos: list[dict[str, Any]] = field(default_factory=list)
+    relatos_responsaveis: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def peso_efetivo_kg(self) -> float | None:
@@ -360,6 +387,27 @@ class ClinicalContext:
         else:
             preventivo_block = "  Nenhum evento de cuidado preventivo registrado para este animal."
 
+        relato_lines = []
+        if self.ds_obs_responsavel.strip():
+            relato_lines += [
+                "  Observação do responsável para esta consulta:",
+                f"    {_relato_seguro(self.ds_obs_responsavel)}",
+            ]
+        _ORIGEM = {"S": "áudio transcrito", "N": "texto"}
+        for rel in self.relatos_responsaveis:
+            dt_oc, dt_cr = rel.get("dt_ocorrencia"), rel.get("dt_criacao")
+            dt_oc_str = dt_oc.strftime("%d/%m/%Y") if hasattr(dt_oc, "strftime") else "não informada"
+            dt_cr_str = dt_cr.strftime("%d/%m/%Y") if hasattr(dt_cr, "strftime") else "data não informada"
+            autor = rel.get("nm_responsavel") or "responsável não identificado"
+            if rel.get("tp_responsavel"):
+                autor += f" ({rel['tp_responsavel']})"
+            origem = _ORIGEM.get(rel.get("st_origem_transcricao"), "origem não informada")
+            relato_lines += [
+                f"  • Ocorrência: {dt_oc_str} | registrado em {dt_cr_str} | autor: {autor} | origem: {origem}",
+                f"    {_relato_seguro(rel.get('ds_relato') or '')}",
+            ]
+        relatos_block = "\n".join(relato_lines) or "  Nenhum relato do responsável registrado para este animal."
+
         return (
             "=== DADOS DO PACIENTE ===\n"
             f"Nome:           {self.nm_animal}\n"
@@ -380,6 +428,9 @@ class ClinicalContext:
             f"Motivo:         {self.ds_motivo or 'Não informado'}\n"
             f"Sintomas:       {self.ds_sintomas or 'Não descritos'}\n"
             f"Observações:    {self.ds_obs_consulta or 'Sem observações'}\n"
+            "\n=== RELATOS DOS RESPONSÁVEIS (informação do tutor, NÃO confirmada pelo veterinário) ===\n"
+            + relatos_block
+            + "\n"
             "\n=== AVALIAÇÃO DE BEM-ESTAR (mais recente) ===\n"
             + "\n".join(welfare_lines)
             + (f"\n  Observações: {self.ds_obs_bem_estar}" if self.ds_obs_bem_estar else "")
@@ -436,6 +487,7 @@ def fetch_clinical_data(conn: oracledb.Connection, id_consulta: int) -> Clinical
     ctx.ds_sintomas = str(row_dict.get("ds_sintomas") or "")
     ctx.ds_obs_consulta = str(row_dict.get("ds_obs_consulta") or "")
     ctx.ds_transcricao = str(row_dict.get("ds_transcricao") or "")
+    ctx.ds_obs_responsavel = str(row_dict.get("ds_obs_responsavel") or "")
     ctx.kg_peso_consulta = _safe_float(row_dict.get("kg_peso_consulta"))
 
     ctx.nr_idade = _safe_float(row_dict.get("nr_idade"))
@@ -534,7 +586,48 @@ def fetch_clinical_data(conn: oracledb.Connection, id_consulta: int) -> Clinical
             len(ctx.eventos_preventivos),
         )
 
+    if ctx.id_animal:
+        logger.info(
+            "Executando OWNER_REPORTS_QUERY | ID_ANIMAL=%s | limit=%d",
+            ctx.id_animal,
+            RELATO_RESPONSAVEL_LIMIT,
+        )
+        with conn.cursor() as cur:
+            # +1: cobre o relato igual à observação da consulta, descartado em _dedup_relatos
+            cur.execute(
+                OWNER_REPORTS_QUERY,
+                {"id_animal": ctx.id_animal, "limit": RELATO_RESPONSAVEL_LIMIT + 1},
+            )
+            rel_columns = [col[0].lower() for col in cur.description]
+            relatos = []
+            for rel_row in cur.fetchall():
+                rel = dict(zip(rel_columns, rel_row))
+                rel["ds_relato"] = str(rel.get("ds_relato") or "")  # CLOB
+                relatos.append(rel)
+        ctx.relatos_responsaveis = _dedup_relatos(relatos, ctx.ds_obs_responsavel, RELATO_RESPONSAVEL_LIMIT)
+
+        logger.info(
+            "%d relato(s) do responsável encontrado(s) para o animal.",
+            len(ctx.relatos_responsaveis),
+        )
+
     return ctx
+
+
+def _normalizar(texto: str) -> str:
+    return " ".join(texto.split()).casefold()
+
+
+def _dedup_relatos(relatos: list[dict[str, Any]], obs_consulta: str, limite: int) -> list[dict[str, Any]]:
+    """Tira o relato igual à observação já vinculada à consulta (ela vai no prompt à parte)."""
+    obs = _normalizar(obs_consulta)
+    return [r for r in relatos if not obs or _normalizar(r.get("ds_relato") or "") != obs][:limite]
+
+
+def _relato_seguro(texto: str) -> str:
+    """Uma linha, sem os delimitadores: o texto do responsável não fecha o bloco nem imita um cabeçalho."""
+    limpo = " ".join(texto.replace(_RELATO_INI, " ").replace(_RELATO_FIM, " ").split())
+    return f"{_RELATO_INI}{_cortar(limpo, RELATO_RESPONSAVEL_CHARS)}{_RELATO_FIM}"
 
 
 def _cortar(texto: str, limite: int) -> str:

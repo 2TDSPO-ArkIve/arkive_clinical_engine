@@ -53,6 +53,9 @@ _PREDISPOSICAO_LIMIT_RAW: str = os.getenv("PREDISPOSICAO_LIMIT", "5")
 _PREDISPOSICAO_DESC_CHARS_RAW: str = os.getenv("PREDISPOSICAO_DESC_CHARS", "400")
 #: Teto do ranking semântico das predisposições (embed das doenças novas); estourou, cai no lexical.
 _PREDISPOSICAO_RANK_TIMEOUT_S_RAW: str = os.getenv("PREDISPOSICAO_RANK_TIMEOUT_S", "10")
+#: Relatos dos responsáveis (TB_ARKIVE_RELATO_ANIMAL) no prompt, mais recentes primeiro, e corte de cada um.
+_RELATO_RESPONSAVEL_LIMIT_RAW: str = os.getenv("RELATO_RESPONSAVEL_LIMIT", "5")
+_RELATO_RESPONSAVEL_CHARS_RAW: str = os.getenv("RELATO_RESPONSAVEL_CHARS", "600")
 
 #: Índice de rag/build_index.ipynb. Opcional: sem ele o motor segue sem RAG.
 RAG_INDEX_DIR: Path = Path(os.getenv("RAG_INDEX_DIR", str(Path(__file__).parent / "rag" / "index")))
@@ -103,6 +106,14 @@ if _err:
     _config_errors.append(_err)
 
 PREDISPOSICAO_DESC_CHARS, _err = _parse_positive_int(_PREDISPOSICAO_DESC_CHARS_RAW, "PREDISPOSICAO_DESC_CHARS", 400)
+if _err:
+    _config_errors.append(_err)
+
+RELATO_RESPONSAVEL_LIMIT, _err = _parse_positive_int(_RELATO_RESPONSAVEL_LIMIT_RAW, "RELATO_RESPONSAVEL_LIMIT", 5)
+if _err:
+    _config_errors.append(_err)
+
+RELATO_RESPONSAVEL_CHARS, _err = _parse_positive_int(_RELATO_RESPONSAVEL_CHARS_RAW, "RELATO_RESPONSAVEL_CHARS", 600)
 if _err:
     _config_errors.append(_err)
 

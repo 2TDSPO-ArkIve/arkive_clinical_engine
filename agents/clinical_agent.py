@@ -290,11 +290,12 @@ class ClinicalIntelligenceEngine:
         with get_connection() as conn:
             ctx = fetch_clinical_data(conn, id_consulta)
         logger.info(
-            "Dados extraídos | Animal: %s | Espécie: %s | Raça: %s | Predisposições: %d",
+            "Dados extraídos | Animal: %s | Espécie: %s | Raça: %s | Predisposições: %d | Relatos: %d",
             ctx.nm_animal,
             ctx.nm_especie,
             ctx.nm_raca or "SRD/Não informada",
             len(ctx.predisposicoes),
+            len(ctx.relatos_responsaveis),
         )
         return ctx
 
