@@ -6,12 +6,15 @@
 <title>ArkIve — Pipeline ao vivo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400..800&family=IBM+Plex+Mono:wght@400;600&display=swap"><!-- taste-skill-ignore: mono só em <pre> e no log (dados brutos) -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400..800&family=IBM+Plex+Mono:wght@400;600&display=swap" media="print" onload="this.media='all'"><!-- taste-skill-ignore: mono só em <pre> e no log -->
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400..800&family=IBM+Plex+Mono:wght@400;600&display=swap"></noscript><!-- taste-skill-ignore: mono só em <pre> e no log (dados brutos) -->
 <style>
   /* sem internet a Schibsted Grotesk não carrega e cai na fonte do sistema: mesmo layout */
   :root {
     --bg: #f3f4f1; --surface: #e8eae5; --surface-2: #d8dcd5; --ink: #111a17; --muted: #4a5651;
     --accent: #0f766e; --on-accent: #ffffff; --ok: #15803d; --warn: #b45309; --err: #b91c1c; --skip: #5f6b66;
+    --ok-txt: #166534; --warn-txt: #92400e; --err-txt: #991b1b; --accent-txt: #0d5f58; --on-marca: #ffffff;
+    --selo: #2b5f58; --selo-ok: #15803d; --selo-warn: #b45309; --selo-err: #b91c1c; --on-selo: #ffffff;
     --code: #e1e4de; --campo: #0b3b36; --on-campo: #e9f5f2; --on-campo-muted: #a9cfc8;
     --sans: "Schibsted Grotesk", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
     --mono: "IBM Plex Mono", ui-monospace, "Cascadia Code", Consolas, monospace; /* taste-skill-ignore: só <pre> e log */
@@ -22,6 +25,7 @@
     :root {
       --bg: #0c1210; --surface: #151d1a; --surface-2: #24302b; --ink: #e7ece9; --muted: #9fb0a9;
       --accent: #2dd4bf; --on-accent: #06201c; --ok: #4ade80; --warn: #fbbf24; --err: #f87171; --skip: #7d8c86;
+      --ok-txt: #4ade80; --warn-txt: #fbbf24; --err-txt: #f87171; --accent-txt: #2dd4bf; --on-marca: #0c1210;
       --code: #0f1714; --campo: #0f2e2a; --on-campo: #e7f3f0; --on-campo-muted: #8fc2b8;
     }
   }
@@ -29,13 +33,15 @@
   ::selection { background: var(--accent); color: var(--on-accent); }
   html { scrollbar-color: var(--surface-2) var(--bg); }
   body { margin: 0; background: var(--bg); color: var(--ink); caret-color: var(--accent); accent-color: var(--accent);
-         font: 17px/1.55 var(--sans); -webkit-font-smoothing: antialiased; }
-  :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+         font: 1.0625rem/1.55 var(--sans); -webkit-font-smoothing: antialiased; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 
   /* ── topo: o ID que atravessa o motor ── */
   header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 32px 48px; align-items: end;
            padding: 40px 32px 48px; }
-  .marca-nome { margin: 0 0 20px; font-weight: 700; font-size: 1.0625rem; color: var(--accent); }
+  .topo { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; margin-bottom: 24px; }
+  .topo .nome { font-weight: 800; font-size: 1.25rem; letter-spacing: -.02em; color: var(--accent); }
+  .topo span:last-child { color: var(--muted); }
   h1 { margin: 0; font-size: clamp(2rem, 4vw, 2.75rem); line-height: 1.02; letter-spacing: -.035em; font-weight: 650;
        max-width: 16ch; text-wrap: balance; }
   .sub { margin: 12px 0 28px; color: var(--muted); max-width: 52ch; }
@@ -47,20 +53,20 @@
   input::placeholder { color: var(--muted); font-weight: 400; }
   button { font: 600 1.0625rem var(--sans); display: inline-flex; align-items: center; gap: 14px;
            padding: 6px 6px 6px 24px; border: 0; border-radius: 999px; background: var(--accent); color: var(--on-accent);
-           cursor: pointer; transition: transform .25s var(--ease), opacity .3s var(--ease); touch-action: manipulation; }
+           cursor: pointer; transition: transform .25s var(--ease); touch-action: manipulation; }
   button .seta { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
                  background: color-mix(in srgb, var(--on-accent) 18%, transparent); transition: transform .45s var(--ease); }
-  button:hover .seta { transform: translate(3px, -1px) scale(1.06); }
+  button:not(:disabled):hover .seta { transform: translate(3px, -1px) scale(1.06); }
   button:active { transform: scale(.98); }
-  button:disabled { opacity: .7; cursor: progress; }
+  button:disabled { cursor: progress; }
   button:disabled .seta svg { animation: gira 1s linear infinite; }
 
   .painel { text-align: right; }
-  #id-grande { margin: 0; font-size: clamp(3rem, 8vw, 6rem); font-weight: 700; line-height: .9; letter-spacing: -.04em; }
+  #id-grande { margin: 0; font-size: clamp(3rem, 8vw, 6rem); font-weight: 700; line-height: .9; letter-spacing: -.04em;
+               overflow-wrap: anywhere; }
   #id-grande.vazio { color: var(--muted); }
-  #status { margin: 14px 0 0; font-size: 1.0625rem; color: var(--muted); }
-  #status b { color: var(--ink); }
-  #relogio { font-variant-numeric: tabular-nums; }
+  .linha-status { margin: 14px 0 0; color: var(--muted); }
+  .linha-status b { color: var(--ink); }
   .rodando #relogio { animation: respira 1.6s var(--ease) infinite; }
 
   /* ── corpo ── */
@@ -73,11 +79,12 @@
                      transition: transform .6s var(--ease); }
   .etapa { position: relative; padding-left: 60px; margin-bottom: 12px; }
   .marca { position: absolute; z-index: 1; left: 0; top: 16px; width: 36px; height: 36px; border-radius: 50%;
-           display: grid; place-items: center; background: var(--surface-2); color: #fff; }
+           display: grid; place-items: center; background: var(--surface-2); color: var(--on-marca); }
   .marca svg { width: 18px; height: 18px; }
   .card { background: var(--surface); border-radius: 18px; padding: 18px 22px; transition: background-color .5s var(--ease); }
-  .card h2 { margin: 0; font-size: 1.25rem; line-height: 1.25; letter-spacing: -.01em; display: flex;
-             justify-content: space-between; align-items: baseline; gap: 12px; }
+  .card .cab { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .card h2 { margin: 0; font-size: 1.25rem; line-height: 1.25; letter-spacing: -.01em; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .card .t { font-size: .9375rem; font-weight: 500; color: var(--muted); white-space: nowrap; }
   .card p.oque { margin: 4px 0 0; color: var(--muted); max-width: 62ch; }
   .card .corpo:empty { display: none; }
@@ -100,20 +107,22 @@
   .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
   .chips li { background: color-mix(in srgb, var(--accent) 10%, var(--bg)); border-radius: 999px; padding: 4px 14px;
               animation: sobe .5s var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms); }
-  .chips b { font-weight: 650; color: var(--accent); margin-left: 8px; }
+  .chips b { font-weight: 650; color: var(--accent-txt); margin-left: 8px; }
   .badge { display: inline-block; padding: 4px 14px; border-radius: 999px; font-weight: 600;
            background: color-mix(in srgb, currentColor 14%, transparent); }
-  .barra { position: relative; height: 28px; background: var(--surface-2); border-radius: 8px; margin: 4px 0 8px; overflow: hidden; }
-  .barra .valor { height: 100%; background: var(--accent); transform-origin: left; transform: scaleX(0);
+  .barra { position: relative; height: 28px; background: var(--surface-2); border-radius: 8px; margin: 12px 0 14px; }
+  .barra .valor { height: 100%; border-radius: 8px; background: var(--accent); transform-origin: left; transform: scaleX(0);
                   transition: transform 1s var(--ease); }
-  .barra .limiar { position: absolute; top: 0; bottom: 0; width: 4px; margin-left: -2px; background: var(--warn);
-                   animation: aparece .4s var(--ease) .8s both; }
+  /* passa da barra e tem folga na cor do card: continua visível sobre o preenchimento */
+  .barra .limiar { position: absolute; top: -7px; bottom: -7px; width: 4px; margin-left: -2px; border-radius: 2px;
+                   background: var(--warn); outline: 3px solid var(--surface); animation: aparece .4s var(--ease) .8s both; }
   .legenda { color: var(--muted); margin: 0 0 10px; max-width: 62ch; }
   .corpo > * { animation: sobe .55s var(--ease) both; }
   .corpo > :nth-child(2) { animation-delay: 70ms; } .corpo > :nth-child(3) { animation-delay: 140ms; }
   .corpo > :nth-child(n+4) { animation-delay: 210ms; }
-  details { margin-top: 12px; }
-  summary { cursor: pointer; color: var(--accent); font-weight: 600; width: fit-content; }
+  details { margin-top: 2px; }
+  summary { cursor: pointer; color: var(--accent); font-weight: 600; width: fit-content; padding-block: 10px; }
+  .corpo li a { display: inline-block; padding-block: 10px; }
   pre { background: var(--code); border-radius: 12px; padding: 14px 16px; margin: 10px 0 0;
         font: .8125rem/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 440px; overflow: auto; }
   a { color: var(--accent); text-underline-offset: 3px; }
@@ -126,19 +135,20 @@
                        color: var(--muted); font-size: 1rem; }
   #log code { display: block; font: inherit; padding: 3px 0; overflow-wrap: anywhere; animation: desliza .35s var(--ease) both; }
   #log .t { color: var(--muted); margin-right: 8px; }
-  #log .WARNING { color: var(--warn); }
-  #log .ERROR { color: var(--err); }
+  #log .WARNING { color: var(--warn-txt); }
+  #log .ERROR { color: var(--err-txt); }
+  .msg-erro { color: var(--err-txt); font-weight: 600; }
 
   /* ── resultado: campo inteiro de cor ── */
   #resultado { display: none; background: var(--campo); color: var(--on-campo); padding: 72px 32px 96px; }
   #resultado.mostrar { display: block; }
-  #resultado .rotulo { margin: 0 0 8px; color: var(--on-campo-muted); font-weight: 600; }
+  #resultado .rotulo { margin: 0 0 8px; font-size: 1.0625rem; color: var(--on-campo-muted); font-weight: 600; }
   .diag { margin: 0 0 24px; font-size: clamp(1.9rem, 4vw, 2.75rem); line-height: 1.08; letter-spacing: -.03em;
           font-weight: 650; max-width: 28ch; text-wrap: balance; }
   .selos { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 48px; }
-  .selo { padding: 8px 18px; border-radius: 999px; font-weight: 600; background: #2b5f58; color: #fff; }
-  .selo.ok { background: #15803d; } .selo.warn { background: #b45309; } .selo.err { background: #b91c1c; }
-  .insights { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 32px 56px; max-width: 1200px; }
+  .selo { padding: 8px 18px; border-radius: 999px; font-weight: 600; background: var(--selo); color: var(--on-selo); }
+  .selo.ok { background: var(--selo-ok); } .selo.warn { background: var(--selo-warn); } .selo.err { background: var(--selo-err); }
+  .insights { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 32px 56px; max-width: 1200px; }
   .insight h3 { margin: 0 0 6px; font-size: 1.0625rem; color: var(--on-campo-muted); }
   .insight p, .insight ul { margin: 0; max-width: 65ch; }
   .insight ul { padding-left: 1.2em; overflow-wrap: anywhere; }
@@ -156,9 +166,14 @@
   @keyframes respira { 50% { opacity: .55; } }
   @keyframes gira { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important;
-                             animation-delay: 0ms !important; transition-duration: .01ms !important; }
+    @keyframes sobe { from { opacity: 0; } }
+    @keyframes desliza { from { opacity: 0; } }
+    @keyframes pop { from { opacity: 0; } }
+    ol#etapas::after, .barra .valor, button, button .seta { transition: none; }
+    button:not(:disabled):hover .seta, button:active { transform: none; }
     .ativa .marca::after { display: none; }
+    .ativa .marca { outline: 3px solid var(--accent); outline-offset: 3px; }
+    button:disabled .seta svg { animation: respira 1.6s ease-out infinite; }
   }
 
   @media (max-width: 1000px) {
@@ -172,7 +187,7 @@
     main { padding: 0 16px 64px; gap: 32px; }
     .etapa { padding-left: 48px; }
     .card { padding: 16px; }
-    .card h2 { flex-direction: column; gap: 2px; }
+    .card .cab { flex-direction: column; gap: 2px; }
     dl.kv { grid-template-columns: minmax(0, 1fr); gap: 0; }
     dl.kv dd { margin-bottom: 8px; }
     #resultado { padding: 48px 16px 64px; }
@@ -183,8 +198,8 @@
 </head>
 <body>
 <header>
+  <p class="topo"><span class="nome">ArkIve</span><span>Motor de Inteligência Clínica · pipeline ao vivo</span></p>
   <div>
-    <p class="marca-nome">ArkIve · Motor de Inteligência Clínica</p>
     <h1>Uma consulta, etapa por etapa</h1>
     <p class="sub">Digite o ID de uma consulta e acompanhe, em tempo real, os dados reais que passam por cada etapa até o diagnóstico.</p>
     <form id="form">
@@ -195,8 +210,8 @@
     </form>
   </div>
   <div class="painel">
-    <p id="id-grande" class="vazio" aria-label="ID em análise">#—</p>
-    <p id="status" role="status"><b id="contagem">0 de 10 etapas</b> · <span id="relogio">0,0 s</span></p>
+    <p id="id-grande" class="vazio">#—</p>
+    <p class="linha-status"><span id="status" role="status"><b id="contagem">0 de 10 etapas</b><span id="etapa-atual"></span></span> · <span id="relogio">0,0 s</span></p>
   </div>
 </header>
 <main>
@@ -234,6 +249,7 @@ const ETAPAS = [
    "JSON final devolvido ao serviço Java, que grava em TB_ARKIVE_DIAGNOSTICO."],
 ];
 
+const ESTADO_TXT = { ativa: "em andamento", feita: "concluída", pulada: "pulada", falhou: "falhou" };
 const ICONE = {
   feita: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   pulada: '<path d="M6 12h12"/>',
@@ -278,7 +294,7 @@ const RENDER = {
   ],
   confianca: d => [
     barra(d.pc_confianca, d.limiar),
-    el("p", { class: "legenda" }, `${d.pc_confianca}% · marca laranja = limiar de busca externa (${d.limiar}%)`),
+    el("p", { class: "legenda" }, `${d.pc_confianca}% · marca vertical = limiar de busca externa (${d.limiar}%)`),
   ],
   predisposicoes: d => [
     el("p", { class: "legenda" }, `${d.selecionadas.length} de ${d.total} enviadas ao LLM · método: ${d.metodo} · ${d.ms} ms`),
@@ -294,7 +310,7 @@ const RENDER = {
     d.contexto ? bruto("Ver trechos enviados ao LLM", d.contexto) : null,
   ],
   decisao_web: d => [
-    el("p", {}, el("span", { class: "badge", style: `color:var(${d.busca_web ? "--warn" : "--ok"})` },
+    el("p", {}, el("span", { class: "badge", style: `color:var(${d.busca_web ? "--warn-txt" : "--ok-txt"})` },
       d.busca_web ? `Buscar: ${d.pc_confianca}% < ${d.limiar}%` : `Não buscar: ${d.pc_confianca}% ≥ ${d.limiar}%`)),
     kv([["Observações", d.motivo], ["Query", d.query]]),
   ],
@@ -330,7 +346,7 @@ function mostrarResultado(d) {
 
   const r = $("#resultado");
   r.replaceChildren(
-    el("p", { class: "rotulo" }, `Diagnóstico da consulta #${$("#id").value}`),
+    el("h2", { class: "rotulo" }, `Diagnóstico da consulta #${idAtual}`),
     el("p", { class: "diag" }, d.ds_diagnostico),
     el("div", { class: "selos" },
       el("span", { class: `selo ${SEV[(d.tp_severidade || "").toUpperCase()] || ""}` }, `Severidade: ${d.tp_severidade}`),
@@ -340,10 +356,11 @@ function mostrarResultado(d) {
   r.classList.add("mostrar");
 }
 
-let fonte, timer, ativa, ultimoT = 0;
+let fonte, timer, ativa, idAtual, ultimoT = 0;
 function estado(li, cls) {
   li.classList.remove("ativa");
   li.classList.add(cls);
+  $(".sr", li).textContent = ", " + ESTADO_TXT[cls];
   $(".marca", li).innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">${ICONE[cls]}</svg>`;
   progresso();
 }
@@ -356,18 +373,23 @@ function montar() {
   $("#etapas").replaceChildren(...ETAPAS.map(([k, titulo, oque], i) => {
     const li = el("li", { class: "etapa entra", id: "e-" + k },
       el("span", { class: "marca", "aria-hidden": "true" }),
-      el("div", { class: "card" }, el("h2", {}, titulo, el("span", { class: "t" })), el("p", { class: "oque" }, oque), el("div", { class: "corpo" })));
+      el("div", { class: "card" },
+        el("div", { class: "cab" }, el("h2", {}, titulo, el("span", { class: "sr" }, ", pendente")), el("span", { class: "t" })),
+        el("p", { class: "oque" }, oque), el("div", { class: "corpo" })));
     li.style.setProperty("--i", i);
     return li;
   }));
   $("#resultado").classList.remove("mostrar");
   $("#log").replaceChildren();
+  $("#etapa-atual").textContent = "";
   progresso();
 }
+const TITULO = Object.fromEntries(ETAPAS.map(([k, t]) => [k, t]));
 function ativar(k) {
   ativa = k;
   const li = $("#e-" + k);
-  if (li && !li.className.match(/feita|pulada|falhou/)) li.classList.add("ativa");
+  if (li && !li.className.match(/feita|pulada|falhou/)) { li.classList.add("ativa"); $(".sr", li).textContent = ", " + ESTADO_TXT.ativa; }
+  $("#etapa-atual").textContent = ` · agora: ${TITULO[k]}`;
 }
 function concluir(k, dados, t) {
   const li = $("#e-" + k);
@@ -384,6 +406,15 @@ function log(t, d) {
   box.append(el("code", { class: d.nivel }, el("span", { class: "t" }, seg(t)), d.msg));
   box.scrollTop = box.scrollHeight;
 }
+function falhar(tipo, msg, t) {
+  const li = $("#e-" + ativa);
+  if (li && li.classList.contains("ativa")) {
+    estado(li, "falhou");
+    $(".corpo", li).replaceChildren(el("p", { class: "msg-erro" }, `${tipo}: ${msg}`));
+    $("#etapa-atual").textContent = ` · falhou em: ${TITULO[ativa]}`;
+  }
+  log(t, { nivel: "ERROR", msg: `${tipo}: ${msg}` });
+}
 function parar() {
   fonte?.close(); clearInterval(timer);
   document.body.classList.remove("rodando");
@@ -393,7 +424,7 @@ function parar() {
 $("#form").addEventListener("submit", ev => {
   ev.preventDefault();
   parar(); montar(); ultimoT = 0;
-  const id = $("#id").value, t0 = performance.now();
+  const id = idAtual = $("#id").value, t0 = performance.now();
   history.replaceState(null, "", `?id=${encodeURIComponent(id)}`);
   $("#id-grande").textContent = "#" + id; $("#id-grande").classList.remove("vazio");
   $("#btn").disabled = true; $("#btn-txt").textContent = "Analisando…";
@@ -405,19 +436,15 @@ $("#form").addEventListener("submit", ev => {
     const { etapa, t_ms, dados } = JSON.parse(data);
     if (etapa === "log") return log(t_ms, dados);
     if (etapa === "inicio") return;
-    if (etapa === "erro") {
-      const li = $("#e-" + ativa);
-      if (li) {
-        estado(li, "falhou");
-        $(".corpo", li).replaceChildren(el("p", { style: "color:var(--err);font-weight:600" }, `${dados.tipo}: ${dados.msg}`));
-      }
-      return log(t_ms, { nivel: "ERROR", msg: `${dados.tipo}: ${dados.msg}` });
-    }
+    if (etapa === "erro") return falhar(dados.tipo, dados.msg, t_ms);
     if (etapa === "fim") { $("#relogio").textContent = seg(t_ms); return parar(); }
     if (RENDER[etapa]) concluir(etapa, dados, t_ms);
-    if (etapa === "resultado") mostrarResultado(dados);
+    if (etapa === "resultado") { mostrarResultado(dados); $("#etapa-atual").textContent = " · concluído"; }
   };
-  fonte.onerror = () => { log(0, { nivel: "ERROR", msg: "Conexão com o stream perdida." }); parar(); };
+  fonte.onerror = () => {
+    falhar("Conexão perdida", "o servidor da API não respondeu ou fechou o stream.", performance.now() - t0);
+    parar();
+  };
 });
 
 montar();
