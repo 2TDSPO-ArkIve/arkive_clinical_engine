@@ -22,6 +22,20 @@
 
 ---
 
+## Links
+
+[![API](https://img.shields.io/badge/API-Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://arkive-clinical-engine.onrender.com)
+[![Site](https://img.shields.io/badge/Site-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://mobile-application-sooty.vercel.app/)
+
+| | Link |
+|---|---|
+| API (Render) | https://arkive-clinical-engine.onrender.com |
+| Site (Vercel) | https://mobile-application-sooty.vercel.app/ (crie uma conta para acessar) |
+
+> A API roda no plano gratuito do Render, que hiberna sem uso: a primeira requisição pode levar cerca de 1 minuto. Endpoints em [Endpoints da API](#endpoints-da-api).
+
+---
+
 ## Demonstração em Vídeo
 
 [![YouTube: Assistir Sprint 1 e 2](https://img.shields.io/badge/YouTube-Assistir%20Sprint%201%20e%202-red?style=for-the-badge&logo=youtube)](https://www.youtube.com/watch?v=zWqLgywXfv4)  
@@ -110,7 +124,7 @@ O `pc_confianca` também é personalizado: é calculado sobre os dados **daquele
 | RAG local | `onnxruntime` + `tokenizers` + `faiss-cpu` · modelo `Sabelli/arkive-e5-vet` (e5-small fine-tunado, int8) | Busca semântica na base de fichas veterinárias, sem chamada externa |
 | Ingestão da base | `docling` (Colab) | Converte os PDFs das fontes em Markdown estruturado |
 | Busca Web | PubMed E-utilities · fallback `ddgs` | Literatura veterinária complementar de fontes confiáveis |
-| API REST | FastAPI + Uvicorn | `GET /diagnostico/{id_consulta}` e `GET /health` |
+| API REST | FastAPI + Uvicorn | Diagnóstico, health e pipeline ao vivo (ver [Endpoints da API](#endpoints-da-api)) |
 | Configuração | `python-dotenv` | Parâmetros e credenciais via `.env` |
 
 ---
@@ -293,7 +307,7 @@ uvicorn api:app --reload
 # GET http://localhost:8000/health      → {"status": "ok", "rag": true}
 ```
 
-**Pipeline ao vivo:** com a API no ar, abra `http://localhost:8000/pipeline`, digite o ID e acompanhe cada etapa (Oracle, confiança, ranking de predisposições, resumo, RAG, decisão e busca web, prompt, Groq, resposta) com os dados reais que passaram por ela e o log do motor em tempo real. O stream SSE fica em `GET /pipeline/stream/{id}`; `/diagnostico` não muda. Self-check sem Oracle/Groq: `python test_pipeline_stream.py`.
+**Pipeline ao vivo:** com a API no ar, abra `http://localhost:8000/pipeline`, digite o ID e acompanhe cada etapa (Oracle, confiança, ranking de predisposições, resumo, RAG, decisão e busca web, prompt, Groq, resposta) com os dados reais que passaram por ela e o log do motor em tempo real. O stream SSE fica em `GET /pipeline/stream/{id}`; `/diagnostico` não muda (detalhes em [Endpoints da API](#endpoints-da-api)). Self-check sem Oracle/Groq: `python test_pipeline_stream.py`.
 
 ### 6. Saída esperada
 
@@ -314,6 +328,93 @@ uvicorn api:app --reload
 ```
 
 Em caso de erro, o JSON contém o campo `"error"` com a causa.
+
+---
+
+## Endpoints da API
+
+Base em produção: `https://arkive-clinical-engine.onrender.com` (local: `http://localhost:8000`). Por enquanto, a API não tem autenticação, para simplificar a integração com a API Java. O CORS está liberado para qualquer origem, sem cookies.
+
+| Método | Rota | O que faz |
+|---|---|---|
+| `GET` | `/health` | Verifica se a API está no ar e se o RAG carregou |
+| `GET` | `/diagnostico/{id_consulta}` | Gera a hipótese diagnóstica de uma consulta (JSON) |
+| `GET` | `/pipeline` | Página do pipeline ao vivo (HTML) |
+| `GET` | `/pipeline/stream/{id_consulta}` | Stream SSE com cada etapa da análise |
+| `GET` | `/docs` · `/redoc` · `/openapi.json` | Documentação automática do FastAPI |
+
+### `GET /health`
+
+Liveness. Não acessa o Oracle nem o Groq, porque a configuração já foi validada no boot (config inválida impede a API de subir).
+
+```bash
+curl https://arkive-clinical-engine.onrender.com/health
+# {"status": "ok", "rag": true}
+```
+
+`rag` é `false` quando o índice ou o modelo de embedding não carregou. A análise funciona mesmo assim, só sem o contexto do RAG.
+
+### `GET /diagnostico/{id_consulta}`
+
+Endpoint consumido pela API Java. Roda o pipeline completo para o `ID_CONSULTA`:
+1. Oracle;
+2. `pc_confianca`;
+3. RAG;
+4. busca web condicional;
+5. Groq.
+
+Devolve o `DiagnosticoOutputDetalhado`, mais `ds_insight_ia` e `tokens` (ver [Saída esperada](#6-saída-esperada) e [Schema de Saída](#schema-de-saída-pydantic-v2)). Leva de alguns segundos a cerca de 1 minuto, conforme a busca web e o modelo Groq.
+
+```bash
+curl https://arkive-clinical-engine.onrender.com/diagnostico/1
+```
+
+| Status | Quando |
+|---|---|
+| `200` | Diagnóstico gerado |
+| `400` | ID menor ou igual a zero |
+| `404` | Consulta não encontrada no Oracle |
+| `422` | ID não é um número inteiro |
+| `502` | Falha no motor de IA (todos os modelos Groq falharam, chave inválida, cota esgotada) |
+| `500` | Erro inesperado |
+
+Os erros vêm no formato padrão do FastAPI: `{"detail": "<causa>"}`.
+
+### `GET /pipeline`
+
+Página HTML para apresentação. Mostra cada etapa do diagnóstico em tempo real: Oracle, confiança, ranking de predisposições, resumo, RAG, decisão e busca web, prompt, Groq e resposta. Cada etapa aparece com os dados reais que passaram por ela, ao lado do log do motor. Com `?id=`, a análise começa sozinha:
+
+```
+https://arkive-clinical-engine.onrender.com/pipeline?id=1
+```
+
+A rota não aparece no `/docs`. A análise é a mesma de `/diagnostico`, mas o resultado só é exibido e nada é devolvido à API Java.
+
+### `GET /pipeline/stream/{id_consulta}`
+
+Server-Sent Events (`text/event-stream`) usado pela página `/pipeline`. Cada mensagem é uma linha `data:` com JSON:
+
+```json
+{"etapa": "confianca", "t_ms": 812, "dados": {"pc_confianca": 70, "limiar": 80}}
+```
+
+- `etapa`: nome da etapa. A ordem é:
+  1. `inicio`;
+  2. `oracle`, `confianca`, `predisposicoes`, `resumo`, `rag`, `decisao_web`, `busca_web`, `prompt`, `groq`, `resultado`, com `log` intercalado (cada linha de log do motor);
+  3. `erro`, se houver;
+  4. `fim`, sempre.
+- `t_ms`: milissegundos desde o início da análise.
+- `dados`: conteúdo da etapa. No evento `erro`, `dados` traz `{"tipo", "msg"}`, e `tipo` é `Consulta não encontrada`, `Falha no motor de IA` ou `Erro inesperado`.
+
+```bash
+curl -N https://arkive-clinical-engine.onrender.com/pipeline/stream/1
+```
+
+ID menor ou igual a zero retorna `400` antes de abrir o stream. Os demais erros chegam dentro do stream, como evento `erro`.
+
+### `GET /docs`, `GET /redoc`, `GET /openapi.json`
+
+Documentação gerada pelo FastAPI: Swagger UI interativo em `/docs`, ReDoc em `/redoc` e o schema OpenAPI em `/openapi.json`.
 
 ---
 
@@ -425,7 +526,7 @@ Cada análise faz uma chamada ao LLM com cerca de **6 mil tokens** (system promp
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
 | `ds_diagnostico` | `str` (5–500 chars) | Título conciso da hipótese diagnóstica |
-| `tp_severidade` | `Literal["LEVE", "MODERADA", "GRAVE"]` | Classificação de severidade |
+| `tp_severidade` | `Literal["AUSENTE", "LEVE", "MODERADA", "GRAVE"]` | Classificação de severidade; `AUSENTE` quando o animal não demonstra alteração (ex.: check-up de rotina) |
 | `insight_perfil` | `str` (mín. 20 chars) | Perfil do paciente e apresentação clínica |
 | `insight_correlacao` | `str` (mín. 20 chars) | Correlação entre sintomas, bem-estar, histórico e hipótese |
 | `insight_predisposicao` | `str` (mín. 20 chars) | Papel das predisposições genéticas no raciocínio |

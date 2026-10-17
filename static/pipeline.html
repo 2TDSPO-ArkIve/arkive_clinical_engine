@@ -333,7 +333,7 @@ const RENDER = {
   resultado: d => [bruto("Ver JSON de resposta da API", d)],
 };
 
-const SEV = { BAIXA: "ok", LEVE: "ok", MODERADA: "warn", MEDIA: "warn", ALTA: "err", GRAVE: "err", CRITICA: "err" };
+const SEV = { AUSENTE: "ok", BAIXA: "ok", LEVE: "ok", MODERADA: "warn", MEDIA: "warn", ALTA: "err", GRAVE: "err", CRITICA: "err" };
 function mostrarResultado(d) {
   const insights = [["Perfil do paciente", d.insight_perfil], ["Correlação clínica", d.insight_correlacao],
                     ["Predisposições", d.insight_predisposicao], ["Limitações", d.insight_limitacoes]]

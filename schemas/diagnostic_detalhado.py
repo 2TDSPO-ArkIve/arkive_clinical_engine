@@ -15,7 +15,8 @@ class DiagnosticoOutputDetalhado(BaseModel):
     ├────────────────────────┼───────────────────────────────────────────────┤
     │ ds_diagnostico         │ DS_DIAGNOSTICO  VARCHAR2(500)                  │
     │ tp_severidade          │ TP_SEVERIDADE   VARCHAR2(20)                   │
-    │                        │   CHECK IN ('LEVE', 'MODERADA', 'GRAVE')       │
+    │                        │   CHECK IN ('AUSENTE', 'LEVE', 'MODERADA',     │
+    │                        │             'GRAVE')                           │
     │ insight_perfil         │ ┐                                              │
     │ insight_correlacao     │ ├─ compostos via to_ds_insight_ia() em         │
     │ insight_predisposicao  │ │  DS_INSIGHT_IA CLOB (coluna única)           │
@@ -36,9 +37,10 @@ class DiagnosticoOutputDetalhado(BaseModel):
         ),
     )
 
-    tp_severidade: Literal["LEVE", "MODERADA", "GRAVE"] = Field(
+    tp_severidade: Literal["AUSENTE", "LEVE", "MODERADA", "GRAVE"] = Field(
         description=(
             "Classificação de severidade do quadro clínico. Valores aceitos: "
+            "AUSENTE (animal sem sinal clínico de alteração, ex.: check-up de rotina), "
             "LEVE (quadro estável, sem risco imediato), "
             "MODERADA (requer atenção e acompanhamento próximo), "
             "GRAVE (risco de vida — intervenção urgente indicada)."
