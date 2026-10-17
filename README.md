@@ -337,6 +337,7 @@ Base em produção: `https://arkive-clinical-engine.onrender.com` (local: `http:
 
 | Método | Rota | O que faz |
 |---|---|---|
+| `GET` | `/` | Home: apresentação do motor |
 | `GET` | `/health` | Verifica se a API está no ar e se o RAG carregou |
 | `GET` | `/diagnostico/{id_consulta}` | Gera a hipótese diagnóstica de uma consulta (JSON) |
 | `GET` | `/pipeline` | Página do pipeline ao vivo (HTML) |

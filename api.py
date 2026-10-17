@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from config import validate_config
 from agents.clinical_agent import ClinicalIntelligenceEngine, _observador
@@ -31,6 +32,19 @@ app.add_middleware(
 )
 
 engine = ClinicalIntelligenceEngine()
+
+STATIC_DIR = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+@app.get("/", include_in_schema=False)
+def home():
+    return FileResponse(STATIC_DIR / "home.html")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return FileResponse(STATIC_DIR / "favicon.png")
 
 @app.get("/health")
 def health():
@@ -55,7 +69,7 @@ def gerar_diagnostico(id_consulta: int):
 
 # ── Pipeline ao vivo (apresentação): mesma análise, cada etapa transmitida por SSE ──
 
-PIPELINE_HTML = Path(__file__).parent / "static" / "pipeline.html"
+PIPELINE_HTML = STATIC_DIR / "pipeline.html"
 
 
 def _json(o):

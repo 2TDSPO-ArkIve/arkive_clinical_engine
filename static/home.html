@@ -1,0 +1,640 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ArkIve Clinical Engine</title>
+<meta name="description" content="Motor de IA do ArkIve: lê o prontuário de cada consulta veterinária e devolve um parecer clínico de apoio ao veterinário.">
+<link rel="icon" type="image/png" href="/static/favicon.png">
+<link rel="apple-touch-icon" href="/static/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400..800&family=IBM+Plex+Mono:wght@400;600&display=swap"><!-- taste-skill-ignore: mono só em <pre>/<code> -->
+<style>
+  /* paleta do app ArkIve (Mobile-Application/src/styles/colors.ts) */
+  :root {
+    --bg: #f4f5f7; --surface: #ffffff; --tint: #eef0fb; --ink: #1f2937; --muted: #4b5563;
+    --accent: #3f51b5; --accent-ink: #3347a8; --on-accent: #ffffff;
+    --ok: #2e7d32; --ok-tint: #e8f5e9; --ok-ink: #1b5e20; --warn-tint: #fff3e0; --warn-ink: #8a3d00; --err-ink: #b71c1c;
+    --papel: #ececea; --foco: var(--accent);
+    --sans: "Schibsted Grotesk", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace; /* taste-skill-ignore: só <pre>/<code> */
+    --ease: cubic-bezier(.16, 1, .3, 1);
+    --m: 24px; --gap: 24px;
+    --t-hero: clamp(96px, 10.5vw, 168px); --t-big: clamp(44px, 7vw, 116px); --t-h2: clamp(32px, 4.2vw, 68px);
+    --t-body: 1.125rem; --t-small: .9375rem;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12141c; --surface: #1b1f2c; --tint: #1d2340; --ink: #e7eaf2; --muted: #a4adc0;
+      --accent: #7c8ee8; --accent-ink: #9aa8f0; --on-accent: #12141c;
+      --ok: #66bb6a; --ok-tint: #1c3327; --ok-ink: #8fd693; --warn-tint: #3a2a18; --warn-ink: #ffb26b; --err-ink: #ff8a80;
+      --papel: #12141c;
+      color-scheme: dark;
+    }
+  }
+  @media (max-width: 760px) { :root { --m: 16px; --gap: 16px; } }
+
+  * { box-sizing: border-box; }
+  /* scroll-padding: âncoras e foco por Tab param abaixo da pílula fixa */
+  html { scroll-behavior: smooth; scroll-padding-top: 88px; scrollbar-color: var(--muted) var(--bg); }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 400 var(--t-body)/1.55 var(--sans);
+         -webkit-font-smoothing: antialiased; caret-color: var(--accent); accent-color: var(--accent); overflow-x: clip; }
+  ::selection { background: var(--accent); color: var(--on-accent); }
+  :focus-visible { outline: 3px solid var(--foco); outline-offset: 3px; }
+  .fecho, footer { --foco: var(--bg); }
+  a { color: inherit; text-underline-offset: .2em; text-decoration-thickness: 2px; }
+  h1, h2, h3, p { margin: 0; }
+  img { display: block; max-width: 100%; height: auto; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--gap); padding: 0 var(--m); }
+
+  .botao { display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-height: 52px;
+           padding: 0 26px; border: 0; border-radius: 0; background: var(--accent); color: var(--on-accent);
+           font: 600 var(--t-body)/1 var(--sans); text-decoration: none; cursor: pointer; touch-action: manipulation;
+           transition: background-color .25s var(--ease), transform .3s var(--ease); }
+  .botao:hover { background: var(--accent-ink); }
+  .botao:active { transform: scale(.97); }
+  .botao svg { width: 20px; height: 20px; transition: transform .4s var(--ease); }
+  .botao:hover svg { transform: translateX(4px); }
+
+  /* ── hero: o "I" do nome é a marca ── */
+  .hero { min-height: 100svh; display: grid; grid-template-rows: 1fr auto; padding: 96px var(--m) var(--m); }
+  /* nav: pílula fixa; blur só aqui, em elemento fixo */
+  nav { position: fixed; z-index: 10; top: 16px; left: 50%; translate: -50% 0; display: flex; align-items: center; gap: 4px;
+        padding: 6px; border-radius: 999px; font-size: var(--t-small); font-weight: 600;
+        background: color-mix(in srgb, var(--surface) 90%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); } /* taste-skill-ignore: única barra fixa */
+  nav a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 999px;
+          text-decoration: none; transition: background-color .3s var(--ease), color .3s var(--ease); }
+  .marca { gap: 10px; padding-left: 10px; font-weight: 750; font-size: var(--t-body); letter-spacing: -.02em; }
+  .marca i { width: 26px; height: 26px; background: var(--accent);
+             -webkit-mask: url(/static/arkive-logo.png) center / contain no-repeat; mask: url(/static/arkive-logo.png) center / contain no-repeat; }
+  nav ul { display: flex; gap: 2px; list-style: none; margin: 0 4px; padding: 0; }
+  nav ul a { color: var(--muted); }
+  nav ul a:hover, nav ul a[aria-current] { background: var(--tint); color: var(--ink); }
+  nav .vivo { background: var(--accent); color: var(--on-accent); }
+  nav .vivo:hover { background: var(--accent-ink); }
+  nav .vivo b { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .nome { align-self: center; justify-self: center; display: inline-flex; align-items: baseline;
+          font-size: var(--t-hero); font-weight: 760; letter-spacing: -.04em; line-height: 1; }
+  /* o "I" vira a logo só depois que ela carrega; se falhar, fica a letra */
+  .glifo { display: inline-block; }
+  .glifo::before { content: "I"; }
+  .js:not(.logo-ok):not(.logo-off) .glifo { visibility: hidden; }
+  .logo-ok .glifo { display: inline-block; width: .9em; height: .9em; margin: 0 -.07em -.04em -.04em; background: var(--accent);
+           -webkit-mask: url(/static/arkive-logo.png) center / contain no-repeat; mask: url(/static/arkive-logo.png) center / contain no-repeat; }
+  .logo-ok .glifo::before { content: none; }
+  html:not(.logo-ok) .marca i { display: none; }
+  .pe { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--gap); align-items: end; }
+  .pe .status { grid-column: 1 / 5; font-size: var(--t-small); color: var(--muted); display: flex; gap: 10px; align-items: center; }
+  .pe .status b { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; transition: background-color .4s; }
+  .pe .status:not([data-ok]) b { animation: pulsa .9s ease-in-out infinite alternate; }
+  @keyframes pulsa { to { opacity: .25; } }
+  .pe .status[data-ok="1"] b { background: var(--ok); }
+  .pe .status[data-ok="0"] b { background: var(--err-ink); }
+  .pe .apoio { grid-column: 5 / 10; max-width: 46ch; }
+  .pe .botao { grid-column: 10 / 13; justify-self: end; }
+
+  /* ── o caso inteiro: gravura em largura total ── */
+  .caso { margin-top: clamp(48px, 6vw, 96px); }
+  .caso figure { margin: 0; overflow: hidden; background: var(--papel); }
+  .caso img { width: 100%; max-height: 88svh; object-fit: contain; mix-blend-mode: multiply; }
+  .caso .legenda { padding-top: 32px; align-items: start; }
+  .caso .legenda p:first-child { grid-column: 1 / 7; font-size: var(--t-h2); font-weight: 700; letter-spacing: -.035em; line-height: 1; }
+  .caso .legenda p:nth-child(2) { grid-column: 8 / 13; }
+  .credito { font-size: var(--t-small); color: var(--muted); }
+
+  /* ── fluxo AG → EP → AP → FI com slider ── */
+  .fluxo { margin-top: clamp(72px, 8vw, 128px); display: grid; grid-template-columns: 1fr 1fr; min-height: min(88svh, 720px); position: relative; }
+  .fluxo .lado { padding: 40px var(--m) 180px; }
+  .fluxo .esq { background: var(--tint); }
+  .fluxo .dir { background: var(--surface); display: grid; place-items: center; }
+  .clausula { font-size: var(--t-h2); font-weight: 700; letter-spacing: -.035em; line-height: 1; max-width: 12ch; min-height: 2em;
+              transition: opacity .2s; }
+  .explica { margin-top: 28px; max-width: 44ch; transition: opacity .2s; }
+  .trocando .clausula, .trocando .explica, .trocando .cartao { opacity: 0; }
+  .controle { position: absolute; left: var(--m); right: var(--m); bottom: 36px; }
+  /* --p registrado para o trilho encher com transição ao trocar de etapa */
+  @property --p { syntax: "<percentage>"; inherits: true; initial-value: 66.6%; }
+  .controle input { transition: --p .7s var(--ease); }
+  .controle input { width: 100%; height: 40px; margin: 0; background: transparent; appearance: none; -webkit-appearance: none; cursor: pointer; }
+  .controle input::-webkit-slider-runnable-track { height: 8px; background: linear-gradient(var(--ink), var(--ink)) 0 / var(--p, 66.6%) 100% no-repeat, var(--muted); } /* taste-skill-ignore: trilho sólido de duas cores, não degradê */
+  .controle input::-moz-range-track { height: 8px; background: var(--muted); }
+  .controle input::-moz-range-progress { height: 8px; background: var(--ink); }
+  .controle input::-webkit-slider-thumb { -webkit-appearance: none; width: 32px; height: 32px; margin-top: -12px; background: var(--accent); border: 0; border-radius: 0; }
+  .controle input::-moz-range-thumb { width: 32px; height: 32px; background: var(--accent); border: 0; border-radius: 0; }
+  .controle ol { list-style: none; display: grid; grid-template-columns: repeat(4, 1fr); margin: 10px 0 0; padding: 0; font-size: var(--t-small); color: var(--muted); }
+  .controle li:nth-child(2) { text-align: center; transform: translateX(-17%); }
+  .controle li:nth-child(3) { text-align: center; transform: translateX(17%); }
+  .controle li:last-child { text-align: right; }
+  .controle li[aria-current] { color: var(--ink); font-weight: 650; }
+  .controle button { all: unset; cursor: pointer; display: inline-flex; align-items: center; min-height: 44px; }
+  .controle button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  /* fragmento do app: cartão de consulta */
+  .cartao { width: min(440px, 100%); background: var(--bg); padding: 24px; font-size: var(--t-small); transition: opacity .2s; }
+  .cartao .topo { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .cartao .pet { font-weight: 700; font-size: 1.125rem; letter-spacing: -.01em; }
+  .cartao .chip { padding: 8px 12px; border-radius: 999px; background: var(--tint); color: var(--accent-ink); font-weight: 650; white-space: nowrap; }
+  .cartao .meta { color: var(--muted); margin-top: 2px; }
+  .cartao .bloco { margin-top: 20px; padding: 16px; background: var(--surface); }
+  .cartao .bloco h3 { font-size: var(--t-small); font-weight: 650; margin-bottom: 6px; }
+  .cartao .vazio { color: var(--muted); }
+  .cartao .linha { display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; }
+  .cartao .sev { color: var(--warn-ink); font-weight: 650; }
+  .cartao .barra { height: 6px; background: var(--tint); margin-top: 8px; }
+  .cartao .barra i { display: block; height: 100%; width: 75%; background: var(--accent); transform-origin: left; }
+  /* a barra de confiança só enche quando o fluxo está na tela */
+  .js .fluxo:not(.visto) .barra i { transform: scaleX(0); }
+  .js .fluxo.visto .barra i { animation: enche .9s var(--ease) .3s both; }
+  @keyframes enche { from { transform: scaleX(0); } }
+
+  /* ── pipeline: a linha é um campo ── */
+  .pipeline { margin-top: clamp(72px, 8vw, 128px); }
+  .pipeline form { grid-column: 1 / -1; display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 .25em;
+                   font-size: var(--t-big); font-weight: 720; letter-spacing: -.04em; line-height: 1.05; }
+  .pipeline form label { white-space: nowrap; }
+  .pipeline input { font: inherit; letter-spacing: inherit; color: var(--accent); background: transparent; border: 0; padding: 0;
+                    width: 4.2ch; min-width: 2ch; caret-color: var(--accent); }
+  .pipeline input:focus-visible { outline: none; box-shadow: inset 0 -.07em 0 currentColor; } /* taste-skill-ignore: indicador de foco do campo, não sombra */
+  .pipeline input::-webkit-inner-spin-button { display: none; }
+  .pipeline .resposta { grid-column: 1 / 7; margin-top: 40px; }
+  .pipeline .resposta p { max-width: 52ch; }
+  .etapas { margin: 28px 0 32px; padding: 0 0 0 1.4em; columns: 2; column-gap: 32px; font-size: var(--t-small); }
+  .etapas li { break-inside: avoid; padding: 3px 0; }
+  .etapas li::marker { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .exemplos { margin-top: 20px; font-size: var(--t-small); color: var(--muted); }
+  .pipeline figure { grid-column: 8 / 13; margin: 40px 0 0; align-self: start; }
+  .pipeline figure img { width: 100%; }
+  .pipeline figcaption { margin-top: 12px; }
+
+  /* ── o que o motor faz: faixas que abrem ── */
+  .motor { margin-top: clamp(72px, 8vw, 128px); }
+  .motor .abre { align-items: center; padding-bottom: 56px; }
+  .motor h2 { grid-column: 1 / 8; font-size: var(--t-h2); font-weight: 700; letter-spacing: -.035em; line-height: 1; }
+  .motor .abre figure { grid-column: 8 / 13; margin: 0; }
+  .motor .abre img { width: 100%; max-height: 72svh; object-fit: contain; object-position: left; }
+  .motor .abre figcaption { margin-top: 12px; }
+  .faixa { background: var(--bg); transition: background-color .5s var(--ease); }
+  .faixa[open] { background: var(--cor); }
+  .faixa summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: center;
+                   min-height: 18vh; padding: 24px var(--m); font-size: clamp(24px, 2.8vw, 44px); font-weight: 680; letter-spacing: -.025em;
+                   line-height: 1.1; color: var(--muted); transition: color .3s; }
+  .faixa summary::-webkit-details-marker { display: none; }
+  .faixa[open] summary, .faixa summary:hover { color: var(--ink); }
+  .faixa summary svg { width: 40px; height: 40px; transition: transform .45s var(--ease); }
+  .faixa[open] summary svg { transform: rotate(45deg); }
+  .faixa .corpo { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--gap); padding: 0 var(--m) 32px; margin-top: -8px; }
+  .faixa .corpo p { grid-column: 1 / 8; max-width: 58ch; }
+  .faixa .corpo img { grid-column: 9 / 13; width: 100%; }
+  .faixa .corpo .texto { grid-column: 1 / 7; display: grid; gap: 16px; }
+  .fontes { grid-column: 8 / 13; align-self: start; border-collapse: collapse; font-size: var(--t-small); }
+  .fontes th, .fontes td { padding: 8px 12px 8px 0; text-align: left; vertical-align: top;
+                           border-top: 1px solid color-mix(in srgb, var(--muted) 35%, transparent); } /* taste-skill-ignore: tabela real */
+  .fontes td:last-child { padding-right: 0; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .f1 { --cor: var(--tint); } .f2 { --cor: var(--ok-tint); } .f3 { --cor: var(--warn-tint); }
+  .f4 { --cor: var(--tint); } .f5 { --cor: var(--ok-tint); } .f6 { --cor: var(--surface); }
+
+  /* ── integração ── */
+  .api { margin-top: clamp(72px, 8vw, 128px); align-items: start; }
+  .api .texto { grid-column: 1 / 6; }
+  .api h2 { font-size: var(--t-h2); font-weight: 700; letter-spacing: -.035em; line-height: 1; }
+  .api .texto p { margin-top: 24px; max-width: 46ch; }
+  .api table { margin-top: 32px; border-collapse: collapse; width: 100%; font-size: var(--t-small); }
+  .api th, .api td { padding: 10px 12px 10px 0; vertical-align: top; text-align: left; font-weight: 400;
+                     border-top: 1px solid color-mix(in srgb, var(--muted) 35%, transparent); } /* taste-skill-ignore: tabela real */
+  .api th { white-space: nowrap; }
+  code, pre { font-family: var(--mono); font-size: .9em; }
+  .api .exemplo { grid-column: 7 / 13; margin: 0; }
+  .api pre { margin: 0; padding: 28px; background: var(--surface); overflow-x: auto; line-height: 1.6; }
+  .api pre .k { color: var(--accent-ink); } .api pre .s { color: var(--ok-ink); } .api pre .n { color: var(--warn-ink); }
+  .sevs { margin: 24px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px; font-size: var(--t-small); font-weight: 650; }
+  .sevs li { padding: 8px 14px; background: var(--surface); }
+
+  /* ── fecho invertido ── */
+  .fecho { margin-top: clamp(72px, 8vw, 128px); background: var(--ink); color: var(--bg);
+           display: grid; gap: clamp(40px, 5vw, 72px); padding: clamp(64px, 8vw, 112px) var(--m); }
+  .fecho h2 { font-size: var(--t-big); font-weight: 740; letter-spacing: -.04em; line-height: .95; }
+  .fecho .base { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--gap); align-items: end; }
+  .fecho .base p { grid-column: 1 / 6; }
+  .fecho .botao { grid-column: 9 / 13; justify-self: end; min-height: 56px; }
+
+  /* ── rodapé com o nome cortado ── */
+  footer { background: var(--ink); color: var(--bg); overflow: clip; padding: clamp(24px, 3vw, 48px) var(--m) 0; }
+  footer .convite { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--gap); align-items: start; }
+  footer .convite > div { grid-column: 1 / 8; }
+  footer h2 { font-size: var(--t-h2); font-weight: 720; letter-spacing: -.035em; line-height: 1; margin-bottom: 28px; }
+  footer .botao { background: var(--bg); color: var(--ink); }
+  footer .botao:hover { background: var(--tint); }
+  /* blocos-link: título, linha curta e seta */
+  footer ul { grid-column: 8 / 13; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  footer ul a { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; min-height: 120px; padding: 20px; align-content: space-between;
+                text-decoration: none; font-weight: 650; background: color-mix(in srgb, var(--bg) 8%, var(--ink));
+                transition: background-color .3s var(--ease); }
+  footer ul a small { grid-column: 1; font-size: var(--t-small); font-weight: 400; color: color-mix(in srgb, var(--bg) 72%, var(--ink)); }
+  footer ul a svg { grid-column: 2; grid-row: 1; width: 20px; height: 20px; transition: transform .4s var(--ease); }
+  footer ul a:hover { background: color-mix(in srgb, var(--bg) 16%, var(--ink)); }
+  footer ul a:hover svg { transform: translate(3px, -3px); }
+  footer .legal { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 32px; margin-top: 64px;
+                  font-size: var(--t-small); color: color-mix(in srgb, var(--bg) 78%, var(--ink)); }
+  footer .legal a { color: inherit; }
+  /* o nome ocupa a largura inteira (JS ajusta o tamanho) e encosta no fim da página;
+     padding-right devolve o letter-spacing negativo da última letra, senão o "e" corta */
+  footer .grande { font-size: 27vw; font-weight: 800; letter-spacing: -.055em; line-height: .74; white-space: nowrap;
+                   width: max-content; padding-right: .055em; position: relative; left: 50%; translate: -50% 0; margin-top: 32px; }
+  @supports (text-box: trim-both cap alphabetic) { footer .grande { line-height: 1; text-box: trim-both cap alphabetic; } }
+
+  /* tema escuro: gravuras viram chapa de raio-x, traço claro sobre o fundo da página */
+  @media (prefers-color-scheme: dark) {
+    figure.gravura { background: var(--papel); }
+    figure.gravura img { filter: invert(1) hue-rotate(180deg); mix-blend-mode: screen; }
+  }
+
+  /* ── movimento ── */
+  .js [data-entra] > * { opacity: 0; transform: translateY(24px); transition: opacity .8s var(--ease), transform .8s var(--ease); }
+  .js [data-entra].visto > * { opacity: 1; transform: none; }
+  .js [data-entra].visto > :nth-child(2) { transition-delay: .08s; } .js [data-entra].visto > :nth-child(3) { transition-delay: .16s; }
+  .js [data-entra].visto > :nth-child(4) { transition-delay: .24s; }
+  .js .caso figure { clip-path: inset(0 100% 0 0); transition: clip-path 1.1s var(--ease); }
+  .js .caso figure img { transform: scale(1.12); transition: transform 1.4s var(--ease); }
+  .js .caso.visto figure { clip-path: inset(0 0 0 0); }
+  .js .caso.visto figure img { transform: none; }
+  .js .nome { opacity: 0; transform: translateY(20px); animation: sobe 1s var(--ease) .1s forwards; }
+  .js .glifo { animation: marca 1.2s var(--ease) .35s both; }
+  @keyframes sobe { to { opacity: 1; transform: none; } }
+  @keyframes marca { from { transform: translateY(.25em) scale(.85); opacity: 0; } }
+  /* movimento reduzido: sem deslocamento, mas as entradas e trocas de estado seguem em fade */
+  @keyframes surge { from { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .js [data-entra] > *, .js .nome { transform: none; }
+    .js .nome, .js .glifo { animation: surge .6s ease-out both; }
+    .js .caso figure { clip-path: none; transition: none; } .js .caso figure img { transform: none; transition: none; }
+    .js .fluxo.visto .barra i, .pe .status:not([data-ok]) b { animation: none; }
+    .controle input { transition: none; }
+    .botao:active, .botao:hover svg { transform: none; }
+  }
+
+  /* ── telefone ── */
+  @media (max-width: 760px) {
+    nav { left: 12px; right: 12px; translate: none; justify-content: space-between; }
+    /* telefone: a logo sozinha cede espaço às seções */
+    nav { gap: 0; }
+    nav a { padding: 0 10px; }
+    nav ul { margin: 0; gap: 0; }
+    .logo-ok .marca span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .hero { padding-top: 88px; }
+    .nome { font-size: clamp(64px, 21vw, 120px); }
+    .pe { grid-template-columns: 1fr; gap: 20px; }
+    .pe .status, .pe .apoio, .pe .botao { grid-column: 1; justify-self: stretch; }
+    .caso .legenda { grid-template-columns: 1fr; gap: 16px; }
+    .caso .legenda p:first-child, .caso .legenda p:nth-child(2) { grid-column: 1; }
+    .fluxo { grid-template-columns: 1fr; min-height: 0; }
+    .fluxo .dir { order: -1; padding: 24px var(--m); min-height: 46svh; }
+    .fluxo .controle { position: static; order: 0; padding: 20px var(--m) 8px; background: var(--surface); }
+    .fluxo .controle input::-webkit-slider-thumb { width: 40px; height: 40px; margin-top: -16px; }
+    .fluxo .controle ol { grid-template-columns: 1fr 1fr; gap: 0 16px; }
+    .controle li:nth-child(n) { text-align: left; transform: none; }
+    .fluxo .esq { order: 1; padding: 32px var(--m) 48px; }
+    .clausula { font-size: var(--t-h2); }
+    .pipeline form, .fecho h2 { font-size: clamp(36px, 11vw, 56px); }
+    .pipeline .resposta, .pipeline figure { grid-column: 1 / -1; }
+    .etapas { columns: 1; }
+    .faixa summary { min-height: 132px; font-size: clamp(22px, 6.4vw, 30px); }
+    .faixa summary svg { width: 32px; height: 32px; }
+    .faixa .corpo p, .faixa .corpo img, .faixa .corpo .texto, .fontes { grid-column: 1 / -1; }
+    .api .texto, .api .exemplo { grid-column: 1 / -1; }
+    .motor h2, .motor .abre figure { grid-column: 1 / -1; }
+    .fecho .base p, .fecho .botao { grid-column: 1 / -1; justify-self: stretch; }
+    footer .convite > div, footer ul { grid-column: 1 / -1; }
+    footer .botao { width: 100%; }
+    footer ul { grid-template-columns: 1fr; margin-top: 32px; }
+    footer ul a { min-height: 88px; }
+    footer .grande { font-size: 34vw; }
+  }
+</style>
+</head>
+<body>
+<script>
+  (function (h) {
+    h.classList.add("js");
+    const l = new Image();
+    l.onload = () => h.classList.add("logo-ok"); l.onerror = () => h.classList.add("logo-off");
+    l.src = "/static/arkive-logo.png";
+  })(document.documentElement);
+</script>
+
+<header class="hero">
+  <nav aria-label="Principal">
+    <a class="marca" href="/"><i aria-hidden="true"></i><span>ArkIve</span></a>
+    <ul>
+      <li><a href="#fluxo">Consulta</a></li>
+      <li><a href="#motor">Motor</a></li>
+      <li><a href="#api">API</a></li>
+    </ul>
+    <a class="vivo" href="/pipeline"><b aria-hidden="true"></b>Ao vivo</a>
+  </nav>
+  <h1 class="nome" aria-label="ArkIve">
+    <span aria-hidden="true">Ark</span><span class="glifo" aria-hidden="true"></span><span aria-hidden="true">ve</span>
+  </h1>
+  <div class="pe">
+    <p class="status" id="status" role="status"><b></b><span>Verificando a API…</span></p>
+    <p class="apoio"><strong>Clinical Engine.</strong> O motor de IA que lê o prontuário real de cada consulta e devolve ao veterinário um parecer clínico de apoio.</p>
+    <a class="botao" href="/pipeline">Ver o pipeline ao vivo
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 10h13M11 5l5 5-5 5"/></svg></a>
+  </div>
+</header>
+
+<main>
+  <section class="caso" aria-label="O caso inteiro">
+    <figure class="gravura">
+      <img src="/static/img/dog-anatomy-lateral-skeleton-view-full.webp" width="1920" height="1586" loading="lazy" decoding="async"
+           srcset="/static/img/dog-anatomy-lateral-skeleton-view-full-960.webp 960w, /static/img/dog-anatomy-lateral-skeleton-view-full.webp 1920w" sizes="100vw"
+           alt="Gravura anatômica de 1889: esqueleto de um cão de perfil, com ossos numerados, sobre a silhueta do corpo.">
+    </figure>
+    <div class="grid legenda" data-entra>
+      <p>Lê o caso inteiro antes de opinar.</p>
+      <p>Narrativa da consulta, raça, peso, bem-estar, diagnósticos anteriores, cuidados e o relato do tutor saem do Oracle. O motor só lê: nenhum <code>INSERT</code>, <code>UPDATE</code> ou <code>DELETE</code> existe no código.
+        <span class="credito"><br>Gravura: Ellenberger &amp; Baum, <i>Anatomie des Hundes</i>, 1889. Domínio público, via Wikimedia Commons.</span></p>
+    </div>
+  </section>
+
+  <section class="fluxo" id="fluxo" aria-labelledby="fluxo-t">
+    <h2 class="sr" id="fluxo-t">Onde o motor entra na consulta</h2>
+    <div class="lado esq" data-entra>
+      <p class="clausula" id="clausula">O motor devolve o parecer</p>
+      <p class="explica" id="explica">Com a narrativa salva, a consulta vai para AP. O ArkIve chama <code>GET /diagnostico/{id}</code> e recebe hipótese, severidade, confiança e quatro insights.</p>
+    </div>
+    <div class="lado dir">
+      <article class="cartao" data-ui id="cartao" aria-label="Exemplo de consulta no app ArkIve">
+        <div class="topo"><span class="pet">Thor</span><span class="chip" id="chip">AP · Aguardando parecer</span></div>
+        <p class="meta">Golden Retriever · 7 anos · 34,2 kg</p>
+        <div class="bloco" id="bloco"></div>
+      </article>
+    </div>
+    <div class="controle">
+      <label class="sr" for="etapa">Etapa da consulta</label>
+      <input type="range" id="etapa" min="0" max="3" step="1" value="2" aria-valuetext="AP, Aguardando parecer">
+      <ol id="nomes">
+        <li><button type="button" data-i="0">AG · Agendada</button></li>
+        <li><button type="button" data-i="1">EP · Em progresso</button></li>
+        <li aria-current="step"><button type="button" data-i="2">AP · Aguardando parecer</button></li>
+        <li><button type="button" data-i="3">FI · Finalizada</button></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="pipeline grid" id="pipeline" aria-labelledby="pipeline-t">
+    <h2 class="sr" id="pipeline-t">Pipeline ao vivo</h2>
+    <form action="/pipeline" method="get" id="form-pipeline" data-entra>
+      <label for="id">Abrir a consulta nº</label><input id="id" name="id" type="number" inputmode="numeric" min="1" step="1" value="1" required data-ui>
+    </form>
+    <div class="resposta" data-entra>
+      <p>A página <a href="/pipeline"><code>/pipeline</code></a> roda a mesma análise do <code>/diagnostico</code> e mostra cada etapa no momento em que ela acontece, com os dados reais que passaram por ali e o log do motor:</p>
+      <ol class="etapas">
+        <li>Oracle: consulta, animal e histórico</li>
+        <li>Confiança calculada em Python</li>
+        <li>Predisposições da raça, ranqueadas</li>
+        <li>Resumo clínico montado</li>
+        <li>RAG: trechos da base local</li>
+        <li>Decisão de buscar na web</li>
+        <li>Busca: PubMed e fontes veterinárias</li>
+        <li>Prompt completo enviado</li>
+        <li>Resposta do Groq</li>
+        <li>Resultado: severidade e confiança</li>
+      </ol>
+      <button class="botao" type="submit" form="form-pipeline" id="abrir">Abrir no pipeline
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 10h13M11 5l5 5-5 5"/></svg></button>
+      <p class="exemplos">Use o ID_CONSULTA de qualquer consulta do Oracle.</p>
+    </div>
+    <figure class="gravura" data-entra>
+      <img src="/static/img/dog-anatomy-head.webp" width="1500" height="1239" loading="lazy" decoding="async"
+           srcset="/static/img/dog-anatomy-head-960.webp 960w, /static/img/dog-anatomy-head.webp 1500w" sizes="(max-width: 760px) 100vw, 40vw"
+           alt="Gravura de 1889 com a musculatura da cabeça de um cão e crânios em vista lateral, com letras de referência.">
+      <figcaption class="credito">Hermann Dittrich, prancha 14 de <i>Anatomie des Hundes</i>, 1889. Domínio público, via Wikimedia Commons.</figcaption>
+    </figure>
+  </section>
+
+  <section class="motor" id="motor" aria-labelledby="motor-t">
+    <div class="grid abre" data-entra>
+      <h2 id="motor-t">Regra antes do modelo.</h2>
+      <figure class="gravura">
+        <img src="/static/img/dog-anatomy-anterior-view.webp" width="1239" height="1500" loading="lazy" decoding="async"
+             srcset="/static/img/dog-anatomy-anterior-view-960.webp 960w, /static/img/dog-anatomy-anterior-view.webp 1239w" sizes="(max-width: 760px) 100vw, 40vw"
+             alt="Gravura de 1889: cão visto de frente, com a musculatura do peito e das patas dianteiras numerada.">
+        <figcaption class="credito">Ellenberger &amp; Baum, prancha 5 de <i>Anatomie des Hundes</i>, 1889. Domínio público, via Wikimedia Commons.</figcaption>
+      </figure>
+    </div>
+    <details class="faixa f1" open>
+      <summary>Confiança calculada, não chutada
+        <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M20 8v24M8 20h24"/></svg></summary>
+      <div class="corpo"><p>O <code>pc_confianca</code> sai de uma rubrica em Python: base de 30 pontos, mais a narrativa, as predisposições ligadas aos sintomas, o bem-estar e o peso. O LLM recebe o número pronto e nunca o recalcula.</p></div>
+    </details>
+    <details class="faixa f2">
+      <summary>Literatura quando falta dado
+        <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M20 8v24M8 20h24"/></svg></summary>
+      <div class="corpo"><p>Abaixo do limiar <code>AMBIGUITY_THRESHOLD</code>, o motor consulta o PubMed filtrado pela espécie. Se não achar nada, recorre a cerca de 108 domínios veterinários confiáveis. Sem fonte boa, segue sem contexto externo.</p></div>
+    </details>
+    <details class="faixa f3">
+      <summary>Raça é risco, não diagnóstico
+        <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M20 8v24M8 20h24"/></svg></summary>
+      <div class="corpo"><p>Golden Retriever tem tendência a hipotireoidismo, mas isso não quer dizer que o Thor tenha. Das doenças ligadas à raça, o motor separa as que mais combinam com o relato. Uma delas só vira hipótese se a narrativa trouxer um sinal clínico compatível. Sem esse sinal, aparece no parecer como risco a acompanhar, nunca como diagnóstico.</p></div>
+    </details>
+    <details class="faixa f4">
+      <summary>Base local antes da internet
+        <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M20 8v24M8 20h24"/></svg></summary>
+      <div class="corpo">
+        <div class="texto">
+          <p>O RAG busca em 782 fichas veterinárias guardadas no próprio servidor e envia ao LLM os trechos mais próximos do caso, filtrados pela espécie. O título de cada ficha usada volta em <code>fontes_rag</code>.</p>
+          <p>Todas as fichas vêm de órgãos oficiais, associações veterinárias e universidades, não de blogs ou fóruns. Em 108 casos de teste rotulados, o modelo de busca ajustado pela equipe põe a ficha certa entre as três primeiras em 63% dos casos, contra 38% do modelo genérico. Ficha com similaridade baixa demais é descartada antes do LLM. A base cobre doenças infecciosas e parasitárias; para os outros quadros, o motor recorre à literatura.</p>
+        </div>
+        <table class="fontes">
+          <caption class="sr">Fontes da base local e número de fichas</caption>
+          <tr><th scope="row">AAZV</th><td>Associação Americana de Veterinários de Zoológico</td><td>181</td></tr>
+          <tr><th scope="row">WHA</th><td>Wildlife Health Australia</td><td>140</td></tr>
+          <tr><th scope="row">ARWH</th><td>Registro Australiano de Saúde da Fauna</td><td>137</td></tr>
+          <tr><th scope="row">WOAH</th><td>Organização Mundial de Saúde Animal</td><td>121</td></tr>
+          <tr><th scope="row">CAPC</th><td>Companion Animal Parasite Council</td><td>61</td></tr>
+          <tr><th scope="row">CFSPH</th><td>Center for Food Security and Public Health, Iowa State</td><td>51</td></tr>
+          <tr><th scope="row">ABCD</th><td>European Advisory Board on Cat Diseases</td><td>46</td></tr>
+          <tr><th scope="row">USGS</th><td>Serviço Geológico dos EUA, saúde da fauna silvestre</td><td>45</td></tr>
+        </table>
+      </div>
+    </details>
+    <details class="faixa f5" open>
+      <summary>AUSENTE quando o animal está bem
+        <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M20 8v24M8 20h24"/></svg></summary>
+      <div class="corpo">
+        <p>Um check-up sem queixa não vira doença inventada: <code>tp_severidade</code> sai AUSENTE, o diagnóstico fica “Sem alterações clínicas evidentes” e os insights trazem fatores de risco e o acompanhamento preventivo.</p>
+        <img src="/static/img/white-dog.webp" width="1400" height="1030" loading="lazy" decoding="async"
+             srcset="/static/img/white-dog-960.webp 960w, /static/img/white-dog.webp 1400w" sizes="(max-width: 760px) 100vw, 33vw"
+             alt="Água-forte de 1649: um cão branco de pelo longo deitado, tranquilo, sobre fundo escuro.">
+      </div>
+    </details>
+    <details class="faixa f6">
+      <summary>Outro modelo se o Groq falhar
+        <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M20 8v24M8 20h24"/></svg></summary>
+      <div class="corpo"><p>Começa pelo <code>openai/gpt-oss-120b</code>. Cota estourada ou modelo fora do ar pula para o próximo da lista. Erro transitório tenta de novo no mesmo modelo, com espera crescente.</p></div>
+    </details>
+  </section>
+
+  <section class="api grid" id="api" aria-labelledby="api-t">
+    <div class="texto" data-entra>
+      <h2 id="api-t">Um GET por consulta.</h2>
+      <p>O serviço Java do ArkIve chama a API com o ID da consulta e grava a resposta em <code>TB_ARKIVE_DIAGNOSTICO</code>.</p>
+      <table>
+        <caption class="sr">Endpoints da API</caption>
+        <tr><th scope="row"><code>GET /diagnostico/{id}</code></th><td>Parecer completo em JSON</td></tr>
+        <tr><th scope="row"><code>GET /pipeline</code></th><td>A análise ao vivo, etapa por etapa</td></tr>
+        <tr><th scope="row"><code>GET /health</code></th><td>Status da API e do RAG</td></tr>
+        <tr><th scope="row"><a href="/docs"><code>GET /docs</code></a></th><td>Documentação interativa (Swagger)</td></tr>
+      </table>
+      <ul class="sevs" aria-label="Severidades possíveis"><li>AUSENTE</li><li>LEVE</li><li>MODERADA</li><li>GRAVE</li></ul>
+    </div>
+    <figure class="exemplo" data-entra>
+    <figcaption class="sr">Exemplo de resposta de /diagnostico</figcaption>
+    <pre><code>{
+  <span class="k">"ds_diagnostico"</span>: <span class="s">"Suspeita de hipotireoidismo canino"</span>,
+  <span class="k">"tp_severidade"</span>: <span class="s">"MODERADA"</span>,
+  <span class="k">"pc_confianca"</span>: <span class="n">75</span>,
+  <span class="k">"insight_perfil"</span>: <span class="s">"Golden Retriever, 7 anos..."</span>,
+  <span class="k">"insight_correlacao"</span>: <span class="s">"Apatia e ganho de peso..."</span>,
+  <span class="k">"insight_predisposicao"</span>: <span class="s">"Raça com predisposição..."</span>,
+  <span class="k">"insight_limitacoes"</span>: <span class="s">"Confirmar com T4 livre e TSH..."</span>,
+  <span class="k">"fontes_rag"</span>: [{ <span class="k">"fonte"</span>: <span class="s">"..."</span>, <span class="k">"titulo"</span>: <span class="s">"..."</span> }],
+  <span class="k">"fontes_pesquisadas"</span>: [],
+  <span class="k">"ds_insight_ia"</span>: <span class="s">"..."</span>,
+  <span class="k">"tokens"</span>: { <span class="k">"entrada"</span>: <span class="n">5210</span>, <span class="k">"saida"</span>: <span class="n">830</span>, <span class="k">"total"</span>: <span class="n">6040</span> }
+}</code></pre>
+    </figure>
+  </section>
+
+  <section class="fecho" aria-labelledby="fecho-t">
+    <h2 id="fecho-t" data-entra><span>Assista ao parecer.</span></h2>
+    <div class="base" data-entra>
+      <p>Escolha uma consulta e acompanhe as 10 etapas do motor, do Oracle ao resultado, em tempo real.</p>
+      <a class="botao" href="/pipeline">Abrir o pipeline ao vivo
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 10h13M11 5l5 5-5 5"/></svg></a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="convite">
+    <div data-entra>
+      <h2>Leve o parecer para o consultório.</h2>
+      <a class="botao" href="https://mobile-application-sooty.vercel.app/">Abrir o app ArkIve
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 10h13M11 5l5 5-5 5"/></svg></a>
+    </div>
+    <ul>
+      <li><a href="https://github.com/2TDSPO-ArkIve/arkive_clinical_engine">Código do motor<small>GitHub · Python e FastAPI</small>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M6 14 14 6M7 6h7v7"/></svg></a></li>
+      <li><a href="https://github.com/2TDSPO-ArkIve/Mobile-Application">Código do app<small>GitHub · React Native</small>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M6 14 14 6M7 6h7v7"/></svg></a></li>
+      <li><a href="/docs">Documentação da API<small>Swagger · /docs</small>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M6 14 14 6M7 6h7v7"/></svg></a></li>
+      <li><a href="/pipeline">Pipeline ao vivo<small>As 10 etapas em tempo real</small>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M6 14 14 6M7 6h7v7"/></svg></a></li>
+    </ul>
+  </div>
+  <div class="legal">
+    <span>FIAP Challenge 2026 · Clyvo Vet · Gustavo Crevelari, Lucca Gomes, Rafaela Ferreira, Victor Sabelli</span>
+    <span>Gravuras: Ellenberger, Baum e Dittrich (1889), domínio público, <a href="https://commons.wikimedia.org/wiki/File:Dog_anatomy_lateral_skeleton_view_(full).jpg">Wikimedia</a> · Wenceslaus Hollar, <i>White Dog</i> (1649), CC0, <a href="https://www.artic.edu/artworks/102180">Art Institute of Chicago</a></span>
+  </div>
+  <p class="grande" aria-hidden="true">ArkIve</p>
+</footer>
+
+<script>
+  // status real da API
+  (function () {
+    const el = document.getElementById("status"), txt = el.querySelector("span");
+    const ctl = new AbortController(); setTimeout(() => ctl.abort(), 8000);
+    fetch("/health", { signal: ctl.signal }).then(r => r.ok ? r.json() : Promise.reject())
+      .then(d => { el.dataset.ok = "1"; txt.textContent = "API online · RAG " + (d.rag ? "ativo" : "inativo"); })
+      .catch(() => { el.dataset.ok = "0"; txt.textContent = "API sem resposta agora. No plano gratuito do Render, a primeira chamada leva cerca de 1 min."; });
+  })();
+
+  // fluxo AG → EP → AP → FI
+  (function () {
+    const E = [
+      { chip: "AG · Agendada", c: "A consulta é agendada", x: "Tutor, animal e horário ficam registrados. Ainda não há caso para analisar.",
+        b: '<h3>Narrativa clínica</h3><p class="vazio">Sem narrativa. Consulta marcada para 18/10, 14h30.</p>' },
+      { chip: "EP · Em progresso", c: "O veterinário narra o caso", x: "Durante a consulta, o veterinário registra sintomas, bem-estar e peso. É esse texto que o motor vai ler.",
+        b: '<h3>Narrativa clínica</h3><p>Tutor relata apatia há 3 semanas, ganho de peso sem mudança na dieta e pelo opaco, com falhas no flanco.</p>' },
+      { chip: "AP · Aguardando parecer", c: "O motor devolve o parecer", x: "Com a narrativa salva, a consulta vai para AP. O ArkIve chama GET /diagnostico/{id} e recebe hipótese, severidade, confiança e quatro insights.",
+        b: '<h3>Parecer do ArkIve</h3><p>Suspeita de hipotireoidismo canino</p><div class="linha"><span>Severidade</span><span class="sev">MODERADA</span></div><div class="linha"><span>Confiança</span><span>75%</span></div><div class="barra"><i></i></div>' },
+      { chip: "FI · Finalizada", c: "O veterinário decide e encerra", x: "O parecer é ponto de partida. A conclusão registrada é a do veterinário, que pode confirmar, ajustar ou descartar a sugestão.",
+        b: '<h3>Conclusão do veterinário</h3><p>Hipotireoidismo confirmado por T4 livre baixo. Início de levotiroxina e retorno em 30 dias.</p>' },
+    ];
+    const r = document.getElementById("etapa"), sec = document.getElementById("fluxo"), lis = [...document.querySelectorAll("#nomes li")];
+    const $ = id => document.getElementById(id);
+    let t;
+    function mostra(i, anima) {
+      const e = E[i];
+      r.value = i; r.style.setProperty("--p", (i / 3 * 100) + "%"); r.setAttribute("aria-valuetext", e.chip.replace(" · ", ", "));
+      lis.forEach((li, k) => k === i ? li.setAttribute("aria-current", "step") : li.removeAttribute("aria-current"));
+      const troca = () => { $("chip").textContent = e.chip; $("clausula").textContent = e.c; $("explica").textContent = e.x; $("bloco").innerHTML = e.b; sec.classList.remove("trocando"); };
+      clearTimeout(t);
+      if (anima) { sec.classList.add("trocando"); t = setTimeout(troca, 200); } else troca();
+    }
+    // ao entrar na tela, a barra anda sozinha de AG até AP; qualquer toque do usuário para a animação
+    // aria-live só depois do primeiro toque: o autoplay não fala sozinho no leitor de tela
+    let auto;
+    const para = () => clearInterval(auto);
+    const toca = i => { para(); $("clausula").setAttribute("aria-live", "polite"); mostra(i, true); };
+    r.addEventListener("input", () => toca(+r.value));
+    lis.forEach(li => li.querySelector("button").addEventListener("click", e => toca(+e.currentTarget.dataset.i)));
+    const anda = "IntersectionObserver" in window && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+    mostra(anda ? 0 : 2, false);
+    if (anda) {
+      const io = new IntersectionObserver(es => {
+        if (!es[0].isIntersecting) return;
+        io.disconnect();
+        let i = 0;
+        auto = setInterval(() => { mostra(++i, true); if (i === 2) para(); }, 1800);
+      }, { rootMargin: "-30% 0px -30% 0px" });
+      io.observe(sec);
+    }
+  })();
+
+  // nav: destaca a seção visível
+  (function () {
+    const links = [...document.querySelectorAll("nav ul a")];
+    if (!("IntersectionObserver" in window)) return;
+    // seção que sai do meio da tela apaga o próprio link: hero, caso e pipeline ficam sem destaque
+    const io = new IntersectionObserver(es => es.forEach(e => {
+      const a = links.find(l => l.hash === "#" + e.target.id);
+      if (e.isIntersecting) links.forEach(l => l === a ? l.setAttribute("aria-current", "location") : l.removeAttribute("aria-current"));
+      else a.removeAttribute("aria-current");
+    }), { rootMargin: "-45% 0px -50% 0px" });
+    links.forEach(a => io.observe(document.querySelector(a.hash)));
+  })();
+
+  // rodapé: o nome ocupa a largura inteira do rodapé
+  (function () {
+    const g = document.querySelector("footer .grande"), f = g.parentElement;
+    const ajusta = () => { g.style.fontSize = ""; g.style.fontSize = parseFloat(getComputedStyle(g).fontSize) * f.clientWidth / g.offsetWidth + "px"; };
+    document.fonts.ready.then(ajusta);
+    addEventListener("resize", ajusta);
+  })();
+
+  // campo de ID: o botão diz para onde vai
+  (function () {
+    const i = document.getElementById("id"), b = document.getElementById("abrir");
+    const ajusta = () => { const v = parseInt(i.value, 10); b.firstChild.textContent = v > 0 ? `Abrir a consulta ${v} no pipeline ` : "Abrir no pipeline ";
+                           i.style.width = Math.max(2, String(i.value || "").length + 0.6) + "ch"; };
+    i.addEventListener("input", ajusta); ajusta();
+  })();
+
+  // entradas por seção
+  (function () {
+    const alvos = document.querySelectorAll("[data-entra], .caso, .fluxo");
+    if (!("IntersectionObserver" in window)) { alvos.forEach(a => a.classList.add("visto")); return; }
+    const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add("visto"); io.unobserve(e.target); } }),
+                                        { threshold: .15, rootMargin: "0px 0px -8% 0px" });
+    alvos.forEach(a => io.observe(a));
+  })();
+</script>
+</body>
+</html>

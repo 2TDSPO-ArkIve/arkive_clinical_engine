@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ArkIve — Pipeline ao vivo</title>
+<link rel="icon" type="image/png" href="/static/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400..800&family=IBM+Plex+Mono:wght@400;600&display=swap" media="print" onload="this.media='all'"><!-- taste-skill-ignore: mono só em <pre> e no log -->
@@ -11,11 +12,12 @@
 <style>
   /* sem internet a Schibsted Grotesk não carrega e cai na fonte do sistema: mesmo layout */
   :root {
-    --bg: #f3f4f1; --surface: #e8eae5; --surface-2: #d8dcd5; --ink: #111a17; --muted: #4a5651;
-    --accent: #0f766e; --on-accent: #ffffff; --ok: #15803d; --warn: #b45309; --err: #b91c1c; --skip: #5f6b66;
-    --ok-txt: #166534; --warn-txt: #92400e; --err-txt: #991b1b; --accent-txt: #0d5f58; --on-marca: #ffffff;
-    --selo: #2b5f58; --selo-ok: #15803d; --selo-warn: #b45309; --selo-err: #b91c1c; --on-selo: #ffffff;
-    --code: #e1e4de; --campo: #0b3b36; --on-campo: #e9f5f2; --on-campo-muted: #a9cfc8;
+    /* paleta do app ArkIve (Mobile-Application/src/styles/colors.ts) */
+    --bg: #f4f5f7; --surface: #e9ebf0; --surface-2: #dde2ea; --ink: #1f2937; --muted: #4b5563;
+    --accent: #3f51b5; --on-accent: #ffffff; --ok: #2e7d32; --warn: #c25700; --err: #d32f2f; --skip: #6b7280;
+    --ok-txt: #1b5e20; --warn-txt: #8a3d00; --err-txt: #b71c1c; --accent-txt: #3347a8; --on-marca: #ffffff;
+    --selo: #3347a8; --selo-ok: #2e7d32; --selo-warn: #c25700; --selo-err: #d32f2f; --on-selo: #ffffff;
+    --code: #e4e7ee; --campo: #1f2a5c; --on-campo: #eef0fb; --on-campo-muted: #b8c0ea;
     --sans: "Schibsted Grotesk", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
     --mono: "IBM Plex Mono", ui-monospace, "Cascadia Code", Consolas, monospace; /* taste-skill-ignore: só <pre> e log */
     --ease: cubic-bezier(.32, .72, 0, 1);
@@ -23,10 +25,10 @@
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #0c1210; --surface: #151d1a; --surface-2: #24302b; --ink: #e7ece9; --muted: #9fb0a9;
-      --accent: #2dd4bf; --on-accent: #06201c; --ok: #4ade80; --warn: #fbbf24; --err: #f87171; --skip: #7d8c86;
-      --ok-txt: #4ade80; --warn-txt: #fbbf24; --err-txt: #f87171; --accent-txt: #2dd4bf; --on-marca: #0c1210;
-      --code: #0f1714; --campo: #0f2e2a; --on-campo: #e7f3f0; --on-campo-muted: #8fc2b8;
+      --bg: #12141c; --surface: #1b1f2c; --surface-2: #2b3040; --ink: #e7eaf2; --muted: #a4adc0;
+      --accent: #7c8ee8; --on-accent: #12141c; --ok: #66bb6a; --warn: #ffa654; --err: #ef5350; --skip: #7d8599;
+      --ok-txt: #8fd693; --warn-txt: #ffb26b; --err-txt: #ff8a80; --accent-txt: #9aa8f0; --on-marca: #12141c;
+      --code: #0e1017; --campo: #1d2340; --on-campo: #e7eaf2; --on-campo-muted: #a9b3e0;
     }
   }
   * { box-sizing: border-box; }
@@ -40,7 +42,10 @@
   header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 32px 48px; align-items: end;
            padding: 40px 32px 48px; }
   .topo { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; margin-bottom: 24px; }
-  .topo .nome { font-weight: 800; font-size: 1.25rem; letter-spacing: -.02em; color: var(--accent); }
+  .topo .nome { font-weight: 800; font-size: 1.25rem; letter-spacing: -.02em; color: var(--accent-txt);
+                text-decoration: none; display: inline-flex; align-items: center; gap: 8px; align-self: center; }
+  .topo .nome i { width: 26px; height: 26px; background: currentColor;
+                  -webkit-mask: url(/static/arkive-logo.png) center / contain no-repeat; mask: url(/static/arkive-logo.png) center / contain no-repeat; }
   .topo span:last-child { color: var(--muted); }
   h1 { margin: 0; font-size: clamp(2rem, 4vw, 2.75rem); line-height: 1.02; letter-spacing: -.035em; font-weight: 650;
        max-width: 16ch; text-wrap: balance; }
@@ -198,7 +203,7 @@
 </head>
 <body>
 <header>
-  <p class="topo"><span class="nome">ArkIve</span><span>Motor de Inteligência Clínica · pipeline ao vivo</span></p>
+  <p class="topo"><a class="nome" href="/"><i aria-hidden="true"></i>ArkIve</a><span>Motor de Inteligência Clínica · pipeline ao vivo</span></p>
   <div>
     <h1>Uma consulta, etapa por etapa</h1>
     <p class="sub">Digite o ID de uma consulta e acompanhe, em tempo real, os dados reais que passam por cada etapa até o diagnóstico.</p>
