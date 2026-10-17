@@ -9,7 +9,8 @@
 <link rel="apple-touch-icon" href="/static/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400..800&family=IBM+Plex+Mono:wght@400;600&display=swap"><!-- taste-skill-ignore: mono só em <pre>/<code> -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400..800&family=IBM+Plex+Mono:wght@400;600&display=swap" media="print" onload="this.media='all'"><!-- taste-skill-ignore: mono só em <pre>/<code> -->
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400..800&family=IBM+Plex+Mono:wght@400;600&display=swap"></noscript><!-- taste-skill-ignore: mono só em <pre>/<code> -->
 <style>
   /* paleta do app ArkIve (Mobile-Application/src/styles/colors.ts) */
   :root {
@@ -110,8 +111,12 @@
   .fluxo .lado { padding: 40px var(--m) 180px; }
   .fluxo .esq { background: var(--tint); }
   .fluxo .dir { background: var(--surface); display: grid; place-items: center; }
-  .clausula { font-size: var(--t-h2); font-weight: 700; letter-spacing: -.035em; line-height: 1; max-width: 12ch; min-height: 2em;
+  .clausula { font-size: var(--t-h2); font-weight: 700; letter-spacing: -.035em; line-height: 1; max-width: 12ch;
               transition: opacity .2s; }
+  /* os 4 textos ocupam a mesma célula (os outros invisíveis): a altura é a do estágio mais longo e o loop não empurra nada */
+  .palco { display: grid; }
+  .palco > * { grid-area: 1 / 1; }
+  .fantasma { visibility: hidden; }
   .explica { margin-top: 28px; max-width: 44ch; transition: opacity .2s; }
   .trocando .clausula, .trocando .explica, .trocando .cartao { opacity: 0; }
   .controle { position: absolute; left: var(--m); right: var(--m); bottom: 36px; }
@@ -362,9 +367,13 @@
 
   <section class="fluxo" id="fluxo" aria-labelledby="fluxo-t">
     <h2 class="sr" id="fluxo-t">Onde o motor entra na consulta</h2>
-    <div class="lado esq" data-entra>
-      <p class="clausula" id="clausula">O motor devolve o parecer</p>
-      <p class="explica" id="explica">Com a narrativa salva, a consulta vai para AP. O ArkIve chama <code>GET /diagnostico/{id}</code> e recebe hipótese, severidade, confiança e quatro insights.</p>
+    <div class="lado esq">
+      <div class="palco" id="palco">
+        <div data-entra>
+          <p class="clausula" id="clausula">O motor devolve o parecer</p>
+          <p class="explica" id="explica">Com a narrativa salva, a consulta vai para AP. O ArkIve chama <code>GET /diagnostico/{id}</code> e recebe hipótese, severidade, confiança e quatro insights.</p>
+        </div>
+      </div>
     </div>
     <div class="lado dir">
       <article class="cartao" data-ui id="cartao" aria-label="Exemplo de consulta no app ArkIve">
@@ -569,6 +578,12 @@
     ];
     const r = document.getElementById("etapa"), sec = document.getElementById("fluxo"), lis = [...document.querySelectorAll("#nomes li")];
     const $ = id => document.getElementById(id);
+    for (const e of E) {
+      const f = document.createElement("div"); f.className = "fantasma"; f.setAttribute("aria-hidden", "true");
+      f.innerHTML = `<p class="clausula"></p><p class="explica"></p>`;
+      f.firstChild.textContent = e.c; f.lastChild.textContent = e.x;
+      $("palco").append(f);
+    }
     let t;
     function mostra(i, anima) {
       const e = E[i];
@@ -578,23 +593,20 @@
       clearTimeout(t);
       if (anima) { sec.classList.add("trocando"); t = setTimeout(troca, 200); } else troca();
     }
-    // ao entrar na tela, a barra anda sozinha de AG até AP; qualquer toque do usuário para a animação
+    // loop AG → EP → AP → FI só com a seção na tela; mouse ou foco dentro pausa (WCAG 2.2.2), toque no controle para de vez
     // aria-live só depois do primeiro toque: o autoplay não fala sozinho no leitor de tela
-    let auto;
-    const para = () => clearInterval(auto);
-    const toca = i => { para(); $("clausula").setAttribute("aria-live", "polite"); mostra(i, true); };
+    let auto, i = 0, parado = false, visivel = false, dentro = false;
+    const roda = () => { clearInterval(auto); if (!parado && visivel && !dentro) auto = setInterval(() => mostra(i = (i + 1) % E.length, true), 5000); };
+    const toca = n => { parado = true; clearInterval(auto); $("clausula").setAttribute("aria-live", "polite"); mostra(n, true); };
     r.addEventListener("input", () => toca(+r.value));
     lis.forEach(li => li.querySelector("button").addEventListener("click", e => toca(+e.currentTarget.dataset.i)));
     const anda = "IntersectionObserver" in window && !matchMedia("(prefers-reduced-motion: reduce)").matches;
     mostra(anda ? 0 : 2, false);
     if (anda) {
-      const io = new IntersectionObserver(es => {
-        if (!es[0].isIntersecting) return;
-        io.disconnect();
-        let i = 0;
-        auto = setInterval(() => { mostra(++i, true); if (i === 2) para(); }, 1800);
-      }, { rootMargin: "-30% 0px -30% 0px" });
-      io.observe(sec);
+      const pausa = v => () => { dentro = v; roda(); };
+      sec.addEventListener("pointerenter", pausa(true)); sec.addEventListener("pointerleave", pausa(false));
+      sec.addEventListener("focusin", pausa(true)); sec.addEventListener("focusout", pausa(false));
+      new IntersectionObserver(es => { visivel = es[0].isIntersecting; roda(); }, { rootMargin: "-30% 0px -30% 0px" }).observe(sec);
     }
   })();
 
@@ -614,9 +626,11 @@
   // rodapé: o nome ocupa a largura inteira do rodapé
   (function () {
     const g = document.querySelector("footer .grande"), f = g.parentElement;
-    const ajusta = () => { g.style.fontSize = ""; g.style.fontSize = parseFloat(getComputedStyle(g).fontSize) * f.clientWidth / g.offsetWidth + "px"; };
-    document.fonts.ready.then(ajusta);
-    addEventListener("resize", ajusta);
+    let q;
+    const ajusta = () => { q = 0; g.style.fontSize = ""; g.style.fontSize = parseFloat(getComputedStyle(g).fontSize) * f.clientWidth / g.offsetWidth + "px"; };
+    // fonte chega depois (folha assíncrona): mede de novo; resize no máximo uma vez por quadro
+    document.fonts.ready.then(ajusta); document.fonts.addEventListener("loadingdone", ajusta);
+    addEventListener("resize", () => q ||= requestAnimationFrame(ajusta));
   })();
 
   // campo de ID: o botão diz para onde vai

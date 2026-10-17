@@ -43,7 +43,7 @@
            padding: 40px 32px 48px; }
   .topo { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; margin-bottom: 24px; }
   .topo .nome { font-weight: 800; font-size: 1.25rem; letter-spacing: -.02em; color: var(--accent-txt);
-                text-decoration: none; display: inline-flex; align-items: center; gap: 8px; align-self: center; }
+                text-decoration: none; display: inline-flex; align-items: center; gap: 8px; align-self: center; min-height: 44px; }
   .topo .nome i { width: 26px; height: 26px; background: currentColor;
                   -webkit-mask: url(/static/arkive-logo.png) center / contain no-repeat; mask: url(/static/arkive-logo.png) center / contain no-repeat; }
   .topo span:last-child { color: var(--muted); }
@@ -82,7 +82,8 @@
                                         border-radius: 2px; background: var(--surface-2); }
   ol#etapas::after { background: var(--accent); transform-origin: top; transform: scaleY(var(--p));
                      transition: transform .6s var(--ease); }
-  .etapa { position: relative; padding-left: 60px; margin-bottom: 12px; }
+  /* z-index: a animação de entrada cria stacking context na li; sem ele o trilho (::after) pinta sobre a marca */
+  .etapa { position: relative; z-index: 1; padding-left: 60px; margin-bottom: 12px; }
   .marca { position: absolute; z-index: 1; left: 0; top: 16px; width: 36px; height: 36px; border-radius: 50%;
            display: grid; place-items: center; background: var(--surface-2); color: var(--on-marca); }
   .marca svg { width: 18px; height: 18px; }

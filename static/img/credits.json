@@ -1,6 +1,6 @@
 [
  {
-  "file": "static/img/dog-anatomy-head.jpg",
+  "file": "static/img/dog-anatomy-head.webp",
   "media": "image",
   "ref": "commons:2844501",
   "title": "Dog anatomy head",
@@ -22,7 +22,7 @@
   "saved": "2026-10-17T01:32:57.178Z"
  },
  {
-  "file": "static/img/dog-anatomy-lateral-skeleton-view-full.jpg",
+  "file": "static/img/dog-anatomy-lateral-skeleton-view-full.webp",
   "media": "image",
   "ref": "commons:167443711",
   "title": "Dog anatomy lateral skeleton view (full)",
@@ -44,7 +44,7 @@
   "saved": "2026-10-17T01:32:57.406Z"
  },
  {
-  "file": "static/img/dog-anatomy-anterior-view.jpg",
+  "file": "static/img/dog-anatomy-anterior-view.webp",
   "media": "image",
   "ref": "commons:2844508",
   "title": "Dog anatomy anterior view",
@@ -66,7 +66,7 @@
   "saved": "2026-10-17T01:32:57.760Z"
  },
  {
-  "file": "static/img/white-dog.jpg",
+  "file": "static/img/white-dog.webp",
   "media": "image",
   "ref": "aic:102180",
   "title": "White Dog",
