@@ -4,113 +4,211 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ArkIve — Pipeline ao vivo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400..800&family=IBM+Plex+Mono:wght@400;600&display=swap"><!-- taste-skill-ignore: mono só em <pre> e no log (dados brutos) -->
 <style>
+  /* sem internet a Schibsted Grotesk não carrega e cai na fonte do sistema: mesmo layout */
   :root {
-    --bg: #f6f7f9; --card: #ffffff; --ink: #1b1f24; --muted: #5d6673; --line: #dde1e6;
-    --accent: #2563eb; --on-accent: #ffffff; --ok: #15803d; --warn: #b45309; --err: #b91c1c; --skip: #6b7480;
-    --code: #f1f3f5; --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+    --bg: #f3f4f1; --surface: #e8eae5; --surface-2: #d8dcd5; --ink: #111a17; --muted: #4a5651;
+    --accent: #0f766e; --on-accent: #ffffff; --ok: #15803d; --warn: #b45309; --err: #b91c1c; --skip: #5f6b66;
+    --code: #e1e4de; --campo: #0b3b36; --on-campo: #e9f5f2; --on-campo-muted: #a9cfc8;
+    --sans: "Schibsted Grotesk", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "Cascadia Code", Consolas, monospace; /* taste-skill-ignore: só <pre> e log */
+    --ease: cubic-bezier(.32, .72, 0, 1);
+    color-scheme: light dark;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #0f1216; --card: #171b21; --ink: #e6e9ed; --muted: #9aa4b1; --line: #2a3038;
-      --accent: #60a5fa; --on-accent: #0f1216; --ok: #4ade80; --warn: #fbbf24; --err: #f87171; --skip: #6b7480;
-      --code: #0b0e12;
+      --bg: #0c1210; --surface: #151d1a; --surface-2: #24302b; --ink: #e7ece9; --muted: #9fb0a9;
+      --accent: #2dd4bf; --on-accent: #06201c; --ok: #4ade80; --warn: #fbbf24; --err: #f87171; --skip: #7d8c86;
+      --code: #0f1714; --campo: #0f2e2a; --on-campo: #e7f3f0; --on-campo-muted: #8fc2b8;
     }
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink);
-         font: 17px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  header { padding: 20px 24px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap;
-           gap: 16px; align-items: center; justify-content: space-between; }
-  h1 { margin: 0; font-size: 1.4rem; }
-  h1 small { display: block; font-size: .85rem; font-weight: 400; color: var(--muted); }
-  form { display: flex; gap: 8px; }
-  input { font: inherit; padding: 8px 12px; width: 160px; border: 1px solid var(--line); border-radius: 8px;
-          background: var(--card); color: var(--ink); }
-  button { font: inherit; font-weight: 600; padding: 8px 18px; border: 0; border-radius: 8px;
-           background: var(--accent); color: var(--on-accent); cursor: pointer; }
-  button:disabled { opacity: .5; cursor: wait; }
-  #relogio { font: 600 1.1rem var(--mono); color: var(--muted); min-width: 90px; text-align: right; }
-  main { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 24px; padding: 24px; }
-  @media (max-width: 1000px) { main { grid-template-columns: 1fr; padding: 16px; } }
+  ::selection { background: var(--accent); color: var(--on-accent); }
+  html { scrollbar-color: var(--surface-2) var(--bg); }
+  body { margin: 0; background: var(--bg); color: var(--ink); caret-color: var(--accent); accent-color: var(--accent);
+         font: 17px/1.55 var(--sans); -webkit-font-smoothing: antialiased; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
 
-  ol#etapas { list-style: none; margin: 0; padding: 0; position: relative; }
-  ol#etapas::before { content: ""; position: absolute; left: 19px; top: 8px; bottom: 8px; width: 2px; background: var(--line); }
-  .etapa { position: relative; padding-left: 56px; margin-bottom: 16px; }
-  .marca { position: absolute; left: 4px; top: 14px; width: 32px; height: 32px; border-radius: 50%;
-           display: grid; place-items: center; font: 700 .9rem var(--mono);
-           background: var(--card); border: 2px solid var(--line); color: var(--muted); }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px;
-          transition: border-color .3s; border-style: dashed; }
-  .card h2 { margin: 0; font-size: 1.05rem; display: flex; justify-content: space-between; gap: 8px; }
-  .card .t { font: 500 .85rem var(--mono); color: var(--muted); white-space: nowrap; }
-  .card p.oque { margin: 2px 0 0; color: var(--muted); font-size: .92rem; }
+  /* ── topo: o ID que atravessa o motor ── */
+  header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 32px 48px; align-items: end;
+           padding: 40px 32px 48px; }
+  .marca-nome { margin: 0 0 20px; font-weight: 700; font-size: 1.0625rem; color: var(--accent); }
+  h1 { margin: 0; font-size: clamp(2rem, 4vw, 2.75rem); line-height: 1.02; letter-spacing: -.035em; font-weight: 650;
+       max-width: 16ch; text-wrap: balance; }
+  .sub { margin: 12px 0 28px; color: var(--muted); max-width: 52ch; }
+  form { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  label { font-weight: 600; }
+  input { font: 600 1.25rem var(--sans); padding: 12px 18px; width: 180px; border: 0; border-radius: 999px;
+          background: var(--surface); color: var(--ink); transition: background-color .3s var(--ease); }
+  input:hover { background: var(--surface-2); }
+  input::placeholder { color: var(--muted); font-weight: 400; }
+  button { font: 600 1.0625rem var(--sans); display: inline-flex; align-items: center; gap: 14px;
+           padding: 6px 6px 6px 24px; border: 0; border-radius: 999px; background: var(--accent); color: var(--on-accent);
+           cursor: pointer; transition: transform .25s var(--ease), opacity .3s var(--ease); touch-action: manipulation; }
+  button .seta { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+                 background: color-mix(in srgb, var(--on-accent) 18%, transparent); transition: transform .45s var(--ease); }
+  button:hover .seta { transform: translate(3px, -1px) scale(1.06); }
+  button:active { transform: scale(.98); }
+  button:disabled { opacity: .7; cursor: progress; }
+  button:disabled .seta svg { animation: gira 1s linear infinite; }
+
+  .painel { text-align: right; }
+  #id-grande { margin: 0; font-size: clamp(3rem, 8vw, 6rem); font-weight: 700; line-height: .9; letter-spacing: -.04em; }
+  #id-grande.vazio { color: var(--muted); }
+  #status { margin: 14px 0 0; font-size: 1.0625rem; color: var(--muted); }
+  #status b { color: var(--ink); }
+  #relogio { font-variant-numeric: tabular-nums; }
+  .rodando #relogio { animation: respira 1.6s var(--ease) infinite; }
+
+  /* ── corpo ── */
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 40px; padding: 0 32px 96px; }
+
+  ol#etapas { list-style: none; margin: 0; padding: 0; position: relative; --p: 0; }
+  ol#etapas::before, ol#etapas::after { content: ""; position: absolute; left: 16px; top: 20px; bottom: 20px; width: 4px;
+                                        border-radius: 2px; background: var(--surface-2); }
+  ol#etapas::after { background: var(--accent); transform-origin: top; transform: scaleY(var(--p));
+                     transition: transform .6s var(--ease); }
+  .etapa { position: relative; padding-left: 60px; margin-bottom: 12px; }
+  .marca { position: absolute; z-index: 1; left: 0; top: 16px; width: 36px; height: 36px; border-radius: 50%;
+           display: grid; place-items: center; background: var(--surface-2); color: #fff; }
+  .marca svg { width: 18px; height: 18px; }
+  .card { background: var(--surface); border-radius: 18px; padding: 18px 22px; transition: background-color .5s var(--ease); }
+  .card h2 { margin: 0; font-size: 1.25rem; line-height: 1.25; letter-spacing: -.01em; display: flex;
+             justify-content: space-between; align-items: baseline; gap: 12px; }
+  .card .t { font-size: .9375rem; font-weight: 500; color: var(--muted); white-space: nowrap; }
+  .card p.oque { margin: 4px 0 0; color: var(--muted); max-width: 62ch; }
   .card .corpo:empty { display: none; }
-  .card .corpo { margin-top: 12px; }
-  .ativa .card, .feita .card, .pulada .card, .falhou .card { border-style: solid; }
-  .ativa .card { border-color: var(--accent); }
-  .ativa .marca { border-color: var(--accent); color: var(--accent); animation: pulso 1.2s infinite; }
-  .feita .marca { background: var(--ok); border-color: var(--ok); color: var(--card); }
-  .pulada .marca { background: var(--skip); border-color: var(--skip); color: #fff; }
-  .falhou .card { border-color: var(--err); }
-  .falhou .marca { background: var(--err); border-color: var(--err); color: var(--card); }
-  @keyframes pulso { 50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 25%, transparent); } }
-  @media (prefers-reduced-motion: reduce) { .ativa .marca { animation: none; } }
+  .card .corpo { margin-top: 16px; }
+  .corpo p, .corpo li { max-width: 62ch; }
 
-  dl.kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; font-size: .95rem; }
+  .ativa .card { background: color-mix(in srgb, var(--accent) 13%, var(--surface)); }
+  .ativa .marca { background: var(--accent); }
+  .ativa .marca::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--accent);
+                         animation: onda 1.4s var(--ease) infinite; }
+  .feita .marca { background: var(--ok); }
+  .pulada .marca { background: var(--skip); }
+  .falhou .card { background: color-mix(in srgb, var(--err) 13%, var(--surface)); }
+  .falhou .marca { background: var(--err); }
+  .feita .marca svg, .pulada .marca svg, .falhou .marca svg { animation: pop .5s var(--ease) both; }
+
+  dl.kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; }
   dl.kv dt { color: var(--muted); }
-  dl.kv dd { margin: 0; overflow-wrap: anywhere; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
-  .chips li { border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-size: .9rem; }
-  .chips b { font-family: var(--mono); color: var(--accent); margin-left: 6px; }
-  .badge { display: inline-block; padding: 1px 10px; border-radius: 999px; font-weight: 600; font-size: .85rem;
-           border: 1px solid currentColor; }
-  .barra { position: relative; height: 22px; background: var(--code); border-radius: 6px; margin: 6px 0 4px; }
-  .barra .valor { height: 100%; border-radius: 6px; background: var(--accent); transition: width .8s; }
-  .barra .limiar { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--warn); }
-  .legenda { font-size: .85rem; color: var(--muted); }
-  details { margin-top: 10px; }
-  summary { cursor: pointer; color: var(--accent); font-size: .9rem; }
-  pre { background: var(--code); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
-        font: .8rem/1.45 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 420px; overflow: auto; }
+  dl.kv dd { margin: 0; overflow-wrap: anywhere; max-width: 62ch; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .chips li { background: color-mix(in srgb, var(--accent) 10%, var(--bg)); border-radius: 999px; padding: 4px 14px;
+              animation: sobe .5s var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms); }
+  .chips b { font-weight: 650; color: var(--accent); margin-left: 8px; }
+  .badge { display: inline-block; padding: 4px 14px; border-radius: 999px; font-weight: 600;
+           background: color-mix(in srgb, currentColor 14%, transparent); }
+  .barra { position: relative; height: 28px; background: var(--surface-2); border-radius: 8px; margin: 4px 0 8px; overflow: hidden; }
+  .barra .valor { height: 100%; background: var(--accent); transform-origin: left; transform: scaleX(0);
+                  transition: transform 1s var(--ease); }
+  .barra .limiar { position: absolute; top: 0; bottom: 0; width: 4px; margin-left: -2px; background: var(--warn);
+                   animation: aparece .4s var(--ease) .8s both; }
+  .legenda { color: var(--muted); margin: 0 0 10px; max-width: 62ch; }
+  .corpo > * { animation: sobe .55s var(--ease) both; }
+  .corpo > :nth-child(2) { animation-delay: 70ms; } .corpo > :nth-child(3) { animation-delay: 140ms; }
+  .corpo > :nth-child(n+4) { animation-delay: 210ms; }
+  details { margin-top: 12px; }
+  summary { cursor: pointer; color: var(--accent); font-weight: 600; width: fit-content; }
+  pre { background: var(--code); border-radius: 12px; padding: 14px 16px; margin: 10px 0 0;
+        font: .8125rem/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 440px; overflow: auto; }
+  a { color: var(--accent); text-underline-offset: 3px; }
 
-  #resultado { display: none; }
-  #resultado.mostrar { display: block; }
-  .diag { font-size: 1.3rem; font-weight: 700; margin: 4px 0 8px; }
-  .insight h3 { margin: 14px 0 2px; font-size: .95rem; color: var(--muted); }
-  .insight p { margin: 0; }
-
-  aside { position: sticky; top: 16px; align-self: start; }
-  aside h2 { font-size: 1rem; margin: 0 0 8px; }
-  #log { background: var(--code); border: 1px solid var(--line); border-radius: 12px; padding: 10px;
-         height: calc(100vh - 160px); min-height: 300px; overflow: auto; font: .78rem/1.45 var(--mono); }
-  @media (max-width: 1000px) { aside { position: static; } #log { height: 360px; } }
-  #log div { padding: 2px 0; border-bottom: 1px dashed var(--line); overflow-wrap: anywhere; }
-  #log .t { color: var(--muted); margin-right: 6px; }
+  aside { position: sticky; top: 24px; align-self: start; }
+  aside h2 { font-size: 1.25rem; letter-spacing: -.01em; margin: 0 0 12px; }
+  #log { background: var(--code); border-radius: 18px; padding: 14px 16px; height: calc(100vh - 120px); min-height: 320px;
+         overflow: auto; overscroll-behavior: contain; font: .8125rem/1.5 var(--mono); }
+  #log:empty::before { content: "Os registros do motor aparecem aqui assim que a análise começa."; font-family: var(--sans);
+                       color: var(--muted); font-size: 1rem; }
+  #log code { display: block; font: inherit; padding: 3px 0; overflow-wrap: anywhere; animation: desliza .35s var(--ease) both; }
+  #log .t { color: var(--muted); margin-right: 8px; }
   #log .WARNING { color: var(--warn); }
   #log .ERROR { color: var(--err); }
+
+  /* ── resultado: campo inteiro de cor ── */
+  #resultado { display: none; background: var(--campo); color: var(--on-campo); padding: 72px 32px 96px; }
+  #resultado.mostrar { display: block; }
+  #resultado .rotulo { margin: 0 0 8px; color: var(--on-campo-muted); font-weight: 600; }
+  .diag { margin: 0 0 24px; font-size: clamp(1.9rem, 4vw, 2.75rem); line-height: 1.08; letter-spacing: -.03em;
+          font-weight: 650; max-width: 28ch; text-wrap: balance; }
+  .selos { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 48px; }
+  .selo { padding: 8px 18px; border-radius: 999px; font-weight: 600; background: #2b5f58; color: #fff; }
+  .selo.ok { background: #15803d; } .selo.warn { background: #b45309; } .selo.err { background: #b91c1c; }
+  .insights { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 32px 56px; max-width: 1200px; }
+  .insight h3 { margin: 0 0 6px; font-size: 1.0625rem; color: var(--on-campo-muted); }
+  .insight p, .insight ul { margin: 0; max-width: 65ch; }
+  .insight ul { padding-left: 1.2em; overflow-wrap: anywhere; }
+  #resultado.mostrar .diag, #resultado.mostrar .selos, #resultado.mostrar .insight { animation: sobe .7s var(--ease) both; }
+  #resultado.mostrar .selos { animation-delay: 120ms; }
+  #resultado.mostrar .insight { animation-delay: calc(240ms + var(--i, 0) * 80ms); }
+
+  .entra { animation: sobe .6s var(--ease) both; animation-delay: calc(var(--i, 0) * 70ms); }
+
+  @keyframes sobe { from { opacity: 0; transform: translateY(20px); } }
+  @keyframes desliza { from { opacity: 0; transform: translateX(-8px); } }
+  @keyframes aparece { from { opacity: 0; } }
+  @keyframes pop { from { opacity: 0; transform: scale(.4); } }
+  @keyframes onda { from { opacity: .45; transform: scale(1); } to { opacity: 0; transform: scale(1.9); } }
+  @keyframes respira { 50% { opacity: .55; } }
+  @keyframes gira { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+                             animation-delay: 0ms !important; transition-duration: .01ms !important; }
+    .ativa .marca::after { display: none; }
+  }
+
+  @media (max-width: 1000px) {
+    main { grid-template-columns: minmax(0, 1fr); }
+    aside { position: static; }
+    #log { height: 360px; }
+  }
+  @media (max-width: 700px) {
+    header { grid-template-columns: minmax(0, 1fr); padding: 28px 16px 36px; }
+    .painel { text-align: left; }
+    main { padding: 0 16px 64px; gap: 32px; }
+    .etapa { padding-left: 48px; }
+    .card { padding: 16px; }
+    .card h2 { flex-direction: column; gap: 2px; }
+    dl.kv { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    dl.kv dd { margin-bottom: 8px; }
+    #resultado { padding: 48px 16px 64px; }
+    label { flex-basis: 100%; }
+    input { flex: 1 1 140px; width: auto; }
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>ArkIve — Motor de Inteligência Clínica <small>Pipeline ao vivo: o que acontece com um ID de consulta, etapa por etapa</small></h1>
-  <form id="form">
-    <label for="id" class="legenda" style="align-self:center">ID_CONSULTA</label>
-    <input id="id" type="number" min="1" required placeholder="ex.: 42">
-    <button id="btn">Analisar</button>
-    <span id="relogio">0,0 s</span>
-  </form>
+  <div>
+    <p class="marca-nome">ArkIve · Motor de Inteligência Clínica</p>
+    <h1>Uma consulta, etapa por etapa</h1>
+    <p class="sub">Digite o ID de uma consulta e acompanhe, em tempo real, os dados reais que passam por cada etapa até o diagnóstico.</p>
+    <form id="form">
+      <label for="id">ID da consulta</label>
+      <input id="id" name="id" type="number" min="1" required inputmode="numeric" autocomplete="off" placeholder="ex.: 42…">
+      <button id="btn"><span id="btn-txt">Analisar</span><span class="seta" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></button>
+    </form>
+  </div>
+  <div class="painel">
+    <p id="id-grande" class="vazio" aria-label="ID em análise">#—</p>
+    <p id="status" role="status"><b id="contagem">0 de 10 etapas</b> · <span id="relogio">0,0 s</span></p>
+  </div>
 </header>
 <main>
-  <section>
+  <section aria-label="Etapas do pipeline">
     <ol id="etapas"></ol>
-    <div id="resultado" class="card" style="border-style:solid"></div>
   </section>
   <aside>
-    <h2>Log do motor em tempo real</h2>
-    <div id="log" aria-live="polite"></div>
+    <h2>Log do motor</h2>
+    <div id="log"></div>
   </aside>
 </main>
+<section id="resultado" aria-label="Resposta da API"></section>
 
 <script>
 const ETAPAS = [
@@ -136,6 +234,12 @@ const ETAPAS = [
    "JSON final devolvido ao serviço Java, que grava em TB_ARKIVE_DIAGNOSTICO."],
 ];
 
+const ICONE = {
+  feita: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  pulada: '<path d="M6 12h12"/>',
+  falhou: '<path d="M7 7l10 10M17 7L7 17"/>',
+};
+
 const $ = (s, el = document) => el.querySelector(s);
 const el = (tag, attrs = {}, ...filhos) => {
   const e = document.createElement(tag);
@@ -143,20 +247,21 @@ const el = (tag, attrs = {}, ...filhos) => {
   for (const f of filhos) if (f != null) e.append(f instanceof Node ? f : String(f));
   return e;
 };
-const seg = ms => (ms / 1000).toFixed(1).replace(".", ",") + " s";
+const NUM = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const seg = ms => NUM.format(ms / 1000) + " s";
 const kv = pares => {
   const dl = el("dl", { class: "kv" });
   for (const [k, v] of pares) if (v !== undefined && v !== null && v !== "") dl.append(el("dt", {}, k), el("dd", {}, v));
   return dl;
 };
 const bruto = (titulo, conteudo) => el("details", {}, el("summary", {}, titulo),
-  el("pre", {}, typeof conteudo === "string" ? conteudo : JSON.stringify(conteudo, null, 2)));
-const chips = itens => { const ul = el("ul", { class: "chips" }); itens.forEach(i => ul.append(i)); return ul; };
+  el("pre", { translate: "no" }, typeof conteudo === "string" ? conteudo : JSON.stringify(conteudo, null, 2)));
+const chips = itens => { const ul = el("ul", { class: "chips" }); itens.forEach((li, i) => { li.style.setProperty("--i", i); ul.append(li); }); return ul; };
 const barra = (valor, limiar) => {
   const b = el("div", { class: "barra", role: "img", "aria-label": `${valor}% (limiar ${limiar}%)` });
-  const v = el("div", { class: "valor" }); v.style.width = "0%";
+  const v = el("div", { class: "valor" });
   const l = el("div", { class: "limiar" }); l.style.left = limiar + "%";
-  b.append(v, l); requestAnimationFrame(() => v.style.width = valor + "%");
+  b.append(v, l); requestAnimationFrame(() => requestAnimationFrame(() => v.style.transform = `scaleX(${valor / 100})`));
   return b;
 };
 
@@ -173,7 +278,7 @@ const RENDER = {
   ],
   confianca: d => [
     barra(d.pc_confianca, d.limiar),
-    el("div", { class: "legenda" }, `${d.pc_confianca}% · linha laranja = limiar de busca externa (${d.limiar}%)`),
+    el("p", { class: "legenda" }, `${d.pc_confianca}% · marca laranja = limiar de busca externa (${d.limiar}%)`),
   ],
   predisposicoes: d => [
     el("p", { class: "legenda" }, `${d.selecionadas.length} de ${d.total} enviadas ao LLM · método: ${d.metodo} · ${d.ms} ms`),
@@ -189,8 +294,8 @@ const RENDER = {
     d.contexto ? bruto("Ver trechos enviados ao LLM", d.contexto) : null,
   ],
   decisao_web: d => [
-    el("span", { class: "badge", style: `color:var(${d.busca_web ? "--warn" : "--ok"})` },
-      d.busca_web ? `Buscar: ${d.pc_confianca}% < ${d.limiar}%` : `Não buscar: ${d.pc_confianca}% ≥ ${d.limiar}%`),
+    el("p", {}, el("span", { class: "badge", style: `color:var(${d.busca_web ? "--warn" : "--ok"})` },
+      d.busca_web ? `Buscar: ${d.pc_confianca}% < ${d.limiar}%` : `Não buscar: ${d.pc_confianca}% ≥ ${d.limiar}%`)),
     kv([["Observações", d.motivo], ["Query", d.query]]),
   ],
   busca_web: d => d.acionada ? [
@@ -199,44 +304,65 @@ const RENDER = {
     d.contexto ? bruto("Ver texto recuperado", d.contexto) : null,
   ] : [el("p", { class: "legenda" }, "Não acionada: dados locais suficientes.")],
   prompt: d => [
-    el("p", { class: "legenda" }, `${(d.system.length + d.human.length).toLocaleString("pt-BR")} caracteres · modelos na fila: ${d.modelos.join(" → ")}`),
+    el("p", { class: "legenda" }, `${(d.system.length + d.human.length).toLocaleString("pt-BR")} caracteres · modelos na fila: `,
+      el("span", { translate: "no" }, d.modelos.join(" → "))),
     bruto("Ver instruções do sistema", d.system),
     bruto("Ver mensagem do usuário (dados do caso)", d.human),
   ],
   groq: d => [
-    kv([["Modelo", d.modelo], ["Tentativa", d.tentativa],
+    kv([["Modelo", el("span", { translate: "no" }, d.modelo)], ["Tentativa", d.tentativa],
         ["Tokens", `${d.tokens.entrada} entrada + ${d.tokens.saida} saída = ${d.tokens.total}`]]),
     bruto("Ver JSON gerado pelo modelo", d.saida),
   ],
   resultado: d => [bruto("Ver JSON de resposta da API", d)],
 };
 
-const SEV = { BAIXA: "--ok", LEVE: "--ok", MODERADA: "--warn", MEDIA: "--warn", ALTA: "--err", GRAVE: "--err", CRITICA: "--err" };
+const SEV = { BAIXA: "ok", LEVE: "ok", MODERADA: "warn", MEDIA: "warn", ALTA: "err", GRAVE: "err", CRITICA: "err" };
 function mostrarResultado(d) {
+  const insights = [["Perfil do paciente", d.insight_perfil], ["Correlação clínica", d.insight_correlacao],
+                    ["Predisposições", d.insight_predisposicao], ["Limitações", d.insight_limitacoes]]
+    .map(([t, txt]) => el("div", { class: "insight" }, el("h3", {}, t), el("p", {}, txt)));
+  if (d.fontes_rag.length) insights.push(el("div", { class: "insight" }, el("h3", {}, "Fontes (base local)"),
+    el("p", {}, d.fontes_rag.map(f => f.titulo || f.fonte).join(" · "))));
+  if (d.fontes_pesquisadas.length) insights.push(el("div", { class: "insight" }, el("h3", {}, "Fontes pesquisadas"),
+    el("ul", {}, ...d.fontes_pesquisadas.map(u => el("li", {}, u)))));
+  insights.forEach((n, i) => n.style.setProperty("--i", i));
+
   const r = $("#resultado");
   r.replaceChildren(
-    el("p", { class: "legenda" }, "Diagnóstico"),
-    el("div", { class: "diag" }, d.ds_diagnostico),
-    el("span", { class: "badge", style: `color:var(${SEV[(d.tp_severidade || "").toUpperCase()] || "--muted"})` }, `Severidade: ${d.tp_severidade}`),
-    " ", el("span", { class: "badge" }, `Confiança: ${d.pc_confianca}%`),
-    ...[["Perfil do paciente", d.insight_perfil], ["Correlação clínica", d.insight_correlacao],
-        ["Predisposições", d.insight_predisposicao], ["Limitações", d.insight_limitacoes]]
-      .map(([t, txt]) => el("div", { class: "insight" }, el("h3", {}, t), el("p", {}, txt))),
-    d.fontes_rag.length ? el("div", { class: "insight" }, el("h3", {}, "Fontes (base local)"),
-      el("p", {}, d.fontes_rag.map(f => f.titulo || f.fonte).join(" · "))) : null,
-    d.fontes_pesquisadas.length ? el("div", { class: "insight" }, el("h3", {}, "Fontes pesquisadas"),
-      el("ul", {}, ...d.fontes_pesquisadas.map(u => el("li", {}, u)))) : null,
+    el("p", { class: "rotulo" }, `Diagnóstico da consulta #${$("#id").value}`),
+    el("p", { class: "diag" }, d.ds_diagnostico),
+    el("div", { class: "selos" },
+      el("span", { class: `selo ${SEV[(d.tp_severidade || "").toUpperCase()] || ""}` }, `Severidade: ${d.tp_severidade}`),
+      el("span", { class: "selo" }, `Confiança: ${d.pc_confianca}%`)),
+    el("div", { class: "insights" }, ...insights),
   );
   r.classList.add("mostrar");
 }
 
 let fonte, timer, ativa, ultimoT = 0;
+function estado(li, cls) {
+  li.classList.remove("ativa");
+  li.classList.add(cls);
+  $(".marca", li).innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">${ICONE[cls]}</svg>`;
+  progresso();
+}
+function progresso() {
+  const n = document.querySelectorAll(".feita, .pulada, .falhou").length;
+  $("#etapas").style.setProperty("--p", n / ETAPAS.length);
+  $("#contagem").textContent = `${n} de ${ETAPAS.length} etapas`;
+}
 function montar() {
-  $("#etapas").replaceChildren(...ETAPAS.map(([k, titulo, oque], i) => el("li", { class: "etapa", id: "e-" + k },
-    el("span", { class: "marca" }, i + 1),
-    el("div", { class: "card" }, el("h2", {}, titulo, el("span", { class: "t" })), el("p", { class: "oque" }, oque), el("div", { class: "corpo" })))));
+  $("#etapas").replaceChildren(...ETAPAS.map(([k, titulo, oque], i) => {
+    const li = el("li", { class: "etapa entra", id: "e-" + k },
+      el("span", { class: "marca", "aria-hidden": "true" }),
+      el("div", { class: "card" }, el("h2", {}, titulo, el("span", { class: "t" })), el("p", { class: "oque" }, oque), el("div", { class: "corpo" })));
+    li.style.setProperty("--i", i);
+    return li;
+  }));
   $("#resultado").classList.remove("mostrar");
   $("#log").replaceChildren();
+  progresso();
 }
 function ativar(k) {
   ativa = k;
@@ -245,27 +371,33 @@ function ativar(k) {
 }
 function concluir(k, dados, t) {
   const li = $("#e-" + k);
-  li.classList.remove("ativa");
-  li.classList.add(k === "busca_web" && !dados.acionada ? "pulada" : "feita");
+  estado(li, k === "busca_web" && !dados.acionada ? "pulada" : "feita");
   $(".t", li).textContent = `+${seg(t - ultimoT)} · em ${seg(t)}`;
   ultimoT = t;
   $(".corpo", li).replaceChildren(...RENDER[k](dados).filter(Boolean));
   const prox = ETAPAS[ETAPAS.findIndex(e => e[0] === k) + 1];
   if (prox) ativar(prox[0]);
-  li.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  li.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "nearest" });
 }
 function log(t, d) {
   const box = $("#log");
-  box.append(el("div", { class: d.nivel }, el("span", { class: "t" }, seg(t)), d.msg));
+  box.append(el("code", { class: d.nivel }, el("span", { class: "t" }, seg(t)), d.msg));
   box.scrollTop = box.scrollHeight;
 }
-function parar() { fonte?.close(); clearInterval(timer); $("#btn").disabled = false; }
+function parar() {
+  fonte?.close(); clearInterval(timer);
+  document.body.classList.remove("rodando");
+  $("#btn").disabled = false; $("#btn-txt").textContent = "Analisar";
+}
 
 $("#form").addEventListener("submit", ev => {
   ev.preventDefault();
   parar(); montar(); ultimoT = 0;
   const id = $("#id").value, t0 = performance.now();
-  $("#btn").disabled = true;
+  history.replaceState(null, "", `?id=${encodeURIComponent(id)}`);
+  $("#id-grande").textContent = "#" + id; $("#id-grande").classList.remove("vazio");
+  $("#btn").disabled = true; $("#btn-txt").textContent = "Analisando…";
+  document.body.classList.add("rodando");
   timer = setInterval(() => $("#relogio").textContent = seg(performance.now() - t0), 100);
   ativar("oracle");
   fonte = new EventSource(`pipeline/stream/${encodeURIComponent(id)}`);
@@ -275,8 +407,10 @@ $("#form").addEventListener("submit", ev => {
     if (etapa === "inicio") return;
     if (etapa === "erro") {
       const li = $("#e-" + ativa);
-      li?.classList.replace("ativa", "falhou");
-      li && $(".corpo", li).replaceChildren(el("p", { style: "color:var(--err)" }, `${dados.tipo}: ${dados.msg}`));
+      if (li) {
+        estado(li, "falhou");
+        $(".corpo", li).replaceChildren(el("p", { style: "color:var(--err);font-weight:600" }, `${dados.tipo}: ${dados.msg}`));
+      }
       return log(t_ms, { nivel: "ERROR", msg: `${dados.tipo}: ${dados.msg}` });
     }
     if (etapa === "fim") { $("#relogio").textContent = seg(t_ms); return parar(); }
@@ -285,7 +419,10 @@ $("#form").addEventListener("submit", ev => {
   };
   fonte.onerror = () => { log(0, { nivel: "ERROR", msg: "Conexão com o stream perdida." }); parar(); };
 });
+
 montar();
+const idUrl = new URLSearchParams(location.search).get("id");
+if (idUrl) { $("#id").value = idUrl; $("#form").requestSubmit(); }
 </script>
 </body>
 </html>
