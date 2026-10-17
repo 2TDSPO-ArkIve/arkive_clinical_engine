@@ -12,8 +12,9 @@ import re
 import time
 import urllib.request
 import xml.etree.ElementTree as ET
+from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlencode, urlparse
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -41,6 +42,21 @@ from prompts.diagnostic import DIAGNOSTIC_SYSTEM_PROMPT
 from schemas.diagnostic_detalhado import DiagnosticoOutputDetalhado
 
 logger = logging.getLogger(__name__)
+
+#: Observador das etapas do pipeline (a página /pipeline da API). Por contexto: cada request roda
+#: na sua thread com o engine compartilhado. Sem observador, nada é emitido.
+_observador: ContextVar[Callable[[str, dict[str, Any]], None] | None] = ContextVar("_observador", default=None)
+
+
+def _etapa(nome: str, **dados: Any) -> None:
+    """Emite os dados reais de uma etapa. Objetos (ClinicalContext, pydantic) vão crus: quem
+    observa serializa, então sem observador o custo é zero. Falha do observador não derruba a análise."""
+    observador = _observador.get()
+    if observador:
+        try:
+            observador(nome, dados)
+        except Exception as exc:
+            logger.debug("Observador do pipeline falhou em '%s': %s", nome, exc)
 
 #: Única lista de fontes aceitas na busca web; o resto é descartado. Sem meta-buscadores,
 #: landing pages de bases pagas nem domínio genérico de universidade/governo.
@@ -164,6 +180,7 @@ class ClinicalIntelligenceEngine:
         logger.info("── Iniciando análise clínica | ID_CONSULTA=%d ──", id_consulta)
 
         ctx: ClinicalContext = self._fetch_oracle_data(id_consulta)
+        _etapa("oracle", contexto=ctx)
 
         # transcrição + sintomas, só em memória: nunca gravada em ctx.ds_sintomas
         narrativa_clinica = " ".join(
@@ -172,25 +189,34 @@ class ClinicalIntelligenceEngine:
         # lista completa: o pc_confianca não depende do corte nem do ranking
         confianca_calculada = _calculate_confidence(ctx, narrativa_clinica)
         logger.info("Confiança calculada deterministicamente: %d%%", confianca_calculada)
+        _etapa("confianca", pc_confianca=confianca_calculada, limiar=AMBIGUITY_THRESHOLD)
 
         texto_rag = f"{(ctx.ds_motivo or '').strip()} {narrativa_clinica}".strip()
         ctx.predisposicoes = self._rank_predisposicoes(ctx.predisposicoes, texto_rag, PREDISPOSICAO_LIMIT)
         clinical_summary: str = ctx.to_clinical_summary()
+        _etapa("resumo", texto=clinical_summary)
 
         # RAG roda sempre que há relato; falha não derruba a análise
-        rag_context, rag_docs = "", []
+        rag_context, rag_docs, rag_status = "", [], "sem RAG carregado" if not self._rag else "sem relato"
         if self._rag and texto_rag:
             try:
                 rag_context, rag_docs = self._rag.contexto(
                     texto_rag, ctx.nm_especie, RAG_TOP_K, RAG_MAX_CHARS, RAG_MIN_SCORE)
                 if rag_docs:
                     logger.info("RAG | documentos: %s", rag_docs)
+                    rag_status = "ok"
                 else:
                     logger.info("RAG | nenhum documento acima de %.2f", RAG_MIN_SCORE)
+                    rag_status = f"nenhum documento acima de {RAG_MIN_SCORE:.2f}"
             except Exception as exc:
                 logger.warning("Busca RAG falhou: %s. Prosseguindo sem base de conhecimento local.", exc)
+                rag_status = f"falhou: {exc}"
+        _etapa("rag", status=rag_status, consulta=texto_rag, documentos=rag_docs, contexto=rag_context,
+               top_k=RAG_TOP_K, min_score=RAG_MIN_SCORE)
 
         web_decision = _decide_web_search(ctx, confianca_calculada, narrativa_clinica)
+        _etapa("decisao_web", busca_web=web_decision.needs_web_search, motivo=web_decision.reason,
+               query=web_decision.search_query, pc_confianca=confianca_calculada, limiar=AMBIGUITY_THRESHOLD)
         logger.info(
             "Decisão de busca web | pc_confianca=%d%% | limiar=%d%% | busca_web=%s | motivo: %s",
             confianca_calculada,
@@ -207,8 +233,10 @@ class ClinicalIntelligenceEngine:
             web_context, sources = self._perform_web_search(
                 web_decision.search_query, _pubmed_term(rag_docs, narrativa_clinica), ctx.nm_especie)
             logger.info("%d fonte(s) recuperada(s) da busca web.", len(sources))
+            _etapa("busca_web", acionada=True, fontes=sources, contexto=web_context)
         else:
             logger.info("Dados locais suficientes — busca web não acionada.")
+            _etapa("busca_web", acionada=False)
 
         logger.info("Enviando requisição ao Groq...")
         diagnostic, tokens = self._generate_diagnostic(
@@ -228,7 +256,7 @@ class ClinicalIntelligenceEngine:
 
         d = diagnostic.model_dump()
         # ordem de leitura: resultado, texto, fontes, custo. Chaves no topo: o serviço Java lê por nome
-        return {
+        resultado = {
             "ds_diagnostico": d["ds_diagnostico"],
             "tp_severidade": d["tp_severidade"],
             "pc_confianca": d["pc_confianca"],
@@ -244,6 +272,8 @@ class ClinicalIntelligenceEngine:
             # fora do schema: o LLM não preenche, e o serviço Java não persiste
             "tokens": tokens,
         }
+        _etapa("resultado", **resultado)
+        return resultado
 
     def _rank_predisposicoes(self, predisposicoes: list[dict[str, str]], texto: str,
                              n: int) -> list[dict[str, str]]:
@@ -251,9 +281,11 @@ class ClinicalIntelligenceEngine:
         relevante). Cada doença é embedada uma vez por processo. Sem RAG, com erro ou estourando
         PREDISPOSICAO_RANK_TIMEOUT_S: ranking lexical; o que já foi embedado fica no cache."""
         if len(predisposicoes) <= n:
+            _etapa("predisposicoes", total=len(predisposicoes), limite=n, metodo="sem corte (cabe no limite)",
+                   selecionadas=predisposicoes, scores=None, ms=0)
             return predisposicoes
         inicio, metodo = time.perf_counter(), "lexical"
-        top = None
+        top, top_scores = None, None
         if self._rag and texto:
             try:
                 from rag.retriever import QUERY_WINDOW_CHARS
@@ -276,13 +308,17 @@ class ClinicalIntelligenceEngine:
                     scores = [float(consulta @ self._vetores_doenca[p]) for p in passagens]
                     ordem = sorted(range(len(predisposicoes)), key=lambda i: -scores[i])
                     top = [predisposicoes[i] for i in ordem[:n]]
+                    top_scores = [round(scores[i], 3) for i in ordem[:n]]
                     metodo = f"semântico, {len(novas)} embed(s) novo(s)"
             except Exception as exc:
                 logger.warning("Ranking semântico das predisposições falhou (%s) — usando lexical.", exc)
         if top is None:
             top = _top_predisposicoes(predisposicoes, texto, n)
+        ms = (time.perf_counter() - inicio) * 1000
         logger.info("%d de %d predisposição(ões) enviada(s) ao LLM (ranking %s, %.0f ms).",
-                    len(top), len(predisposicoes), metodo, (time.perf_counter() - inicio) * 1000)
+                    len(top), len(predisposicoes), metodo, ms)
+        _etapa("predisposicoes", total=len(predisposicoes), limite=n, metodo=metodo, selecionadas=top,
+               scores=top_scores, ms=round(ms))
         return top
 
     def _fetch_oracle_data(self, id_consulta: int) -> ClinicalContext:
@@ -428,6 +464,7 @@ class ClinicalIntelligenceEngine:
             SystemMessage(content=DIAGNOSTIC_SYSTEM_PROMPT),
             HumanMessage(content="".join(parts)),
         ]
+        _etapa("prompt", system=messages[0].content, human=messages[1].content, modelos=GROQ_MODELS)
 
         diagnostic, tokens = self._invoke_with_fallback(messages)
 
@@ -461,6 +498,7 @@ class ClinicalIntelligenceEngine:
                         GROQ_MAX_RETRIES_PER_MODEL,
                         tokens,
                     )
+                    _etapa("groq", modelo=model, tentativa=tentativa, tokens=tokens, saida=saida["parsed"])
                     return saida["parsed"], tokens
 
                 except Exception as exc:

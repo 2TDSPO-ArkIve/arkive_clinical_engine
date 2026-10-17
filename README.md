@@ -293,6 +293,8 @@ uvicorn api:app --reload
 # GET http://localhost:8000/health      → {"status": "ok", "rag": true}
 ```
 
+**Pipeline ao vivo:** com a API no ar, abra `http://localhost:8000/pipeline`, digite o ID e acompanhe cada etapa (Oracle, confiança, ranking de predisposições, resumo, RAG, decisão e busca web, prompt, Groq, resposta) com os dados reais que passaram por ela e o log do motor em tempo real. O stream SSE fica em `GET /pipeline/stream/{id}`; `/diagnostico` não muda. Self-check sem Oracle/Groq: `python test_pipeline_stream.py`.
+
 ### 6. Saída esperada
 
 ```json
