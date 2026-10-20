@@ -43,7 +43,7 @@
            padding: 40px 32px 48px; }
   .topo { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; margin-bottom: 24px; }
   .topo .nome { font-weight: 800; font-size: 1.25rem; letter-spacing: -.02em; color: var(--accent-txt);
-                text-decoration: none; display: inline-flex; align-items: center; gap: 8px; align-self: center; min-height: 44px; }
+                text-decoration: none; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; }
   .topo .nome i { width: 26px; height: 26px; background: currentColor;
                   -webkit-mask: url(/static/arkive-logo.png) center / contain no-repeat; mask: url(/static/arkive-logo.png) center / contain no-repeat; }
   .topo span:last-child { color: var(--muted); }
@@ -60,7 +60,7 @@
            padding: 6px 6px 6px 24px; border: 0; border-radius: 999px; background: var(--accent); color: var(--on-accent);
            cursor: pointer; transition: transform .25s var(--ease); touch-action: manipulation; }
   button .seta { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
-                 background: color-mix(in srgb, var(--on-accent) 18%, transparent); transition: transform .45s var(--ease); }
+                 background: rgb(128 128 128 / .2); background: color-mix(in srgb, var(--on-accent) 18%, transparent); transition: transform .45s var(--ease); }
   button:not(:disabled):hover .seta { transform: translate(3px, -1px) scale(1.06); }
   button:active { transform: scale(.98); }
   button:disabled { cursor: progress; }
@@ -97,13 +97,14 @@
   .card .corpo { margin-top: 16px; }
   .corpo p, .corpo li { max-width: 62ch; }
 
-  .ativa .card { background: color-mix(in srgb, var(--accent) 13%, var(--surface)); }
+  /* primeiro background de cada par: fallback para navegador sem color-mix() (Chrome <111, Safari <16.2) */
+  .ativa .card { background: var(--surface-2); background: color-mix(in srgb, var(--accent) 13%, var(--surface)); }
   .ativa .marca { background: var(--accent); }
   .ativa .marca::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--accent);
                          animation: onda 1.4s var(--ease) infinite; }
   .feita .marca { background: var(--ok); }
   .pulada .marca { background: var(--skip); }
-  .falhou .card { background: color-mix(in srgb, var(--err) 13%, var(--surface)); }
+  .falhou .card { background: var(--surface-2); background: color-mix(in srgb, var(--err) 13%, var(--surface)); }
   .falhou .marca { background: var(--err); }
   .feita .marca svg, .pulada .marca svg, .falhou .marca svg { animation: pop .5s var(--ease) both; }
 
@@ -111,11 +112,11 @@
   dl.kv dt { color: var(--muted); }
   dl.kv dd { margin: 0; overflow-wrap: anywhere; max-width: 62ch; }
   .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
-  .chips li { background: color-mix(in srgb, var(--accent) 10%, var(--bg)); border-radius: 999px; padding: 4px 14px;
+  .chips li { background: var(--surface); background: color-mix(in srgb, var(--accent) 10%, var(--bg)); border-radius: 999px; padding: 4px 14px;
               animation: sobe .5s var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms); }
   .chips b { font-weight: 650; color: var(--accent-txt); margin-left: 8px; }
   .badge { display: inline-block; padding: 4px 14px; border-radius: 999px; font-weight: 600;
-           background: color-mix(in srgb, currentColor 14%, transparent); }
+           background: rgb(128 128 128 / .14); background: color-mix(in srgb, currentColor 14%, transparent); }
   .barra { position: relative; height: 28px; background: var(--surface-2); border-radius: 8px; margin: 12px 0 14px; }
   .barra .valor { height: 100%; border-radius: 8px; background: var(--accent); transform-origin: left; transform: scaleX(0);
                   transition: transform 1s var(--ease); }
@@ -226,7 +227,7 @@
   </section>
   <aside>
     <h2>Log do motor</h2>
-    <div id="log"></div>
+    <div id="log" role="region" tabindex="0" aria-label="Log do motor"></div>
   </aside>
 </main>
 <section id="resultado" aria-label="Resposta da API"></section>
@@ -271,13 +272,17 @@ const el = (tag, attrs = {}, ...filhos) => {
 };
 const NUM = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const seg = ms => NUM.format(ms / 1000) + " s";
+// números no padrão pt-BR (34,2 · 0,871 · 5.210); o Oracle manda Decimal como string
+const num = (v, casas) => v == null || v === "" ? v : Number(v).toLocaleString("pt-BR", casas == null ? {} : { minimumFractionDigits: casas, maximumFractionDigits: casas });
+// espaço não separável: o número não fica sozinho no fim da linha
+const qtd = (n, um, varios) => `${n}\u00a0${n === 1 ? um : varios}`;
 const kv = pares => {
   const dl = el("dl", { class: "kv" });
   for (const [k, v] of pares) if (v !== undefined && v !== null && v !== "") dl.append(el("dt", {}, k), el("dd", {}, v));
   return dl;
 };
 const bruto = (titulo, conteudo) => el("details", {}, el("summary", {}, titulo),
-  el("pre", { translate: "no" }, typeof conteudo === "string" ? conteudo : JSON.stringify(conteudo, null, 2)));
+  el("pre", { translate: "no", tabindex: "0" }, typeof conteudo === "string" ? conteudo : JSON.stringify(conteudo, null, 2)));
 const chips = itens => { const ul = el("ul", { class: "chips" }); itens.forEach((li, i) => { li.style.setProperty("--i", i); ul.append(li); }); return ul; };
 const barra = (valor, limiar) => {
   const b = el("div", { class: "barra", role: "img", "aria-label": `${valor}% (limiar ${limiar}%)` });
@@ -292,10 +297,12 @@ const RENDER = {
     kv([["Animal", `${c.nm_animal} (${c.ds_sexo || "?"}, castrado: ${c.ds_castrado || "?"})`],
         ["Espécie / raça", `${c.nm_especie} / ${c.nm_raca || "SRD"} ${c.tp_porte ? "· " + c.tp_porte : ""}`],
         ["Motivo", c.ds_motivo], ["Sintomas", c.ds_sintomas],
-        ["Peso", c.kg_peso_consulta ?? c.kg_peso_bem_estar], ["Bem-estar",
+        ["Peso", (p => p == null ? p : num(p) + " kg")(c.kg_peso_consulta ?? c.kg_peso_bem_estar)], ["Bem-estar",
           [c.ds_apetite, c.ds_atividade, c.ds_comportamento].filter(Boolean).join(" · ")],
-        ["Registros", `${c.predisposicoes.length} predisposições · ${c.diagnosticos_anteriores.length} diagnósticos anteriores · ` +
-          `${c.prescricoes.length} prescrições · ${c.eventos_preventivos.length} preventivos · ${c.relatos_responsaveis.length} relatos`]]),
+        ["Registros", [qtd(c.predisposicoes.length, "predisposição", "predisposições"),
+          qtd(c.diagnosticos_anteriores.length, "diagnóstico anterior", "diagnósticos anteriores"),
+          qtd(c.prescricoes.length, "prescrição", "prescrições"), qtd(c.eventos_preventivos.length, "preventivo", "preventivos"),
+          qtd(c.relatos_responsaveis.length, "relato", "relatos")].join(" · ")]]),
     bruto("Ver todos os dados extraídos", c),
   ],
   confianca: d => [
@@ -304,14 +311,14 @@ const RENDER = {
   ],
   predisposicoes: d => [
     el("p", { class: "legenda" }, `${d.selecionadas.length} de ${d.total} enviadas ao LLM · método: ${d.metodo} · ${d.ms} ms`),
-    chips(d.selecionadas.map((p, i) => el("li", {}, p.nm_doenca || "?", d.scores ? el("b", {}, d.scores[i].toFixed(3)) : null))),
+    chips(d.selecionadas.map((p, i) => el("li", {}, p.nm_doenca || "?", d.scores ? el("b", {}, num(d.scores[i], 3)) : null))),
     bruto("Ver predisposições selecionadas", d.selecionadas),
   ],
   resumo: d => [el("p", { class: "legenda" }, `${d.texto.length.toLocaleString("pt-BR")} caracteres`), bruto("Ver resumo clínico", d.texto)],
   rag: d => [
     kv([["Status", d.status], ["Parâmetros", `top_k=${d.top_k} · score mínimo=${d.min_score}`]]),
     d.documentos.length ? chips(d.documentos.map(x => el("li", {}, x.titulo || x.fonte || JSON.stringify(x),
-      x.score != null ? el("b", {}, Number(x.score).toFixed(3)) : null))) : null,
+      x.score != null ? el("b", {}, num(x.score, 3)) : null))) : null,
     bruto("Ver consulta usada", d.consulta),
     d.contexto ? bruto("Ver trechos enviados ao LLM", d.contexto) : null,
   ],
@@ -321,7 +328,7 @@ const RENDER = {
     kv([["Observações", d.motivo], ["Query", d.query]]),
   ],
   busca_web: d => d.acionada ? [
-    el("p", { class: "legenda" }, `${d.fontes.length} fonte(s) confiável(is)`),
+    el("p", { class: "legenda" }, qtd(d.fontes.length, "fonte confiável", "fontes confiáveis")),
     el("ul", {}, ...d.fontes.map(u => el("li", {}, el("a", { href: u, target: "_blank", rel: "noopener" }, u)))),
     d.contexto ? bruto("Ver texto recuperado", d.contexto) : null,
   ] : [el("p", { class: "legenda" }, "Não acionada: dados locais suficientes.")],
@@ -333,7 +340,7 @@ const RENDER = {
   ],
   groq: d => [
     kv([["Modelo", el("span", { translate: "no" }, d.modelo)], ["Tentativa", d.tentativa],
-        ["Tokens", `${d.tokens.entrada} entrada + ${d.tokens.saida} saída = ${d.tokens.total}`]]),
+        ["Tokens", `${num(d.tokens.entrada)} entrada + ${num(d.tokens.saida)} saída = ${num(d.tokens.total)}`]]),
     bruto("Ver JSON gerado pelo modelo", d.saida),
   ],
   resultado: d => [bruto("Ver JSON de resposta da API", d)],
@@ -371,7 +378,8 @@ function estado(li, cls) {
   progresso();
 }
 function progresso() {
-  const n = document.querySelectorAll(".feita, .pulada, .falhou").length;
+  // etapa que falhou não avança o trilho nem a contagem
+  const n = document.querySelectorAll(".feita, .pulada").length;
   $("#etapas").style.setProperty("--p", n / ETAPAS.length);
   $("#contagem").textContent = `${n} de ${ETAPAS.length} etapas`;
 }
@@ -448,14 +456,16 @@ $("#form").addEventListener("submit", ev => {
     if (etapa === "resultado") { mostrarResultado(dados); $("#etapa-atual").textContent = " · concluído"; }
   };
   fonte.onerror = () => {
-    falhar("Conexão perdida", "o servidor da API não respondeu ou fechou o stream.", performance.now() - t0);
+    falhar("Sem conexão com a API", "o servidor não respondeu ou fechou a conexão. No plano gratuito do Render, " +
+           "a primeira chamada leva cerca de 1 min para acordar o servidor: aguarde e clique em Analisar de novo.", performance.now() - t0);
     parar();
   };
 });
 
 montar();
 const idUrl = new URLSearchParams(location.search).get("id");
-if (idUrl) { $("#id").value = idUrl; $("#form").requestSubmit(); }
+// requestSubmit não existe no Safari <16: sem o fallback, o link "Abrir a consulta N" da home não dispara nada
+if (/^\d+$/.test(idUrl)) { const f = $("#form"); $("#id").value = idUrl; f.requestSubmit ? f.requestSubmit() : f.dispatchEvent(new Event("submit", { cancelable: true })); }
 </script>
 </body>
 </html>

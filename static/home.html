@@ -61,11 +61,12 @@
   .botao:hover svg { transform: translateX(4px); }
 
   /* ── hero: o "I" do nome é a marca ── */
-  .hero { min-height: 100svh; display: grid; grid-template-rows: 1fr auto; padding: 96px var(--m) var(--m); }
+  .hero { min-height: 100vh; min-height: 100svh; display: grid; grid-template-rows: 1fr auto; padding: 96px var(--m) var(--m); }
   /* nav: pílula fixa; blur só aqui, em elemento fixo */
-  nav { position: fixed; z-index: 10; top: 16px; left: 50%; translate: -50% 0; display: flex; align-items: center; gap: 4px;
+  /* max-content: com left 50% a caixa só teria meia tela de largura e o "Ao vivo" quebraria */
+  nav { position: fixed; z-index: 10; top: 16px; left: 50%; transform: translateX(-50%); width: max-content; display: flex; align-items: center; gap: 4px;
         padding: 6px; border-radius: 999px; font-size: var(--t-small); font-weight: 600;
-        background: color-mix(in srgb, var(--surface) 90%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); } /* taste-skill-ignore: única barra fixa */
+        background: var(--surface); background: color-mix(in srgb, var(--surface) 90%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); } /* taste-skill-ignore: única barra fixa */
   nav a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 999px;
           text-decoration: none; transition: background-color .3s var(--ease), color .3s var(--ease); }
   .marca { gap: 10px; padding-left: 10px; font-weight: 750; font-size: var(--t-body); letter-spacing: -.02em; }
@@ -79,14 +80,20 @@
   nav .vivo b { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
   .nome { align-self: center; justify-self: center; display: inline-flex; align-items: baseline;
           font-size: var(--t-hero); font-weight: 760; letter-spacing: -.04em; line-height: 1; }
-  /* o "I" vira a logo só depois que ela carrega; se falhar, fica a letra */
+  /* o "I" vira a logo só depois que ela carrega; se falhar, fica a letra.
+     a caixa da logo já fica reservada enquanto carrega: a troca não desloca "Ark" e "ve" */
   .glifo { display: inline-block; }
   .glifo::before { content: "I"; }
+  .js:not(.logo-off) .glifo { width: .9em; height: .9em; margin: 0 -.07em -.04em -.04em; }
   .js:not(.logo-ok):not(.logo-off) .glifo { visibility: hidden; }
-  .logo-ok .glifo { display: inline-block; width: .9em; height: .9em; margin: 0 -.07em -.04em -.04em; background: var(--accent);
+  .logo-ok .glifo { background: var(--accent);
            -webkit-mask: url(/static/arkive-logo.png) center / contain no-repeat; mask: url(/static/arkive-logo.png) center / contain no-repeat; }
-  .logo-ok .glifo::before { content: none; }
-  html:not(.logo-ok) .marca i { display: none; }
+  .js:not(.logo-off) .glifo::before { content: none; }
+  /* ícone da nav: mesmo esquema, espaço reservado enquanto a logo carrega para a pílula não alargar depois */
+  html:not(.js) .marca i, .logo-off .marca i { display: none; }
+  .js:not(.logo-ok):not(.logo-off) .marca i { visibility: hidden; }
+  /* contraste alto do Windows força o fundo, e a logo é só fundo + máscara: pinta na cor de texto do tema */
+  @media (forced-colors: active) { .logo-ok .glifo, .marca i { forced-color-adjust: none; background: CanvasText; } }
   .pe { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--gap); align-items: end; }
   .pe .status { grid-column: 1 / 5; font-size: var(--t-small); color: var(--muted); display: flex; gap: 10px; align-items: center; }
   .pe .status b { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; transition: background-color .4s; }
@@ -96,6 +103,12 @@
   .pe .status[data-ok="0"] b { background: var(--err-ink); }
   .pe .apoio { grid-column: 5 / 10; max-width: 46ch; }
   .pe .botao { grid-column: 10 / 13; justify-self: end; }
+  /* abaixo de 1200px o botão não cabe em 3 colunas sem quebrar: status sobe para linha própria */
+  @media (max-width: 1199px) {
+    .pe .status { grid-column: 1 / -1; }
+    .pe .apoio { grid-column: 1 / 8; }
+    .pe .botao { grid-column: 8 / 13; }
+  }
 
   /* ── o caso inteiro: gravura em largura total ── */
   .caso { margin-top: clamp(48px, 6vw, 96px); }
@@ -107,7 +120,7 @@
   .credito { font-size: var(--t-small); color: var(--muted); }
 
   /* ── fluxo AG → EP → AP → FI com slider ── */
-  .fluxo { margin-top: clamp(72px, 8vw, 128px); display: grid; grid-template-columns: 1fr 1fr; min-height: min(88svh, 720px); position: relative; }
+  .fluxo { margin-top: clamp(72px, 8vw, 128px); display: grid; grid-template-columns: 1fr 1fr; min-height: min(88vh, 720px); min-height: min(88svh, 720px); position: relative; }
   .fluxo .lado { padding: 40px var(--m) 180px; }
   .fluxo .esq { background: var(--tint); }
   .fluxo .dir { background: var(--surface); display: grid; place-items: center; }
@@ -195,7 +208,7 @@
   .faixa .corpo img { grid-column: 9 / 13; width: 100%; }
   .faixa .corpo .texto { grid-column: 1 / 7; display: grid; gap: 16px; }
   .fontes { grid-column: 8 / 13; align-self: start; border-collapse: collapse; font-size: var(--t-small); }
-  .fontes th, .fontes td { padding: 8px 12px 8px 0; text-align: left; vertical-align: top;
+  .fontes th, .fontes td { padding: 8px 12px 8px 0; text-align: left; vertical-align: top; border-top: 1px solid var(--tint);
                            border-top: 1px solid color-mix(in srgb, var(--muted) 35%, transparent); } /* taste-skill-ignore: tabela real */
   .fontes td:last-child { padding-right: 0; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
   .f1 { --cor: var(--tint); } .f2 { --cor: var(--ok-tint); } .f3 { --cor: var(--warn-tint); }
@@ -207,7 +220,7 @@
   .api h2 { font-size: var(--t-h2); font-weight: 700; letter-spacing: -.035em; line-height: 1; }
   .api .texto p { margin-top: 24px; max-width: 46ch; }
   .api table { margin-top: 32px; border-collapse: collapse; width: 100%; font-size: var(--t-small); }
-  .api th, .api td { padding: 10px 12px 10px 0; vertical-align: top; text-align: left; font-weight: 400;
+  .api th, .api td { padding: 10px 12px 10px 0; vertical-align: top; text-align: left; font-weight: 400; border-top: 1px solid var(--tint);
                      border-top: 1px solid color-mix(in srgb, var(--muted) 35%, transparent); } /* taste-skill-ignore: tabela real */
   .api th { white-space: nowrap; }
   code, pre { font-family: var(--mono); font-size: .9em; }
@@ -235,11 +248,16 @@
   /* blocos-link: título, linha curta e seta */
   footer ul { grid-column: 8 / 13; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   footer ul a { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; min-height: 120px; padding: 20px; align-content: space-between;
-                text-decoration: none; font-weight: 650; background: color-mix(in srgb, var(--bg) 8%, var(--ink));
+                text-decoration: none; font-weight: 650; background: rgb(128 128 128 / .14); background: color-mix(in srgb, var(--bg) 8%, var(--ink));
                 transition: background-color .3s var(--ease); }
   footer ul a small { grid-column: 1; font-size: var(--t-small); font-weight: 400; color: color-mix(in srgb, var(--bg) 72%, var(--ink)); }
   footer ul a svg { grid-column: 2; grid-row: 1; width: 20px; height: 20px; transition: transform .4s var(--ease); }
-  footer ul a:hover { background: color-mix(in srgb, var(--bg) 16%, var(--ink)); }
+  /* abaixo de 1200px os blocos-link não cabem 2 por linha em 5 colunas: descem para a largura inteira */
+  @media (max-width: 1199px) {
+    footer .convite > div, footer ul { grid-column: 1 / -1; }
+    footer ul { margin-top: 40px; }
+  }
+  footer ul a:hover { background: rgb(128 128 128 / .24); background: color-mix(in srgb, var(--bg) 16%, var(--ink)); }
   footer ul a:hover svg { transform: translate(3px, -3px); }
   footer .legal { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 32px; margin-top: 64px;
                   font-size: var(--t-small); color: color-mix(in srgb, var(--bg) 78%, var(--ink)); }
@@ -247,7 +265,7 @@
   /* o nome ocupa a largura inteira (JS ajusta o tamanho) e encosta no fim da página;
      padding-right devolve o letter-spacing negativo da última letra, senão o "e" corta */
   footer .grande { font-size: 27vw; font-weight: 800; letter-spacing: -.055em; line-height: .74; white-space: nowrap;
-                   width: max-content; padding-right: .055em; position: relative; left: 50%; translate: -50% 0; margin-top: 32px; }
+                   width: max-content; padding-right: .055em; position: relative; left: 50%; transform: translateX(-50%); margin-top: 32px; }
   @supports (text-box: trim-both cap alphabetic) { footer .grande { line-height: 1; text-box: trim-both cap alphabetic; } }
 
   /* tema escuro: gravuras viram chapa de raio-x, traço claro sobre o fundo da página */
@@ -265,9 +283,9 @@
   .js .caso figure img { transform: scale(1.12); transition: transform 1.4s var(--ease); }
   .js .caso.visto figure { clip-path: inset(0 0 0 0); }
   .js .caso.visto figure img { transform: none; }
-  .js .nome { opacity: 0; transform: translateY(20px); animation: sobe 1s var(--ease) .1s forwards; }
+  .js .nome { animation: sobe 1s var(--ease) .1s both; }
   .js .glifo { animation: marca 1.2s var(--ease) .35s both; }
-  @keyframes sobe { to { opacity: 1; transform: none; } }
+  @keyframes sobe { from { opacity: 0; transform: translateY(20px); } }
   @keyframes marca { from { transform: translateY(.25em) scale(.85); opacity: 0; } }
   /* movimento reduzido: sem deslocamento, mas as entradas e trocas de estado seguem em fade */
   @keyframes surge { from { opacity: 0; } }
@@ -283,12 +301,12 @@
 
   /* ── telefone ── */
   @media (max-width: 760px) {
-    nav { left: 12px; right: 12px; translate: none; justify-content: space-between; }
+    nav { left: 12px; right: 12px; transform: none; width: auto; justify-content: space-between; }
     /* telefone: a logo sozinha cede espaço às seções */
     nav { gap: 0; }
     nav a { padding: 0 10px; }
     nav ul { margin: 0; gap: 0; }
-    .logo-ok .marca span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .js:not(.logo-off) .marca span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
     .hero { padding-top: 88px; }
     .nome { font-size: clamp(64px, 21vw, 120px); }
     .pe { grid-template-columns: 1fr; gap: 20px; }
@@ -303,7 +321,9 @@
     .controle li:nth-child(n) { text-align: left; transform: none; }
     .fluxo .esq { order: 1; padding: 32px var(--m) 48px; }
     .clausula { font-size: var(--t-h2); }
-    .pipeline form, .fecho h2 { font-size: clamp(36px, 11vw, 56px); }
+    .fecho h2 { font-size: clamp(36px, 11vw, 56px); }
+    /* menor que o fecho: a frase e o número do campo cabem numa linha a partir de 360px */
+    .pipeline form { font-size: clamp(28px, 9vw, 56px); }
     .pipeline .resposta, .pipeline figure { grid-column: 1 / -1; }
     .etapas { columns: 1; }
     .faixa summary { min-height: 132px; font-size: clamp(22px, 6.4vw, 30px); }
@@ -503,7 +523,7 @@
     </div>
     <figure class="exemplo" data-entra>
     <figcaption class="sr">Exemplo de resposta de /diagnostico</figcaption>
-    <pre><code>{
+    <pre tabindex="0"><code>{
   <span class="k">"ds_diagnostico"</span>: <span class="s">"Suspeita de hipotireoidismo canino"</span>,
   <span class="k">"tp_severidade"</span>: <span class="s">"MODERADA"</span>,
   <span class="k">"pc_confianca"</span>: <span class="n">75</span>,
@@ -554,6 +574,17 @@
   <p class="grande" aria-hidden="true">ArkIve</p>
 </footer>
 
+<script>
+  // entradas por seção: script próprio, antes do resto, porque o CSS esconde [data-entra] até receber .visto;
+  // um erro em qualquer outro bloco não pode deixar a página em branco
+  (function () {
+    const alvos = document.querySelectorAll("[data-entra], .caso, .fluxo");
+    if (!("IntersectionObserver" in window)) { alvos.forEach(a => a.classList.add("visto")); return; }
+    const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add("visto"); io.unobserve(e.target); } }),
+                                        { threshold: .15, rootMargin: "0px 0px -8% 0px" });
+    alvos.forEach(a => io.observe(a));
+  })();
+</script>
 <script>
   // status real da API
   (function () {
@@ -630,7 +661,7 @@
     const ajusta = () => { q = 0; g.style.fontSize = ""; g.style.fontSize = parseFloat(getComputedStyle(g).fontSize) * f.clientWidth / g.offsetWidth + "px"; };
     // fonte chega depois (folha assíncrona): mede de novo; resize no máximo uma vez por quadro
     document.fonts.ready.then(ajusta); document.fonts.addEventListener("loadingdone", ajusta);
-    addEventListener("resize", () => q ||= requestAnimationFrame(ajusta));
+    addEventListener("resize", () => { if (!q) q = requestAnimationFrame(ajusta); });
   })();
 
   // campo de ID: o botão diz para onde vai
@@ -639,15 +670,6 @@
     const ajusta = () => { const v = parseInt(i.value, 10); b.firstChild.textContent = v > 0 ? `Abrir a consulta ${v} no pipeline ` : "Abrir no pipeline ";
                            i.style.width = Math.max(2, String(i.value || "").length + 0.6) + "ch"; };
     i.addEventListener("input", ajusta); ajusta();
-  })();
-
-  // entradas por seção
-  (function () {
-    const alvos = document.querySelectorAll("[data-entra], .caso, .fluxo");
-    if (!("IntersectionObserver" in window)) { alvos.forEach(a => a.classList.add("visto")); return; }
-    const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add("visto"); io.unobserve(e.target); } }),
-                                        { threshold: .15, rootMargin: "0px 0px -8% 0px" });
-    alvos.forEach(a => io.observe(a));
   })();
 </script>
 </body>
