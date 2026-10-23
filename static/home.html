@@ -78,17 +78,15 @@
   nav .vivo { background: var(--accent); color: var(--on-accent); }
   nav .vivo:hover { background: var(--accent-ink); }
   nav .vivo b { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-  .nome { align-self: center; justify-self: center; display: inline-flex; align-items: baseline;
+  .nome { align-self: center; justify-self: center; display: flex; flex-direction: column; align-items: center; gap: .08em;
           font-size: var(--t-hero); font-weight: 760; letter-spacing: -.04em; line-height: 1; }
-  /* o "I" vira a logo só depois que ela carrega; se falhar, fica a letra.
-     a caixa da logo já fica reservada enquanto carrega: a troca não desloca "Ark" e "ve" */
-  .glifo { display: inline-block; }
-  .glifo::before { content: "I"; }
-  .js:not(.logo-off) .glifo { width: .9em; height: .9em; margin: 0 -.07em -.04em -.04em; }
+  /* a logo fica acima do nome; a caixa já fica reservada enquanto ela carrega, então o nome não se desloca.
+     se a logo falhar, some e fica só o texto */
+  .glifo { display: block; width: 1.1em; height: 1.1em; }
+  html:not(.js) .glifo, .logo-off .glifo { display: none; }
   .js:not(.logo-ok):not(.logo-off) .glifo { visibility: hidden; }
   .logo-ok .glifo { background: var(--accent);
            -webkit-mask: url(/static/arkive-logo.png) center / contain no-repeat; mask: url(/static/arkive-logo.png) center / contain no-repeat; }
-  .js:not(.logo-off) .glifo::before { content: none; }
   /* ícone da nav: mesmo esquema, espaço reservado enquanto a logo carrega para a pílula não alargar depois */
   html:not(.js) .marca i, .logo-off .marca i { display: none; }
   .js:not(.logo-ok):not(.logo-off) .marca i { visibility: hidden; }
@@ -363,7 +361,7 @@
     <a class="vivo" href="/pipeline"><b aria-hidden="true"></b>Ao vivo</a>
   </nav>
   <h1 class="nome" aria-label="ArkIve">
-    <span aria-hidden="true">Ark</span><span class="glifo" aria-hidden="true"></span><span aria-hidden="true">ve</span>
+    <span class="glifo" aria-hidden="true"></span><span aria-hidden="true">ArkIve</span>
   </h1>
   <div class="pe">
     <p class="status" id="status" role="status"><b></b><span>Verificando a API…</span></p>
