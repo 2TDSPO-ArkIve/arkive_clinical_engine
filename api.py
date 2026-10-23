@@ -85,6 +85,11 @@ def pipeline_page():
     return FileResponse(PIPELINE_HTML)
 
 
+@app.get("/custos", include_in_schema=False)
+def custos_page():
+    return FileResponse(STATIC_DIR / "custos.html")
+
+
 @app.get("/pipeline/stream/{id_consulta}")
 def pipeline_stream(id_consulta: int):
     """Server-Sent Events: uma mensagem por etapa do analyze() + cada linha de log da request."""

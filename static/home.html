@@ -306,6 +306,7 @@
     nav { gap: 0; }
     nav a { padding: 0 10px; }
     nav ul { margin: 0; gap: 0; }
+    nav ul li:last-child { display: none; } /* Custos: no telefone a pílula não comporta; o link segue no rodapé */
     .js:not(.logo-off) .marca span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
     .hero { padding-top: 88px; }
     .nome { font-size: clamp(64px, 21vw, 120px); }
@@ -357,6 +358,7 @@
       <li><a href="#fluxo">Consulta</a></li>
       <li><a href="#motor">Motor</a></li>
       <li><a href="#api">API</a></li>
+      <li><a href="/custos">Custos</a></li>
     </ul>
     <a class="vivo" href="/pipeline"><b aria-hidden="true"></b>Ao vivo</a>
   </nav>
@@ -480,14 +482,14 @@
         </div>
         <table class="fontes">
           <caption class="sr">Fontes da base local e número de fichas</caption>
-          <tr><th scope="row">AAZV</th><td>Associação Americana de Veterinários de Zoológico</td><td>181</td></tr>
+          <tr><th scope="row">AAZV</th><td>American Association of Zoo Veterinarians</td><td>181</td></tr>
           <tr><th scope="row">WHA</th><td>Wildlife Health Australia</td><td>140</td></tr>
-          <tr><th scope="row">ARWH</th><td>Registro Australiano de Saúde da Fauna</td><td>137</td></tr>
-          <tr><th scope="row">WOAH</th><td>Organização Mundial de Saúde Animal</td><td>121</td></tr>
+          <tr><th scope="row">ARWH</th><td>Australian Registry of Wildlife Health</td><td>137</td></tr>
+          <tr><th scope="row">WOAH</th><td>World Organisation for Animal Health</td><td>121</td></tr>
           <tr><th scope="row">CAPC</th><td>Companion Animal Parasite Council</td><td>61</td></tr>
-          <tr><th scope="row">CFSPH</th><td>Center for Food Security and Public Health, Iowa State</td><td>51</td></tr>
-          <tr><th scope="row">ABCD</th><td>European Advisory Board on Cat Diseases</td><td>46</td></tr>
-          <tr><th scope="row">USGS</th><td>Serviço Geológico dos EUA, saúde da fauna silvestre</td><td>45</td></tr>
+          <tr><th scope="row">CFSPH</th><td>Center for Food Security and Public Health</td><td>51</td></tr>
+          <tr><th scope="row">ABCD</th><td>Advisory Board on Cat Diseases</td><td>46</td></tr>
+          <tr><th scope="row">USGS</th><td>USGS National Wildlife Health Center</td><td>45</td></tr>
         </table>
       </div>
     </details>
@@ -565,10 +567,12 @@
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M6 14 14 6M7 6h7v7"/></svg></a></li>
       <li><a href="/pipeline">Pipeline ao vivo<small>As 10 etapas em tempo real</small>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M6 14 14 6M7 6h7v7"/></svg></a></li>
+      <li><a href="/custos">Custos e preço<small>Planos, infraestrutura e equilíbrio</small>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M6 14 14 6M7 6h7v7"/></svg></a></li>
     </ul>
   </div>
   <div class="legal">
-    <span>FIAP Challenge 2026 · Clyvo Vet · Gustavo Crevelari, Lucca Gomes, Rafaela Ferreira, Victor Sabelli</span>
+    <span>FIAP Challenge 2026 · Gustavo Crevelari, Lucca Gomes, Rafaela Ferreira, Victor Sabelli</span>
     <span>Gravuras: Ellenberger, Baum e Dittrich (1889), domínio público, <a href="https://commons.wikimedia.org/wiki/File:Dog_anatomy_lateral_skeleton_view_(full).jpg">Wikimedia</a> · Wenceslaus Hollar, <i>White Dog</i> (1649), CC0, <a href="https://www.artic.edu/artworks/102180">Art Institute of Chicago</a></span>
   </div>
   <p class="grande" aria-hidden="true">ArkIve</p>

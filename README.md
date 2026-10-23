@@ -1,7 +1,7 @@
 # ArkIve — Motor de Inteligência Clínica Veterinária
 
 > **FIAP Challenge 2026 — 2º Ano ADS | Turmas de Fevereiro**
-> Parceria: **Clyvo Vet** · Disciplina: *Disruptive Architectures: IoT, IoB & Generative AI*
+> Disciplina: *Disruptive Architectures: IoT, IoB & Generative AI*
 
 ---
 
@@ -570,5 +570,5 @@ Texto livre do tutor (`TB_ARKIVE_RELATO_ANIMAL`, `DS_OBS_RESPONSAVEL`) vai ao LL
 
 ## Licença
 
-Projeto acadêmico desenvolvido para o Challenge FIAP 2026 em parceria com a Clyvo Vet.
+Projeto acadêmico desenvolvido para o Challenge FIAP 2026.
 Uso restrito ao contexto educacional.

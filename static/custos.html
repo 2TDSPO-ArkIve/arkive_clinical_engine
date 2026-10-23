@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Custos e preço · ArkIve</title>
+<meta name="description" content="Quanto o ArkIve custa ao veterinário, quanto custa para nós e a infraestrutura que vamos usar no projeto final.">
+<link rel="icon" type="image/png" href="/static/favicon.png">
+<link rel="apple-touch-icon" href="/static/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400..800&family=IBM+Plex+Mono:wght@400;600&display=swap" media="print" onload="this.media='all'"><!-- taste-skill-ignore: mono só em <code> -->
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400..800&family=IBM+Plex+Mono:wght@400;600&display=swap"></noscript><!-- taste-skill-ignore: mono só em <code> -->
+<style>
+  /* mesma paleta e tipografia da home */
+  :root {
+    --bg: #f4f5f7; --surface: #ffffff; --tint: #eef0fb; --ink: #1f2937; --muted: #4b5563;
+    --accent: #3f51b5; --accent-ink: #3347a8; --on-accent: #ffffff;
+    --ok: #2e7d32; --ok-tint: #e8f5e9; --ok-ink: #1b5e20; --warn-tint: #fff3e0; --warn-ink: #8a3d00;
+    --linha: color-mix(in srgb, var(--muted) 35%, transparent);
+    --foco: var(--accent);
+    --sans: "Schibsted Grotesk", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace; /* taste-skill-ignore: só <code> */
+    --ease: cubic-bezier(.16, 1, .3, 1);
+    --m: 24px; --gap: 24px;
+    --t-big: clamp(56px, 9vw, 144px); --t-h2: clamp(32px, 4.2vw, 68px);
+    --t-body: 1.125rem; --t-small: .9375rem;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12141c; --surface: #1b1f2c; --tint: #1d2340; --ink: #e7eaf2; --muted: #a4adc0;
+      --accent: #7c8ee8; --accent-ink: #9aa8f0; --on-accent: #12141c;
+      --ok: #66bb6a; --ok-tint: #1c3327; --ok-ink: #8fd693; --warn-tint: #3a2a18; --warn-ink: #ffb26b;
+      color-scheme: dark;
+    }
+  }
+  @media (max-width: 760px) { :root { --m: 16px; --gap: 16px; } }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 88px; scrollbar-color: var(--muted) var(--bg); }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 400 var(--t-body)/1.55 var(--sans);
+         -webkit-font-smoothing: antialiased; overflow-x: clip; }
+  ::selection { background: var(--accent); color: var(--on-accent); }
+  :focus-visible { outline: 3px solid var(--foco); outline-offset: 3px; }
+  footer { --foco: var(--bg); }
+  a { color: inherit; text-underline-offset: .2em; text-decoration-thickness: 2px; }
+  h1, h2, h3, p { margin: 0; }
+  code { font-family: var(--mono); font-size: .9em; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--gap); padding: 0 var(--m); }
+
+  /* nav: pílula fixa, igual à home */
+  nav { position: fixed; z-index: 10; top: 16px; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 24px);
+        display: flex; align-items: center; gap: 4px; padding: 6px; border-radius: 999px; font-size: var(--t-small); font-weight: 600;
+        background: var(--surface); background: color-mix(in srgb, var(--surface) 90%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); } /* taste-skill-ignore: única barra fixa */
+  nav a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 999px;
+          text-decoration: none; transition: background-color .3s var(--ease), color .3s var(--ease); }
+  .marca { gap: 10px; padding-left: 10px; font-weight: 750; font-size: var(--t-body); letter-spacing: -.02em; }
+  .marca i { width: 26px; height: 26px; background: var(--accent);
+             -webkit-mask: url(/static/arkive-logo.png) center / contain no-repeat; mask: url(/static/arkive-logo.png) center / contain no-repeat; }
+  nav ul { display: flex; gap: 2px; list-style: none; margin: 0 4px; padding: 0; }
+  nav ul a { color: var(--muted); }
+  nav ul a:hover, nav ul a[aria-current] { background: var(--tint); color: var(--ink); }
+  nav .vivo { background: var(--accent); color: var(--on-accent); }
+  nav .vivo:hover { background: var(--accent-ink); }
+  @media (forced-colors: active) { .marca i { forced-color-adjust: none; background: CanvasText; } }
+
+  .botao { display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-height: 52px;
+           padding: 0 26px; background: var(--accent); color: var(--on-accent);
+           font: 600 var(--t-body)/1 var(--sans); text-decoration: none; touch-action: manipulation;
+           transition: background-color .25s var(--ease), transform .3s var(--ease); }
+  .botao:hover { background: var(--accent-ink); }
+  .botao:active { transform: scale(.97); }
+
+  /* ── topo ── */
+  header.topo { padding: clamp(120px, 14vw, 200px) var(--m) 0; display: grid; gap: 32px; }
+  h1 { font-size: var(--t-big); font-weight: 760; letter-spacing: -.04em; line-height: .95; }
+  .lede { max-width: 56ch; }
+  .legenda { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; font-size: var(--t-small); color: var(--muted); }
+  .legenda span { display: inline-flex; align-items: center; gap: 8px; }
+
+  /* selos: o texto carrega o sentido, a cor só reforça */
+  .s { display: inline-block; padding: 1px 8px; margin-left: 6px; border-radius: 999px; vertical-align: .12em; white-space: nowrap;
+       font-size: .72rem; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; }
+  .legenda .s { margin: 0; }
+  .d { background: var(--tint); color: var(--accent-ink); }
+  .c { background: var(--ok-tint); color: var(--ok-ink); }
+  .p { background: var(--warn-tint); color: var(--warn-ink); }
+
+  /* ── seções: título à esquerda, corpo à direita ── */
+  main { padding-bottom: clamp(72px, 8vw, 128px); }
+  section.sec { margin-top: clamp(72px, 8vw, 128px); align-items: start; }
+  section.sec > h2 { grid-column: 1 / 6; font-size: var(--t-h2); font-weight: 700; letter-spacing: -.035em; line-height: 1; position: sticky; top: 96px; }
+  section.sec > .corpo { grid-column: 6 / 13; display: grid; gap: 24px; min-width: 0; }
+  .corpo p { max-width: 62ch; }
+  .corpo h3 { font-size: 1.25rem; font-weight: 680; letter-spacing: -.015em; margin-top: 8px; }
+  .corpo ul { margin: 0; padding-left: 1.2em; max-width: 62ch; }
+  .corpo li { padding: 3px 0; }
+  .nota { font-size: var(--t-small); color: var(--muted); }
+
+  /* números grandes */
+  .ancoras { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .ancoras li { background: var(--surface); padding: 20px; display: grid; gap: 6px; align-content: start; }
+  .ancoras b { font-size: clamp(26px, 3vw, 40px); font-weight: 720; letter-spacing: -.03em; line-height: 1; }
+  .ancoras span { font-size: var(--t-small); color: var(--muted); }
+
+  .planos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .plano { background: var(--surface); padding: 24px; display: grid; gap: 12px; align-content: start; }
+  .plano.ancora { background: var(--tint); }
+  .plano h3 { margin: 0; }
+  .plano .preco { font-size: clamp(32px, 3.4vw, 48px); font-weight: 740; letter-spacing: -.035em; line-height: 1; }
+  .plano .preco small { font-size: var(--t-small); font-weight: 500; color: var(--muted); letter-spacing: 0; }
+  .plano p { font-size: var(--t-small); }
+
+  /* tabelas */
+  .rolagem { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: var(--t-small); }
+  th, td { padding: 10px 14px 10px 0; vertical-align: top; text-align: left; border-top: 1px solid var(--linha); }
+  thead th { font-weight: 650; color: var(--muted); border-top: 0; border-bottom: 1px solid var(--linha); }
+  tbody th { font-weight: 600; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tfoot th, tfoot td { font-weight: 700; border-top: 2px solid var(--ink); }
+  tr.dest th, tr.dest td { font-weight: 700; background: var(--tint); }
+
+  .aviso { background: var(--warn-tint); color: var(--warn-ink); padding: 16px 20px; font-size: var(--t-small); max-width: 62ch; }
+  .fonte-lista { font-size: var(--t-small); columns: 2; column-gap: 32px; }
+  .fonte-lista li { break-inside: avoid; overflow-wrap: anywhere; }
+
+  /* "hoje": propositalmente discreto */
+  .hoje { margin: clamp(72px, 8vw, 128px) var(--m) 0; padding-top: 24px; border-top: 1px solid var(--linha); font-size: var(--t-small); color: var(--muted); max-width: 78ch; }
+  .hoje h2 { font-size: var(--t-small); font-weight: 650; color: var(--ink); margin-bottom: 6px; }
+
+  footer { background: var(--ink); color: var(--bg); padding: clamp(32px, 4vw, 56px) var(--m); display: flex; flex-wrap: wrap; gap: 16px 32px; justify-content: space-between; align-items: center; font-size: var(--t-small); }
+  footer a { color: inherit; }
+  footer .links { display: flex; gap: 8px 24px; flex-wrap: wrap; }
+
+  @media (max-width: 1100px) {
+    section.sec > h2, section.sec > .corpo { grid-column: 1 / -1; position: static; }
+  }
+  @media (max-width: 760px) {
+    nav { gap: 0; } nav a { padding: 0 10px; } nav ul { margin: 0; gap: 0; }
+    .marca span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .ancoras, .planos { grid-template-columns: 1fr; }
+    .fonte-lista { columns: 1; }
+  }
+  @media (max-width: 480px) { nav .vivo { display: none; } }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .botao:active { transform: none; } }
+</style>
+</head>
+<body>
+
+<nav aria-label="Principal">
+  <a class="marca" href="/"><i aria-hidden="true"></i><span>ArkIve</span></a>
+  <ul>
+    <li><a href="#preco">Preço</a></li>
+    <li><a href="#infra">Infra</a></li>
+    <li><a href="#equilibrio">Equilíbrio</a></li>
+  </ul>
+  <a class="vivo" href="/pipeline">Ao vivo</a>
+</nav>
+
+<header class="topo">
+  <h1>Custos e preço.</h1>
+  <p class="lede">Quanto o ArkIve custa ao veterinário, quanto custa para nós e a infraestrutura que vamos usar no projeto final. Dados pesquisados em 23/10/2026; dólar a R$ 5,00 <span class="s d">cotação de 23/10/2026, 16h40</span></p>
+  <p class="legenda" aria-label="Legenda dos selos">
+    <span><b class="s d">Dado</b> preço publicado ou medido no projeto</span>
+    <span><b class="s c">Cálculo</b> conta feita sobre dados</span>
+    <span><b class="s p">Premissa</b> hipótese da equipe, a validar no piloto</span>
+  </p>
+</header>
+
+<main>
+  <section class="grid sec" id="modelo" aria-labelledby="modelo-t">
+    <h2 id="modelo-t">Quem paga.</h2>
+    <div class="corpo">
+      <p>O ArkIve é vendido ao <strong>médico-veterinário</strong>, em assinatura mensal por profissional. O responsável pelo animal não paga.</p>
+      <p>A IA é ferramenta de apoio à decisão clínica: organiza o caso e sugere hipóteses, mas a conclusão final é sempre do veterinário (fluxo AG → EP → AP → FI) <span class="s d">Dado</span></p>
+    </div>
+  </section>
+
+  <section class="grid sec" id="preco" aria-labelledby="preco-t">
+    <h2 id="preco-t">O que define o preço.</h2>
+    <div class="corpo">
+      <p>Não é “custo mais margem”: a IA custa centavos por consulta. O preço vem de três referências.</p>
+      <ul class="ancoras" aria-label="Três referências de preço">
+        <li><b>≈ R$ 30</b><span>Piso: custo variável, impostos e tarifa de cobrança, mantendo a voz mais cara (Azure). Abaixo, prejuízo por cliente. <span class="s c">Cálculo</span></span></li>
+        <li><b>R$ 99 a 199,90</b><span>Mercado nacional, gestão veterinária sem IA: LoopVet 99, DR Snoopy 179, VetSoft 180, UpGestão 199,90; SimplesVet inicia em 0. <span class="s d">Dado</span></span></li>
+        <li><b>US$ 97+</b><span>Teto de valor: scribes de IA para veterinários nos EUA, ≈ R$ 485 por usuário/mês, faixa de US$ 100 a 400. Um scribe grava a consulta falada e gera o prontuário (notas SOAP); não sugere diagnóstico. <span class="s d">Dado</span></span></li>
+      </ul>
+      <p>O plano âncora de <strong>R$ 149/mês</strong> fica dentro da faixa nacional e cerca de 70% abaixo do scribe de IA internacional mais barato que encontramos <span class="s c">Cálculo</span></p>
+      <p class="nota">Não encontramos produto idêntico ao ArkIve. O ArkIve não transcreve: lê o prontuário já registrado e devolve hipótese diagnóstica, severidade, confiança calculada por regra e quatro insights, com predisposição de raça e fontes (base local e PubMed). Os mais próximos são ferramentas de apoio ao diagnóstico diferencial, como FaunDoc-AI (a partir de US$ 200/mês) e Chartling (a partir de US$ 39/mês) <span class="s d">Dado</span>, de listagens do Capterra, sem avaliações de usuários.</p>
+
+      <div class="planos">
+        <article class="plano">
+          <h3>Essencial</h3>
+          <p class="preco">R$ 79<small> /mês</small></p>
+          <p>Veterinário com pouco volume. Consultas, pacientes, prescrições, PDF, 100 mil tokens de IA e 2 h de voz por mês.</p>
+        </article>
+        <article class="plano ancora">
+          <h3>Profissional</h3>
+          <p class="preco">R$ 149<small> /mês</small></p>
+          <p>Âncora, para uso clínico diário. 600 mil tokens de IA (≈ 98 análises) e 10 h de voz por mês.</p>
+        </article>
+        <article class="plano">
+          <h3>Clínica</h3>
+          <p class="preco">R$ 129<small> /vet/mês, mín. 3</small></p>
+          <p>Tudo do Profissional, quota em pool e painel <code>ADMIN_CLINICA</code>.</p>
+        </article>
+      </div>
+      <p class="nota">Plano anual: 10 mensalidades (2 meses grátis). Preço médio ponderado por veterinário: R$ 133,50 <span class="s c">Cálculo</span> com mix de vendas de 15% / 60% / 25% <span class="s p">Premissa</span></p>
+    </div>
+  </section>
+
+  <section class="grid sec" id="consulta" aria-labelledby="consulta-t">
+    <h2 id="consulta-t">Custo de cada consulta.</h2>
+    <div class="corpo">
+      <ul>
+        <li>O motor mediu, no nosso README, <strong>4.810 tokens de entrada + 1.320 de saída = 6.130 por análise</strong> <span class="s d">Dado</span></li>
+        <li>Groq (gpt-oss-120b): US$ 0,15 por milhão de tokens de entrada e US$ 0,60 por milhão de saída <span class="s d">Dado</span></li>
+        <li>Resultado: cerca de US$ 0,0015, ou <strong>R$ 0,0076 por análise</strong>. Menos de 1 centavo <span class="s c">Cálculo</span></li>
+        <li>Voz: Azure Speech (usamos hoje) ≈ US$ 1,00/hora (R$ 5,00/h); Groq Whisper large-v3 = US$ 0,111/hora (R$ 0,56/h) <span class="s d">Dado</span></li>
+        <li>Com 3 minutos de voz por consulta: R$ 0,25 no Azure ou R$ 0,03 no Whisper <span class="s p">Premissa</span></li>
+      </ul>
+      <div class="rolagem" role="region" aria-label="Custo variável por veterinário" tabindex="0">
+        <table>
+          <caption class="sr">Custo variável por veterinário por mês</caption>
+          <thead><tr><th scope="col">Por veterinário/mês <span class="s p">Premissa: 100 consultas, 70 análises, 5 h de voz</span></th><th scope="col" class="n">Valor</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Com Groq Whisper large-v3</th><td class="n">R$ 3,30</td></tr>
+            <tr><th scope="row">Mantendo Azure Speech</th><td class="n">R$ 25,53</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>O token de IA é quase de graça: a quota inteira do plano Profissional custa R$ 0,74 <span class="s c">Cálculo</span>. O custo variável que pesa é a <strong>voz</strong>, por isso ela tem quota própria.</p>
+    </div>
+  </section>
+
+  <section class="grid sec" id="infra" aria-labelledby="infra-t">
+    <h2 id="infra-t">Infraestrutura do projeto final.</h2>
+    <div class="corpo">
+      <div class="rolagem" role="region" aria-label="Tabela de infraestrutura" tabindex="0">
+        <table>
+          <caption class="sr">Componentes da infraestrutura, custo mensal e motivo</caption>
+          <thead><tr><th scope="col">Componente</th><th scope="col">Escolha</th><th scope="col" class="n">US$/mês</th><th scope="col" class="n">R$/mês</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Servidor (API Java + motor de IA/RAG)</th><td>AWS EC2 t4g.medium, 2 vCPU, 4 GB, São Paulo. Os 4 GB comportam os dois serviços via Docker Compose.</td><td class="n">39,13</td><td class="n">195,65</td></tr>
+            <tr><th scope="row">Disco</th><td>AWS EBS gp3, 30 GB (US$ 0,152/GB)</td><td class="n">4,56</td><td class="n">22,80</td></tr>
+            <tr><th scope="row">Banco de dados</th><td>AWS RDS PostgreSQL db.t4g.micro, São Paulo. Backup gerenciado; substitui o Oracle.</td><td class="n">25,00</td><td class="n">125,00</td></tr>
+            <tr><th scope="row">Site web</th><td>Cloudflare Pages, plano gratuito, sem cobrança de banda</td><td class="n">0,00</td><td class="n">0,00</td></tr>
+            <tr><th scope="row">Loja iOS</th><td>Apple Developer, US$ 99/ano</td><td class="n">8,25</td><td class="n">41,25</td></tr>
+            <tr><th scope="row">Loja Android</th><td>Google Play, US$ 25 única, rateada em 12 meses</td><td class="n">2,08</td><td class="n">10,42</td></tr>
+          </tbody>
+          <tfoot><tr><th scope="row" colspan="2">Total fixo de infraestrutura</th><td class="n">79,02</td><td class="n">395,12</td></tr></tfoot>
+        </table>
+      </div>
+      <p class="nota">Preços de tabelas públicas <span class="s d">Dado</span> · total <span class="s c">Cálculo</span></p>
+
+      <h3>O que isso evita</h3>
+      <p>O protótipo atual levado a produção, sem mudar nada, custaria <strong>US$ 573,33 (R$ 2.867) por mês</strong>: dois serviços Render Standard (US$ 25 cada), Vercel Pro (US$ 20) e, principalmente, o Oracle Autonomous Database, a US$ 0,336 por ECPU/hora com mínimo de 2 ECPU (≈ US$ 493 por mês com armazenamento). Trocar economiza <strong>R$ 2.472 por mês</strong> <span class="s c">Cálculo</span></p>
+
+      <h3>Por que cada escolha</h3>
+      <ul>
+        <li><strong>PostgreSQL no lugar do Oracle:</strong> o Oracle custa cerca de 20 vezes mais que o banco gerenciado equivalente, e a versão gratuita não é para produção. A migração (schema Flyway com 24 tabelas, driver e motor Python) é trabalho dos sócios, não custo de caixa.</li>
+        <li><strong>AWS em São Paulo:</strong> custa praticamente o mesmo que o PaaS atual (R$ 395 contra R$ 397 no cenário Render) <span class="s c">Cálculo</span>, mas deixa os dados no Brasil, banco e servidor na mesma conta e com caminho de crescimento (alta disponibilidade, contêineres gerenciados).</li>
+        <li><strong>Cloudflare Pages:</strong> evita os US$ 20 por usuário da Vercel Pro; o plano gratuito da Vercel não permite uso comercial.</li>
+        <li><strong>Groq para a IA:</strong> já integrado e custa centavos por análise. O plano gratuito (8 mil tokens/minuto, 200 mil/dia, cerca de 30 análises por dia) não sustenta produção, então usaremos o plano pago.</li>
+        <li><strong>Whisper no lugar do Azure:</strong> cerca de 9 vezes mais barato por hora de áudio, sujeito a um teste de acurácia em português com termos veterinários antes da troca.</li>
+      </ul>
+      <h3>Outros custos fixos</h3>
+      <div class="rolagem" role="region" aria-label="Outros custos fixos" tabindex="0">
+        <table>
+          <caption class="sr">Outros custos fixos por mês, Fase 1 e Fase 2</caption>
+          <thead><tr><th scope="col">Item</th><th scope="col">Base de cálculo</th><th scope="col" class="n">Fase 1</th><th scope="col" class="n">Fase 2</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Tráfego de saída da AWS</th><td>US$ 0,15/GB até 10 TB; 100 GB/mês grátis <span class="s d">Dado</span>. Volume: 200 GB na Fase 1 e 500 GB na Fase 2 <span class="s p">Premissa</span></td><td class="n">R$ 75</td><td class="n">R$ 300</td></tr>
+            <tr><th scope="row">Balanceador (ALB)</th><td>US$ 0,034/h + US$ 0,011 por LCU-h, ≈ US$ 33/mês com 1 LCU <span class="s d">Dado</span>. Na Fase 1 um proxy reverso na própria VM faz o papel; na Fase 2 há duas VMs</td><td class="n">R$ 0</td><td class="n">R$ 164</td></tr>
+            <tr><th scope="row">Armazenamento do banco</th><td>RDS PostgreSQL gp3: US$ 0,219/GB (Single-AZ) e US$ 0,438/GB (Multi-AZ) <span class="s d">Dado</span>. 20 GB na Fase 1; 100 GB em Multi-AZ na Fase 2 <span class="s p">Premissa</span></td><td class="n">R$ 22</td><td class="n">R$ 219</td></tr>
+            <tr><th scope="row">Build do app (Expo EAS)</th><td>Free: 15 builds Android e 15 iOS por mês, fila de baixa prioridade. Starter: US$ 19/mês <span class="s d">Dado</span></td><td class="n">R$ 0</td><td class="n">R$ 95</td></tr>
+            <tr><th scope="row">E-mail transacional</th><td>Amazon SES Essentials, US$ 0,16 por mil e-mails <span class="s d">Dado</span>. 3 mil e-mails/mês na Fase 1 e 20 mil na Fase 2 <span class="s p">Premissa</span></td><td class="n">R$ 2</td><td class="n">R$ 16</td></tr>
+            <tr><th scope="row">Monitoramento</th><td>Alarmes e logs <span class="s p">Premissa</span> (não pesquisado)</td><td class="n">R$ 25</td><td class="n">R$ 50</td></tr>
+            <tr><th scope="row">Contabilidade</th><td>ME no Simples, serviços: R$ 150 a 400/mês em contabilidades online <span class="s d">Dado</span>; Agilize cita R$ 250 a 950. Adotamos R$ 300 e R$ 500 <span class="s p">Premissa</span></td><td class="n">R$ 300</td><td class="n">R$ 500</td></tr>
+            <tr><th scope="row">Domínio .app.br</th><td>Registro.br: R$ 40,00 por ano (R$ 3,33/mês) <span class="s d">Dado</span></td><td class="n">R$ 3</td><td class="n">R$ 3</td></tr>
+          </tbody>
+          <tfoot><tr><th scope="row" colspan="2">Total de outros fixos</th><td class="n">R$ 427</td><td class="n">R$ 1.347</td></tr></tfoot>
+        </table>
+      </div>
+      <p class="aviso">Preços da AWS conferidos na lista de preços oficial (região sa-east-1, São Paulo) em 23/10/2026 <span class="s d">Dado</span>. Volumes de tráfego, e-mail e banco são hipóteses a validar no piloto <span class="s p">Premissa</span></p>
+    </div>
+  </section>
+
+  <section class="grid sec" id="margem" aria-labelledby="margem-t">
+    <h2 id="margem-t">Margem por plano.</h2>
+    <div class="corpo">
+      <div class="rolagem" role="region" aria-label="Margem por plano" tabindex="0">
+        <table>
+          <caption class="sr">Margem de contribuição por veterinário por mês</caption>
+          <thead><tr><th scope="col">Por veterinário/mês</th><th scope="col" class="n">Essencial</th><th scope="col" class="n">Profissional</th><th scope="col" class="n">Clínica</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Preço</th><td class="n">R$ 79,00</td><td class="n">R$ 149,00</td><td class="n">R$ 129,00</td></tr>
+            <tr><th scope="row">Impostos (Simples, 11%)</th><td class="n">R$ 8,69</td><td class="n">R$ 16,39</td><td class="n">R$ 14,19</td></tr>
+            <tr><th scope="row">Tarifa de cobrança no cartão (R$ 0,49 + 2,99%)</th><td class="n">R$ 2,85</td><td class="n">R$ 4,95</td><td class="n">R$ 4,35</td></tr>
+            <tr><th scope="row">Custo variável típico (com Whisper)</th><td class="n">R$ 0,92</td><td class="n">R$ 3,30</td><td class="n">R$ 3,30</td></tr>
+            <tr class="dest"><th scope="row">Margem de contribuição</th><td class="n">R$ 66,53 (84%)</td><td class="n">R$ 124,36 (83%)</td><td class="n">R$ 107,16 (83%)</td></tr>
+            <tr><th scope="row">Margem se mantivermos o Azure</th><td class="n">R$ 59,87 (76%)</td><td class="n">R$ 102,14 (69%)</td><td class="n">R$ 84,93 (66%)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="nota">Simples Nacional, Anexo III, alíquota efetiva ≈ 11% para receita de R$ 500 mil em 12 meses <span class="s d">Dado</span>; começa em 6% e o Anexo V começa em 15,5%. Tarifa da tabela do Asaas <span class="s d">Dado</span>; com Pix cai para R$ 1,99.</p>
+    </div>
+  </section>
+
+  <section class="grid sec" id="quota" aria-labelledby="quota-t">
+    <h2 id="quota-t">Quota e excedente.</h2>
+    <div class="corpo">
+      <p>Quota fixa por veterinário, que renova todo mês e não acumula.</p>
+      <div class="rolagem" role="region" aria-label="Quota mensal" tabindex="0">
+        <table>
+          <caption class="sr">Quota mensal de tokens e voz por plano</caption>
+          <thead><tr><th scope="col">Plano</th><th scope="col" class="n">Tokens</th><th scope="col">Equivale a</th><th scope="col">Voz</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Essencial</th><td class="n">100.000</td><td>≈ 16 análises</td><td>2 h</td></tr>
+            <tr><th scope="row">Profissional</th><td class="n">600.000</td><td>≈ 98 análises</td><td>10 h</td></tr>
+            <tr><th scope="row">Clínica</th><td class="n">600.000 por vet, em pool</td><td>≈ 98 análises por vet</td><td>10 h por vet, em pool</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="nota">Conta <span class="s c">Cálculo</span>: consultas/mês × % com IA × 6.130 tokens × (1 + 25% de folga), arredondado para cima. Profissional: 100 × 70% × 6.130 × 1,25 = 536.375 → 600.000. As entradas 100, 70% e 25% são <span class="s p">Premissa</span>; os 6.130 tokens são <span class="s d">Dado</span></p>
+
+      <p class="aviso"><strong>Observação:</strong> os tokens por análise dependem do que o veterinário escreve. Narrativa longa, mais histórico e mais detalhes aumentam a entrada, e casos complexos aumentam o raciocínio da saída. Os 6.130 tokens são a média de um exemplo medido; o consumo real varia de consulta para consulta, e por isso o “≈ análises” de cada quota é uma estimativa.</p>
+
+      <h3>Excedente (pay as you go)</h3>
+      <p>Acabou a quota: o veterinário compra um pacote ou faz upgrade. Sem aceite, só a IA pausa; prontuário e agenda continuam.</p>
+      <div class="rolagem" role="region" aria-label="Pacotes de excedente" tabindex="0">
+        <table>
+          <caption class="sr">Pacotes de excedente</caption>
+          <thead><tr><th scope="col">Pacote</th><th scope="col" class="n">Preço</th><th scope="col" class="n">Unitário</th><th scope="col" class="n">Margem</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">100 mil tokens (≈ 16 análises)</th><td class="n">R$ 15,90</td><td class="n">R$ 0,97/análise</td><td class="n">82%</td></tr>
+            <tr><th scope="row">500 mil tokens (≈ 82 análises)</th><td class="n">R$ 69,90</td><td class="n">R$ 0,86/análise</td><td class="n">84%</td></tr>
+            <tr><th scope="row">2 horas de voz</th><td class="n">R$ 24,90</td><td class="n">R$ 12,45/h</td><td class="n">80%</td></tr>
+            <tr><th scope="row">5 horas de voz</th><td class="n">R$ 54,90</td><td class="n">R$ 10,98/h</td><td class="n">80%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Cobrança na fatura seguinte (evita tarifa de cartão por micro-compra), teto padrão de R$ 100/mês por veterinário e alerta em 80% e 100% da quota. O excedente custa mais que o plano seguinte de propósito: o Essencial deixa de compensar entre 40 e 70 análises por mês <span class="s c">Cálculo</span>. Exemplo: com 120 análises e 9 h de voz, o Essencial custaria R$ 289,90 no mês e o Profissional R$ 180,80.</p>
+    </div>
+  </section>
+
+  <section class="grid sec" id="equipe" aria-labelledby="equipe-t">
+    <h2 id="equipe-t">Equipe.</h2>
+    <div class="corpo">
+      <p>Os 4 sócios são analistas e desenvolvedores de sistemas: não há contratação de desenvolvedores nesta etapa.</p>
+      <ul>
+        <li><strong>Fase 1 (lançamento):</strong> pró-labore de R$ 3.000 por sócio (R$ 12.000) mais um veterinário consultor (R$ 3.000) = <strong>R$ 15.000/mês</strong> <span class="s p">Premissa</span></li>
+        <li><strong>Fase 2 (operação sustentada):</strong> R$ 8.000 por sócio, mais suporte/comercial (R$ 5.000 com encargos de 1,5x) e um veterinário consultor (R$ 3.000) = <strong>R$ 42.500/mês</strong> <span class="s p">Premissa</span></li>
+        <li><strong>Valor de mercado do trabalho dos sócios:</strong> medianas nacionais de R$ 11.750 (mobile pleno) e R$ 12.350 (back-end pleno) <span class="s d">Dado</span>; com 2 de cada e encargos de 1,5x <span class="s p">Premissa</span>, são <strong>R$ 72.300/mês</strong> <span class="s c">Cálculo</span>. É o investimento que os sócios fazem ao trabalhar a pró-labore.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="grid sec" id="equilibrio" aria-labelledby="equilibrio-t">
+    <h2 id="equilibrio-t">Ponto de equilíbrio.</h2>
+    <div class="corpo">
+      <div class="rolagem" role="region" aria-label="Ponto de equilíbrio" tabindex="0">
+        <table>
+          <caption class="sr">Custo fixo e veterinários pagantes para empatar, por fase</caption>
+          <thead><tr><th scope="col"></th><th scope="col" class="n">Fase 1</th><th scope="col" class="n">Fase 2</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Infraestrutura</th><td class="n">R$ 395</td><td class="n">R$ 1.014 (2 VMs + banco com alta disponibilidade)</td></tr>
+            <tr><th scope="row">Outros fixos <span class="s p">Premissa</span></th><td class="n">R$ 427</td><td class="n">R$ 1.347</td></tr>
+            <tr><th scope="row">Equipe <span class="s p">Premissa</span></th><td class="n">R$ 15.000</td><td class="n">R$ 42.500</td></tr>
+            <tr><th scope="row">Custo fixo total</th><td class="n">R$ 15.822</td><td class="n">R$ 44.861</td></tr>
+            <tr><th scope="row">Margem média por veterinário</th><td class="n">R$ 111,39</td><td class="n">R$ 111,39</td></tr>
+            <tr class="dest"><th scope="row">Veterinários pagantes para empatar</th><td class="n">143</td><td class="n">403</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Mantendo o Azure, o equilíbrio sobe para <strong>173</strong> (Fase 1) e <strong>491</strong> (Fase 2). No cenário de estresse (quota sempre cheia, provedores mais caros), são 316 na Fase 1. Os 143 equivalem a cerca de 0,08% dos mais de 180 mil registrados no sistema CFMV/CRMV <span class="s d">Dado</span></p>
+      <p>Com a meta de 150 veterinários em 12 meses <span class="s p">Premissa</span>: receita recorrente de <strong>R$ 20.025/mês (R$ 240.300/ano)</strong> e resultado operacional de <strong>R$ 886/mês</strong> <span class="s c">Cálculo</span></p>
+    </div>
+  </section>
+
+  <section class="grid sec" id="limites" aria-labelledby="limites-t">
+    <h2 id="limites-t">Limitações.</h2>
+    <div class="corpo">
+      <ul>
+        <li>Consultas por mês, % de uso da IA, minutos de voz, churn (5% ao mês), mix de planos e pró-labores são <strong>hipóteses</strong> a validar no piloto.</li>
+        <li>Vários preços vêm de agregadores e comparadores, não do site oficial do fornecedor (os da AWS foram conferidos na lista oficial de preços); a página oficial do Azure Speech só mostra preços dinamicamente.</li>
+        <li>LGPD e normas do CFMV não foram pesquisadas em detalhe. Hoje a IA (Groq) e a voz (Azure) processam dados fora do Brasil, e o motor de IA ainda não tem autenticação: ambos serão tratados antes da venda.</li>
+        <li>Os custos em dólar sobem com o câmbio: a infraestrutura da Fase 1 vai de R$ 395 para R$ 474 a R$ 6,00 por dólar e R$ 514 a R$ 6,50.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="grid sec" id="fontes" aria-labelledby="fontes-t">
+    <h2 id="fontes-t">Fontes.</h2>
+    <div class="corpo">
+      <p class="nota">Acesso em 23/10/2026.</p>
+      <ul class="fonte-lista">
+        <li>Groq (LLM): <a href="https://www.morphllm.com/groq-pricing">morphllm.com/groq-pricing</a> · <a href="https://www.groq.com/pricing">groq.com/pricing</a></li>
+        <li>Groq Whisper: <a href="https://console.groq.com/docs/model/whisper-large-v3-turbo">console.groq.com</a></li>
+        <li>Azure Speech: <a href="https://azure.microsoft.com/pricing/details/cognitive-services/speech-services">azure.microsoft.com</a> · <a href="https://thewearify.com/?p=247349">thewearify.com</a></li>
+        <li>Render: <a href="https://render.com/pricing">render.com/pricing</a></li>
+        <li>Oracle Autonomous Database: <a href="https://oracle.com/a/ocom/docs/autonomous-database-ecpu-faq.pdf">FAQ ECPU (PDF)</a></li>
+        <li>Vercel: <a href="https://docs.vercel.com/docs/plans/pro-plan">docs.vercel.com</a></li>
+        <li>Cloudflare Pages: <a href="https://solodevstack.com/blog/aws-vs-cloudflare-pages-solo-developers">solodevstack.com</a></li>
+        <li>Apple e Google Play: <a href="https://playcode.io/blog/how-much-does-it-cost-to-publish-an-app">playcode.io</a></li>
+        <li>Concorrentes nacionais: <a href="https://www.b2bstack.com.br/compare/simplesvet-vs-loopvet-sistema-veterinario">b2bstack.com.br</a></li>
+        <li>Scribes de IA: <a href="https://www.capterra.com/p/10027580/ScribVet/">Capterra</a> · <a href="https://www.co.vet/post/scribe-pricing">co.vet</a></li>
+        <li>Preços da AWS (lista oficial, sa-east-1): <a href="https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/current/sa-east-1/index.json">EC2 e EBS</a> · <a href="https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonRDS/current/sa-east-1/index.json">RDS</a> · <a href="https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSELB/current/sa-east-1/index.json">ELB</a> · <a href="https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSDataTransfer/current/sa-east-1/index.json">tráfego</a> · <a href="https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonSES/current/sa-east-1/index.json">SES</a></li>
+        <li>Apoio ao diagnóstico: <a href="https://www.capterra.com/p/10046524/FaunDoc-AI/">FaunDoc-AI</a> · <a href="https://www.capterra.com/p/10046959/Chartling/">Chartling</a></li>
+        <li>Salários: <a href="https://www.roberthalf.com/br/pt/vagas-detalhes/desenvolvedora-full-stack-pleno">Robert Half</a></li>
+        <li>Simples Nacional: <a href="https://agilize.com.br/artigos/?p=4155">agilize.com.br</a></li>
+        <li>Tarifas Asaas: <a href="https://blog.asaas.com/taxas-asaas/">blog.asaas.com</a></li>
+        <li>Domínio: <a href="https://registro.br">registro.br</a> (consulta de arkive.app.br)</li>
+        <li>Expo EAS: <a href="https://expo.dev/pricing">expo.dev/pricing</a></li>
+        <li>Contabilidade: <a href="https://www.meucontadoronline.com.br/blog/quanto-custa-contador-pequenas-empresas/">meucontadoronline.com.br</a> · <a href="https://agilize.com.br/artigos/?p=881">agilize.com.br</a></li>
+        <li>Câmbio: cotação de R$ 5,00 por US$ informada pela equipe em 23/10/2026, 16h40</li>
+        <li>Veterinários registrados: <a href="https://www.contabilidadezen.com.br/blog/contabilidade-medico-veterinario-pj-2026/">contabilidadezen.com.br</a></li>
+      </ul>
+    </div>
+  </section>
+
+  <aside class="hoje" id="hoje" aria-labelledby="hoje-t">
+    <h2 id="hoje-t">Hoje, no projeto acadêmico</h2>
+    <p>O ArkIve que você vê aqui é um projeto acadêmico gratuito e roda em planos gratuitos (Render, Vercel, Oracle, Groq, Azure). Levado a produção sem mudar nada, custaria cerca de R$ 2.867 por mês; a infraestrutura acima é o caminho para o produto final.</p>
+  </aside>
+</main>
+
+<footer>
+  <span>FIAP Challenge 2026 · Gustavo Crevelari, Lucca Gomes, Rafaela Ferreira, Victor Sabelli</span>
+  <span class="links"><a href="/">Início</a><a href="/pipeline">Pipeline ao vivo</a><a href="/docs">Documentação da API</a></span>
+</footer>
+
+<script>
+  // nav: destaca a seção visível
+  (function () {
+    const links = [...document.querySelectorAll("nav ul a")];
+    if (!("IntersectionObserver" in window)) return;
+    const io = new IntersectionObserver(es => es.forEach(e => {
+      const a = links.find(l => l.hash === "#" + e.target.id);
+      if (!a) return;
+      if (e.isIntersecting) links.forEach(l => l === a ? l.setAttribute("aria-current", "location") : l.removeAttribute("aria-current"));
+      else a.removeAttribute("aria-current");
+    }), { rootMargin: "-45% 0px -50% 0px" });
+    links.forEach(a => { const s = document.querySelector(a.hash); if (s) io.observe(s); });
+  })();
+</script>
+</body>
+</html>
